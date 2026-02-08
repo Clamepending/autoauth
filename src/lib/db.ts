@@ -1,4 +1,5 @@
 import { getTursoClient } from "@/lib/turso";
+import { SUPPORTED_SERVICE_IDS } from "@/lib/services";
 
 export type AgentRecord = {
   id: number;
@@ -50,7 +51,67 @@ export async function ensureSchema() {
   }
 
   await client.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_username_lower ON agents(username_lower)");
+
+  await client.execute(
+    `CREATE TABLE IF NOT EXISTS agent_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username_lower TEXT NOT NULL,
+      request_type TEXT NOT NULL,
+      message TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL
+    )`
+  );
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_agent_requests_username ON agent_requests(username_lower)");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_agent_requests_status ON agent_requests(status)");
   schemaReady = true;
+}
+
+export type AgentRequestRecord = {
+  id: number;
+  username_lower: string;
+  request_type: string;
+  message: string | null;
+  status: string;
+  created_at: string;
+};
+
+export const REQUEST_TYPES = SUPPORTED_SERVICE_IDS;
+
+export type RequestType = (typeof REQUEST_TYPES)[number];
+
+export async function createAgentRequest(params: {
+  usernameLower: string;
+  requestType: string;
+  message?: string | null;
+}) {
+  await ensureSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  const insertResult = await client.execute({
+    sql: `INSERT INTO agent_requests (username_lower, request_type, message, status, created_at)
+          VALUES (?, ?, ?, 'pending', ?)`,
+    args: [
+      params.usernameLower,
+      params.requestType,
+      params.message ?? null,
+      now,
+    ],
+  });
+  const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
+  let id = rawId != null ? Number(rawId) : 0;
+  if (id === 0) {
+    const fallback = await client.execute({ sql: "SELECT last_insert_rowid() AS id", args: [] });
+    id = (fallback.rows?.[0] as unknown as { id: number } | undefined)?.id ?? 0;
+  }
+  if (id === 0) throw new Error("Request creation failed.");
+  const getResult = await client.execute({
+    sql: "SELECT * FROM agent_requests WHERE id = ? LIMIT 1",
+    args: [id],
+  });
+  const row = getResult.rows?.[0] as unknown as AgentRequestRecord | undefined;
+  if (!row) throw new Error("Request creation failed.");
+  return row;
 }
 
 export async function getAgentByUsername(usernameLower: string) {

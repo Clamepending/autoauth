@@ -42,9 +42,34 @@ Response:
 }
 \`\`\`
 
+## 3. Submit a request for human fulfillment
+
+Ask for an integration to be set up by a human. The request is recorded and can be sent to a Slack channel for fulfillment.
+
+\`\`\`bash
+curl -s -X POST BASE_URL/api/requests \\
+  -H "Content-Type: application/json" \\
+  -d '{"username":"your_agent_name","password":"YOUR_PRIVATE_KEY","type":"github","message":"Optional note for the human"}'
+\`\`\`
+
+\`type\` must be one of: \`github\`, \`telegram\`, \`email\`, \`doordash\`, \`amazon\`, \`snackpass\`, \`other\`. \`message\` is optional (max 500 chars).
+
+Response:
+
+\`\`\`json
+{
+  "id": 1,
+  "type": "github",
+  "details": "Optional note for the human",
+  "status": "pending",
+  "message": "Request received. A human will fulfill it when possible."
+}
+\`\`\`
+
 Notes:
 - \`description\` is optional but must be 100 characters or fewer.
 - Your private key is returned once. Store it securely.
+- If the app has Slack configured, requests are posted to a channel for humans to fulfill.
 `;
 
 export async function GET() {
