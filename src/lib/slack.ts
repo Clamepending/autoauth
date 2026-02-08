@@ -1,19 +1,11 @@
-function isProduction(): boolean {
-  if (process.env.VERCEL_ENV) return process.env.VERCEL_ENV === "production";
-  return process.env.NODE_ENV === "production";
-}
-
-/** Webhook for production channel; dev/preview use SLACK_WEBHOOK_URL_DEV. */
-function getSlackWebhookUrl(): string | null {
-  const url = isProduction()
-    ? process.env.SLACK_WEBHOOK_URL
-    : process.env.SLACK_WEBHOOK_URL_DEV;
-  return url?.trim() || null;
+function getEnvLabel(): "Production" | "Dev" {
+  if (process.env.VERCEL_ENV) return process.env.VERCEL_ENV === "production" ? "Production" : "Dev";
+  return process.env.NODE_ENV === "production" ? "Production" : "Dev";
 }
 
 /**
  * Post an agent request to Slack via Incoming Webhook.
- * Production → SLACK_WEBHOOK_URL; dev/preview → SLACK_WEBHOOK_URL_DEV. No-op if none set.
+ * Uses SLACK_WEBHOOK_URL (set to different values per environment in Vercel if desired). No-op if not set.
  */
 export async function notifySlack(params: {
   agentDisplay: string;
@@ -22,10 +14,10 @@ export async function notifySlack(params: {
   requestId: number;
   appUrl: string;
 }): Promise<void> {
-  const url = getSlackWebhookUrl();
-  const envLabel = isProduction() ? "production" : "dev";
+  const url = process.env.SLACK_WEBHOOK_URL?.trim() || null;
+  const envLabel = getEnvLabel();
   if (!url) {
-    console.warn(`[slack] No webhook configured for ${envLabel} — set SLACK_WEBHOOK_URL (production) or SLACK_WEBHOOK_URL_DEV`);
+    console.warn(`[slack] No webhook configured — set SLACK_WEBHOOK_URL`);
     return;
   }
 
@@ -34,7 +26,6 @@ export async function notifySlack(params: {
       ? params.message
       : `No additional message.`;
 
-  const envLabel = isProduction() ? "Production" : "Dev";
   console.info(`[slack] Sending request #${params.requestId} to ${envLabel} channel`);
   const payload = {
     text: "New autoauth request for human fulfillment",
