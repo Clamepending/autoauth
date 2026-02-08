@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   });
 
   const baseUrl = getBaseUrl();
-  notifySlack({
+  await notifySlack({
     agentDisplay: agent.username_display,
     requestType,
     message: record.message,
