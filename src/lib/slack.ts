@@ -50,13 +50,20 @@ export async function notifySlack(params: {
     ],
   };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-  if (!res.ok) {
-    console.error("[slack] webhook failed:", res.status, await res.text());
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("[slack] webhook failed:", res.status, body);
+      return;
+    }
+    console.info("[slack] Slack responded 200 — check the channel this webhook is configured for in Slack");
+  } catch (err) {
+    console.error("[slack] fetch error:", err);
   }
 }
