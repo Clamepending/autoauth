@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createAgent, getAgentByUsername } from "@/lib/db";
 import {
   generatePrivateKey,
-  hashPrivateKey,
   normalizeUsername,
   validateUsername,
 } from "@/lib/agent-auth";
@@ -35,19 +34,17 @@ export async function POST(request: Request) {
   }
 
   const privateKey = generatePrivateKey();
-  const privateKeyHash = hashPrivateKey(privateKey);
 
   const agent = await createAgent({
     usernameLower,
     usernameDisplay,
-    privateKeyHash,
+    privateKey,
     description,
   });
 
   return NextResponse.json({
     username: agent.username_display,
     privateKey,
-    privateKeyHash,
     message:
       "Account created. Save your private key securely — it cannot be recovered. Use it as your password for future updates.",
   });

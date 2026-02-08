@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 
 export function normalizeUsername(username: string) {
   return username.trim().toLowerCase();
@@ -19,14 +19,10 @@ export function generatePrivateKey() {
   return randomBytes(32).toString("hex");
 }
 
-export function hashPrivateKey(privateKey: string) {
-  return createHash("sha256").update(privateKey).digest("hex");
-}
-
-export function verifyPrivateKey(privateKey: string, expectedHash: string) {
-  const providedHash = hashPrivateKey(privateKey);
-  const provided = Buffer.from(providedHash, "hex");
-  const expected = Buffer.from(expectedHash, "hex");
-  if (provided.length !== expected.length) return false;
-  return timingSafeEqual(provided, expected);
+export function verifyPrivateKey(providedPassword: string, storedPrivateKey: string) {
+  if (providedPassword.length !== storedPrivateKey.length) return false;
+  const a = Buffer.from(providedPassword, "utf8");
+  const b = Buffer.from(storedPrivateKey, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }

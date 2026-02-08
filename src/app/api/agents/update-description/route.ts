@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Agent not found." }, { status: 404 });
   }
 
-  const ok = verifyPrivateKey(password, agent.private_key_hash);
+  const ok = verifyPrivateKey(password, agent.private_key);
   if (!ok) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }

@@ -4,7 +4,7 @@ export type AgentRecord = {
   id: number;
   username_lower: string;
   username_display: string;
-  private_key_hash: string;
+  private_key: string;
   description: string | null;
   created_at: string;
   updated_at: string;
@@ -16,23 +16,40 @@ export async function ensureSchema() {
   if (schemaReady) return;
   const client = getTursoClient();
 
-  const statements = [
+  await client.execute(
     `CREATE TABLE IF NOT EXISTS agents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username_lower TEXT NOT NULL UNIQUE,
       username_display TEXT NOT NULL,
-      private_key_hash TEXT NOT NULL,
+      private_key TEXT NOT NULL,
       description TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
-    )`,
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_username_lower ON agents(username_lower)",
-  ];
+    )`
+  );
 
-  for (const sql of statements) {
-    await client.execute(sql);
+  const tableInfo = await client.execute({
+    sql: "PRAGMA table_info(agents)",
+    args: [],
+  });
+  const columns = (tableInfo.rows ?? []) as { name: string }[];
+  const hasOldSchema = columns.some((c) => c.name === "private_key_hash") && !columns.some((c) => c.name === "private_key");
+  if (hasOldSchema) {
+    await client.execute("DROP TABLE agents");
+    await client.execute(
+      `CREATE TABLE agents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username_lower TEXT NOT NULL UNIQUE,
+        username_display TEXT NOT NULL,
+        private_key TEXT NOT NULL,
+        description TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`
+    );
   }
 
+  await client.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_username_lower ON agents(username_lower)");
   schemaReady = true;
 }
 
@@ -49,7 +66,7 @@ export async function getAgentByUsername(usernameLower: string) {
 export async function createAgent(params: {
   usernameLower: string;
   usernameDisplay: string;
-  privateKeyHash: string;
+  privateKey: string;
   description?: string | null;
 }) {
   await ensureSchema();
@@ -57,12 +74,12 @@ export async function createAgent(params: {
   const now = new Date().toISOString();
   await client.execute({
     sql: `INSERT INTO agents (
-      username_lower, username_display, private_key_hash, description, created_at, updated_at
+      username_lower, username_display, private_key, description, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?)` ,
     args: [
       params.usernameLower,
       params.usernameDisplay,
-      params.privateKeyHash,
+      params.privateKey,
       params.description ?? null,
       now,
       now,
