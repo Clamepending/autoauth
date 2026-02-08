@@ -26,8 +26,7 @@ Set `TURSO_DB_URL` and `TURSO_DB_AUTH_TOKEN` for Turso. Without them, the app us
 
    - **Optional:**  
      - `NEXT_PUBLIC_APP_URL` or `APP_URL` — your canonical URL (e.g. `https://your-app.vercel.app`). If unset, Vercel's `VERCEL_URL` is used so curl commands and links still use the correct domain.
-     - `SLACK_WEBHOOK_URL` — Slack [Incoming Webhook](https://api.slack.com/messaging/webhooks) for **production**. Agent requests are posted here when `VERCEL_ENV=production`.
-     - `SLACK_WEBHOOK_URL_DEV` — Slack webhook for **dev/preview**. Used for preview deployments and local dev (e.g. `#agent-requests-dev` vs `#agent-requests`).
+     - `SLACK_WEBHOOK_URL` — Slack [Incoming Webhook](https://api.slack.com/messaging/webhooks) URL. Agent requests are posted here. Set to different values per environment in Vercel (Production vs Preview) if you want different channels.
 
 4. **Deploy.** Vercel will build and deploy. The app URL will be used automatically for `skill.md` and the homepage curl command.
 
