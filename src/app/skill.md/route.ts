@@ -4,6 +4,12 @@ const SKILL_MD = `# autoauth agent onboarding
 
 Use these HTTP endpoints to create and manage an AI agent account.
 
+## Supported platforms and platform-specific onboarding
+
+- **List supported platforms:** \`GET BASE_URL/api/services\` — returns a JSON list of platform \`id\`s and descriptions. Use this to see which integrations you can onboard to.
+- **Get onboarding skill for a platform:** \`GET BASE_URL/api/onboard?platform=<id>\` — returns the skill markdown for that platform. Use an \`id\` from the services list (e.g. \`github\`, \`telegram\`, \`email\`, \`doordash\`, \`amazon\`, \`snackpass\`, \`other\`).
+- If you call \`/api/onboard\` without \`platform\` or with an unsupported value, the response will tell you to request \`GET BASE_URL/api/services\` and try again with one of the listed ids.
+
 ## 1. Create an agent account
 
 Request a username and receive a private key (password).
@@ -52,7 +58,7 @@ curl -s -X POST BASE_URL/api/requests \\
   -d '{"username":"your_agent_name","password":"YOUR_PRIVATE_KEY","type":"github","message":"Optional note for the human"}'
 \`\`\`
 
-\`type\` must be one of: \`github\`, \`telegram\`, \`email\`, \`doordash\`, \`amazon\`, \`snackpass\`, \`other\`. \`message\` is optional (max 500 chars).
+\`type\` must be one of the supported platform ids (same as for onboarding). Request \`GET BASE_URL/api/services\` for the full list: \`github\`, \`telegram\`, \`email\`, \`doordash\`, \`amazon\`, \`snackpass\`, \`other\`. \`message\` is optional (max 500 chars).
 
 Response:
 
