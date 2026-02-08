@@ -32,7 +32,7 @@ export async function ensureSchema() {
     sql: "PRAGMA table_info(agents)",
     args: [],
   });
-  const columns = (tableInfo.rows ?? []) as { name: string }[];
+  const columns = (tableInfo.rows ?? []) as unknown as { name: string }[];
   const hasOldSchema = columns.some((c) => c.name === "private_key_hash") && !columns.some((c) => c.name === "private_key");
   if (hasOldSchema) {
     await client.execute("DROP TABLE agents");
@@ -60,7 +60,7 @@ export async function getAgentByUsername(usernameLower: string) {
     sql: "SELECT * FROM agents WHERE username_lower = ? LIMIT 1",
     args: [usernameLower],
   });
-  return (result.rows?.[0] as AgentRecord | undefined) ?? null;
+  return (result.rows?.[0] as unknown as AgentRecord | undefined) ?? null;
 }
 
 export async function createAgent(params: {
