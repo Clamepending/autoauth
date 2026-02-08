@@ -49,7 +49,7 @@ Notes:
 
 export async function GET() {
   const baseUrl = getBaseUrl();
-  const body = SKILL_MD.replaceAll("BASE_URL", baseUrl);
+  const body = SKILL_MD.replace(/BASE_URL/g, baseUrl);
   return new Response(body, {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
