@@ -23,7 +23,11 @@ export async function notifySlack(params: {
   appUrl: string;
 }): Promise<void> {
   const url = getSlackWebhookUrl();
-  if (!url) return;
+  const envLabel = isProduction() ? "production" : "dev";
+  if (!url) {
+    console.warn(`[slack] No webhook configured for ${envLabel} — set SLACK_WEBHOOK_URL (production) or SLACK_WEBHOOK_URL_DEV`);
+    return;
+  }
 
   const text =
     params.message?.trim() && params.message.length > 0
@@ -31,6 +35,7 @@ export async function notifySlack(params: {
       : `No additional message.`;
 
   const envLabel = isProduction() ? "Production" : "Dev";
+  console.info(`[slack] Sending request #${params.requestId} to ${envLabel} channel`);
   const payload = {
     text: "New autoauth request for human fulfillment",
     blocks: [
