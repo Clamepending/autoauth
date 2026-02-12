@@ -21,7 +21,9 @@ export default function AdminDashPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/agents");
+      const res = await fetch("/api/admin/agents", {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("Failed to load agents");
       const data = await res.json();
       setAgents(data);
@@ -42,7 +44,10 @@ export default function AdminDashPage() {
     if (!confirm(`Delete agent "${agent.username_display}"? This cannot be undone.`)) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/admin/agents/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/agents/${id}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Delete failed");
