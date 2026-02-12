@@ -1,4 +1,4 @@
-# autoauth
+# ottoauth
 
 Minimal Next.js + Turso service for AI agent account creation.
 

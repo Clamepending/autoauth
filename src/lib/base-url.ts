@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 /**
  * Canonical base URL for the app. Use everywhere we show curl commands or links.
  * 1. NEXT_PUBLIC_APP_URL or APP_URL (set in Vercel for canonical domain)
- * 2. Request Host (so visiting autoauth.vercel.app shows that, not the deployment URL)
+ * 2. Request Host (so visiting ottoauth.vercel.app shows that, not the deployment URL)
  * 3. VERCEL_URL (deployment host; often the long preview URL)
  */
 export function getBaseUrl(): string {

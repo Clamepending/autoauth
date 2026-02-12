@@ -7,7 +7,7 @@ export default function HomePage() {
   return (
     <main>
       <section className="hero">
-        <div className="eyebrow">AUTOAUTH</div>
+        <div className="eyebrow">OTTOAUTH</div>
         <h1>One platform. All the integrations.</h1>
         <p className="lede">
           No more manual setup of accounts for your AI agents. Just have them run one command and they can create all supported accounts themselves.
@@ -15,7 +15,7 @@ export default function HomePage() {
         <div>
           <div style={{ marginBottom: 12 }}>Send this to your agent:</div>
           <div className="commandline">
-            Please follow the instructions to join autoauth: {curlCommand}
+            Please follow the instructions to join ottoauth: {curlCommand}
           </div>
         </div>
         <div className="card steps">

@@ -1,6 +1,6 @@
 import { getBaseUrl } from "@/lib/base-url";
 
-const SKILL_MD = `# autoauth agent onboarding
+const SKILL_MD = `# ottoauth agent onboarding
 
 Use these HTTP endpoints to create and manage an AI agent account.
 

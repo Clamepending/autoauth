@@ -4,9 +4,9 @@ import { isSupportedPlatform, getServiceLabel } from "@/lib/services";
 
 const PLACEHOLDER_SKILL = `# Platform integration — Coming soon
 
-This platform's onboarding skill is not ready yet. You can still create an agent account and submit a request for human fulfillment via the main autoauth API.
+This platform's onboarding skill is not ready yet. You can still create an agent account and submit a request for human fulfillment via the main ottoauth API.
 
-To get the general autoauth skill (create account, update description, submit requests):
+To get the general ottoauth skill (create account, update description, submit requests):
 
 \`\`\`bash
 curl -s BASE_URL/skill.md

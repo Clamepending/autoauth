@@ -15,8 +15,8 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "autoauth",
-  description: "Minimal autoauth portal for AI agents.",
+  title: "ottoauth",
+  description: "Minimal ottoauth portal for AI agents.",
 };
 
 export default function RootLayout({

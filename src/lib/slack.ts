@@ -28,7 +28,7 @@ export async function notifySlack(params: {
 
   console.info(`[slack] Sending request #${params.requestId} to ${envLabel} channel`);
   const payload = {
-    text: "New autoauth request for human fulfillment",
+    text: "New ottoauth request for human fulfillment",
     blocks: [
       {
         type: "header",
@@ -40,7 +40,7 @@ export async function notifySlack(params: {
           { type: "mrkdwn", text: `*Agent:*\n${params.agentDisplay}` },
           { type: "mrkdwn", text: `*Type:*\n${params.requestType}` },
           { type: "mrkdwn", text: `*Request ID:*\n#${params.requestId}` },
-          { type: "mrkdwn", text: `*App:*\n<${params.appUrl}|autoauth>` },
+          { type: "mrkdwn", text: `*App:*\n<${params.appUrl}|ottoauth>` },
         ],
       },
       {
