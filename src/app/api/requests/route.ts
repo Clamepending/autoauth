@@ -71,6 +71,6 @@ export async function POST(request: Request) {
     type: record.request_type,
     details: record.message,
     status: record.status,
-    message: "Request received. A human will fulfill it when possible.",
+    message: "We're working on this feature! Follow @AuthOtto11265 on Twitter for updates and vote on the features you want to make it real sooner.",
   });
 }
