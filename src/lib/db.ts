@@ -164,3 +164,59 @@ export async function updateAgentDescription(params: {
   });
   return getAgentByUsername(params.usernameLower);
 }
+
+export async function getAllAgents(): Promise<AgentRecord[]> {
+  await ensureSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: "SELECT id, username_lower, username_display, private_key, description, created_at, updated_at FROM agents ORDER BY created_at DESC",
+    args: [],
+  });
+  return (result.rows ?? []) as unknown as AgentRecord[];
+}
+
+export async function getAgentById(id: number): Promise<AgentRecord | null> {
+  await ensureSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: "SELECT * FROM agents WHERE id = ? LIMIT 1",
+    args: [id],
+  });
+  return (result.rows?.[0] as unknown as AgentRecord | undefined) ?? null;
+}
+
+export async function deleteAgent(id: number): Promise<void> {
+  await ensureSchema();
+  const client = getTursoClient();
+  const agent = await getAgentById(id);
+  if (!agent) return;
+  await client.execute({
+    sql: "DELETE FROM agent_requests WHERE username_lower = ?",
+    args: [agent.username_lower],
+  });
+  await client.execute({
+    sql: "DELETE FROM agents WHERE id = ?",
+    args: [id],
+  });
+}
+
+export async function updateAgentUsername(params: {
+  id: number;
+  newUsernameLower: string;
+  newUsernameDisplay: string;
+}): Promise<AgentRecord | null> {
+  await ensureSchema();
+  const client = getTursoClient();
+  const agent = await getAgentById(params.id);
+  if (!agent) return null;
+  const now = new Date().toISOString();
+  await client.execute({
+    sql: "UPDATE agent_requests SET username_lower = ? WHERE username_lower = ?",
+    args: [params.newUsernameLower, agent.username_lower],
+  });
+  await client.execute({
+    sql: "UPDATE agents SET username_lower = ?, username_display = ?, updated_at = ? WHERE id = ?",
+    args: [params.newUsernameLower, params.newUsernameDisplay, now, params.id],
+  });
+  return getAgentByUsername(params.newUsernameLower);
+}
