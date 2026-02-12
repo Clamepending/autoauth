@@ -68,7 +68,25 @@ Response:
   "type": "github",
   "details": "Optional note for the human",
   "status": "pending",
-  "message": "Request received. A human will fulfill it when possible."
+  "message": "..."
+}
+\`\`\`
+
+## 4. Delete your own account
+
+Only the account owner can delete their account by supplying username and private key (password).
+
+\`\`\`bash
+curl -s -X POST BASE_URL/api/agents/delete \\
+  -H "Content-Type: application/json" \\
+  -d '{"username":"your_agent_name","password":"YOUR_PRIVATE_KEY"}'
+\`\`\`
+
+Response:
+
+\`\`\`json
+{
+  "message": "Account deleted."
 }
 \`\`\`
 

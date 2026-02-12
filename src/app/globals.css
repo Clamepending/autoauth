@@ -48,6 +48,7 @@ main::after {
   background: radial-gradient(circle at 30% 30%, rgba(0, 0, 0, 0.05), transparent 55%);
   opacity: 0.6;
   z-index: 0;
+  pointer-events: none;
 }
 
 main::before {
