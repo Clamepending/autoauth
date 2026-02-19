@@ -7,17 +7,15 @@ export async function GET() {
   const manifests = getAllManifests();
 
   return NextResponse.json({
-    message:
-      "List of currently supported services. Use a service id from this list for service-specific endpoints and info.",
-    listServicesUrl: `${baseUrl}/api/services`,
-    serviceInfoUrl: `${baseUrl}/api/services/<id>`,
-    hint: "GET /api/services/<id> returns a description of how to use that service (for bots, on a need-to-know basis).",
     services: manifests.map((m) => ({
       id: m.id,
       description: m.description,
-      category: m.category,
       status: m.status,
-      infoUrl: `${baseUrl}/api/services/${m.id}`,
+      docsUrl:
+        m.status === "active"
+          ? `${baseUrl}/api/services/${m.id}`
+          : null,
     })),
+    hint: "For active services, GET the docsUrl to see endpoints and usage. For coming_soon services, POST /api/requests to request human fulfillment.",
   });
 }

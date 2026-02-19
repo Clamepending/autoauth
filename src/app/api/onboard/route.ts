@@ -43,6 +43,15 @@ export async function GET(request: Request) {
 
   const baseUrl = getBaseUrl();
   const manifest = getManifest(platform);
+
+  // Active services with docs: return the real documentation
+  if (manifest && manifest.status === "active" && manifest.docsMarkdown) {
+    return new Response(manifest.docsMarkdown, {
+      headers: { "Content-Type": "text/markdown; charset=utf-8" },
+    });
+  }
+
+  // Coming-soon services: return placeholder
   const label = manifest?.description ?? platform;
   const title = `# ${platform} — ${label}\n\n`;
   const body = title + PLACEHOLDER_SKILL.replace(/BASE_URL/g, baseUrl);
