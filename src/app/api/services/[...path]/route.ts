@@ -1,27 +1,29 @@
 import { NextResponse } from "next/server";
 import { getBaseUrl } from "@/lib/base-url";
-import { serviceNotFoundResponse } from "@/lib/service-info";
 
-/**
- * Catch-all for /api/services/<anything> that did not match a more specific route.
- * Returns 404 with message to call GET /api/services for valid service ids.
- */
+function notFoundResponse() {
+  const baseUrl = getBaseUrl();
+  return NextResponse.json(
+    {
+      error: "Service not found.",
+      message:
+        "The requested service is not supported. Call GET /api/services to receive the list of valid service ids.",
+      listServicesUrl: `${baseUrl}/api/services`,
+      nextStep: `GET ${baseUrl}/api/services`,
+    },
+    { status: 404 },
+  );
+}
+
 export async function GET() {
-  const baseUrl = getBaseUrl();
-  return NextResponse.json(serviceNotFoundResponse(baseUrl), { status: 404 });
+  return notFoundResponse();
 }
-
 export async function POST() {
-  const baseUrl = getBaseUrl();
-  return NextResponse.json(serviceNotFoundResponse(baseUrl), { status: 404 });
+  return notFoundResponse();
 }
-
 export async function PUT() {
-  const baseUrl = getBaseUrl();
-  return NextResponse.json(serviceNotFoundResponse(baseUrl), { status: 404 });
+  return notFoundResponse();
 }
-
 export async function DELETE() {
-  const baseUrl = getBaseUrl();
-  return NextResponse.json(serviceNotFoundResponse(baseUrl), { status: 404 });
+  return notFoundResponse();
 }

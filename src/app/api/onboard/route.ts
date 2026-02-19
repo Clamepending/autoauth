@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBaseUrl } from "@/lib/base-url";
-import { isSupportedPlatform, getServiceLabel } from "@/lib/services";
+import { getManifest, isSupportedService } from "@/services/registry";
 
 const PLACEHOLDER_SKILL = `# Platform integration — Coming soon
 
@@ -13,10 +13,6 @@ curl -s BASE_URL/skill.md
 \`\`\`
 `;
 
-/**
- * GET /api/onboard?platform=github — return platform-specific skill markdown.
- * If platform is unsupported, return 400 with message to list services and try again.
- */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const platform = searchParams.get("platform")?.trim().toLowerCase() ?? "";
@@ -33,7 +29,7 @@ export async function GET(request: Request) {
     );
   }
 
-  if (!isSupportedPlatform(platform)) {
+  if (!isSupportedService(platform)) {
     const baseUrl = getBaseUrl();
     return NextResponse.json(
       {
@@ -46,13 +42,12 @@ export async function GET(request: Request) {
   }
 
   const baseUrl = getBaseUrl();
-  const label = getServiceLabel(platform);
-  const title = label ? `# ${platform} — ${label}\n\n` : `# ${platform}\n\n`;
+  const manifest = getManifest(platform);
+  const label = manifest?.description ?? platform;
+  const title = `# ${platform} — ${label}\n\n`;
   const body = title + PLACEHOLDER_SKILL.replace(/BASE_URL/g, baseUrl);
 
   return new Response(body, {
-    headers: {
-      "Content-Type": "text/markdown; charset=utf-8",
-    },
+    headers: { "Content-Type": "text/markdown; charset=utf-8" },
   });
 }

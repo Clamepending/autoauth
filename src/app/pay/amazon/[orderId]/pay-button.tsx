@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-export function PayButton({ orderId }: { orderId: number }) {
+export function PayButton({
+  orderId,
+  priceDisplay,
+}: {
+  orderId: number;
+  priceDisplay: string;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +32,7 @@ export function PayButton({ orderId }: { orderId: number }) {
         return;
       }
       setError("No payment URL returned.");
-    } catch (e) {
+    } catch {
       setError("Network error. Please try again.");
     }
     setLoading(false);
@@ -40,7 +46,7 @@ export function PayButton({ orderId }: { orderId: number }) {
         disabled={loading}
         className="pay-button"
       >
-        {loading ? "Redirecting…" : "Pay $100 with card or Google Pay"}
+        {loading ? "Redirecting…" : `Pay ${priceDisplay} with card or Google Pay`}
       </button>
       {error && <p className="pay-error">{error}</p>}
     </div>

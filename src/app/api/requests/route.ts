@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { getAgentByUsername, createAgentRequest, REQUEST_TYPES } from "@/lib/db";
+import { getAgentByUsername, createAgentRequest } from "@/lib/db";
 import { normalizeUsername, validateUsername, verifyPrivateKey } from "@/lib/agent-auth";
+import { getSupportedServiceIds } from "@/services/registry";
 import { notifySlack } from "@/lib/slack";
 import { getBaseUrl } from "@/lib/base-url";
-
-const REQUEST_TYPE_SET = new Set<string>(REQUEST_TYPES);
 
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => null);
   if (!payload) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
+
+  const serviceIds = getSupportedServiceIds();
+  const serviceIdSet = new Set(serviceIds);
 
   const rawUsername = typeof payload.username === "string" ? payload.username.trim() : "";
   const password = typeof payload.password === "string" ? payload.password.trim() : "";
@@ -28,14 +30,14 @@ export async function POST(request: Request) {
 
   if (!requestType) {
     return NextResponse.json(
-      { error: "Request type is required. Use one of: " + REQUEST_TYPES.join(", ") },
+      { error: "Request type is required. Use one of: " + serviceIds.join(", ") },
       { status: 400 }
     );
   }
 
-  if (!REQUEST_TYPE_SET.has(requestType)) {
+  if (!serviceIdSet.has(requestType)) {
     return NextResponse.json(
-      { error: "Invalid type. Use one of: " + REQUEST_TYPES.join(", ") },
+      { error: "Invalid type. Use one of: " + serviceIds.join(", ") },
       { status: 400 }
     );
   }

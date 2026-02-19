@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAmazonOrderById } from "@/lib/db";
+import { getOrderById } from "@/services/amazon/orders";
 import { PayButton } from "./pay-button";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export default async function AmazonPayPage({ params }: Props) {
     );
   }
 
-  const order = await getAmazonOrderById(id);
+  const order = await getOrderById(id);
   if (!order) {
     return (
       <main className="pay-page">
@@ -34,23 +34,74 @@ export default async function AmazonPayPage({ params }: Props) {
     );
   }
 
+  const hasPriceEstimate = order.estimated_price_cents != null;
+
+  if (!hasPriceEstimate) {
+    return (
+      <main className="pay-page">
+        <div className="pay-card">
+          <div className="eyebrow">Amazon order #{order.id}</div>
+          <h1>Price unavailable</h1>
+          <p className="pay-lede">
+            The price for this item could not be automatically determined from
+            the product page. A human operator needs to review this order and
+            set the price manually.
+          </p>
+          <dl className="pay-details">
+            <dt>Item</dt>
+            <dd>
+              <a
+                href={order.item_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pay-link"
+              >
+                {order.item_url}
+              </a>
+            </dd>
+            <dt>Shipping</dt>
+            <dd>{order.shipping_location}</dd>
+            <dt>Status</dt>
+            <dd>{order.status} — awaiting manual price review</dd>
+          </dl>
+          <p className="pay-cancel">
+            <Link href="/">Back to ottoauth</Link>
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const priceDisplay = `$${(order.estimated_price_cents! / 100).toFixed(2)}`;
+
   return (
     <main className="pay-page">
       <div className="pay-card">
         <div className="eyebrow">Amazon order #{order.id}</div>
         <h1>Complete payment</h1>
-        <p className="pay-lede">Placeholder charge: $100. Pay with card or Google Pay via Stripe.</p>
+        <p className="pay-lede">
+          Charge: {priceDisplay} (scraped from product page). Pay with card or
+          Google Pay via Stripe.
+        </p>
+        {order.product_title && (
+          <p className="pay-product-title">{order.product_title}</p>
+        )}
         <dl className="pay-details">
           <dt>Item</dt>
           <dd>
-            <a href={order.item_url} target="_blank" rel="noopener noreferrer" className="pay-link">
+            <a
+              href={order.item_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pay-link"
+            >
               {order.item_url}
             </a>
           </dd>
           <dt>Shipping</dt>
           <dd>{order.shipping_location}</dd>
         </dl>
-        <PayButton orderId={order.id} />
+        <PayButton orderId={order.id} priceDisplay={priceDisplay} />
         <p className="pay-cancel">
           <Link href="/">Cancel and return to ottoauth</Link>
         </p>

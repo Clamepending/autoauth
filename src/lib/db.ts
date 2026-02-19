@@ -1,5 +1,4 @@
 import { getTursoClient } from "@/lib/turso";
-import { SUPPORTED_SERVICE_IDS } from "@/lib/services";
 
 export type AgentRecord = {
   id: number;
@@ -11,10 +10,10 @@ export type AgentRecord = {
   updated_at: string;
 };
 
-let schemaReady = false;
+let coreSchemaReady = false;
 
 export async function ensureSchema() {
-  if (schemaReady) return;
+  if (coreSchemaReady) return;
   const client = getTursoClient();
 
   await client.execute(
@@ -65,20 +64,7 @@ export async function ensureSchema() {
   await client.execute("CREATE INDEX IF NOT EXISTS idx_agent_requests_username ON agent_requests(username_lower)");
   await client.execute("CREATE INDEX IF NOT EXISTS idx_agent_requests_status ON agent_requests(status)");
 
-  await client.execute(
-    `CREATE TABLE IF NOT EXISTS amazon_orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username_lower TEXT NOT NULL,
-      item_url TEXT NOT NULL,
-      shipping_location TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'Submitted',
-      stripe_session_id TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`
-  );
-  await client.execute("CREATE INDEX IF NOT EXISTS idx_amazon_orders_username ON amazon_orders(username_lower)");
-  schemaReady = true;
+  coreSchemaReady = true;
 }
 
 export type AgentRequestRecord = {
@@ -89,93 +75,6 @@ export type AgentRequestRecord = {
   status: string;
   created_at: string;
 };
-
-export const REQUEST_TYPES = SUPPORTED_SERVICE_IDS;
-
-export type RequestType = (typeof REQUEST_TYPES)[number];
-
-export type AmazonOrderRecord = {
-  id: number;
-  username_lower: string;
-  item_url: string;
-  shipping_location: string;
-  status: string;
-  stripe_session_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export async function createAmazonOrder(params: {
-  usernameLower: string;
-  itemUrl: string;
-  shippingLocation: string;
-  stripeSessionId?: string | null;
-}) {
-  await ensureSchema();
-  const client = getTursoClient();
-  const now = new Date().toISOString();
-  const insertResult = await client.execute({
-    sql: `INSERT INTO amazon_orders (username_lower, item_url, shipping_location, status, stripe_session_id, created_at, updated_at)
-          VALUES (?, ?, ?, 'Submitted', ?, ?, ?)`,
-    args: [
-      params.usernameLower,
-      params.itemUrl,
-      params.shippingLocation,
-      params.stripeSessionId ?? null,
-      now,
-      now,
-    ],
-  });
-  const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
-  let id = rawId != null ? Number(rawId) : 0;
-  if (id === 0) {
-    const fallback = await client.execute({ sql: "SELECT last_insert_rowid() AS id", args: [] });
-    id = (fallback.rows?.[0] as unknown as { id: number } | undefined)?.id ?? 0;
-  }
-  const row = await getAmazonOrderById(id);
-  if (!row) throw new Error("Amazon order creation failed.");
-  return row;
-}
-
-export async function getAmazonOrdersByUsername(usernameLower: string): Promise<AmazonOrderRecord[]> {
-  await ensureSchema();
-  const client = getTursoClient();
-  const result = await client.execute({
-    sql: "SELECT * FROM amazon_orders WHERE username_lower = ? ORDER BY created_at DESC",
-    args: [usernameLower],
-  });
-  return (result.rows ?? []) as unknown as AmazonOrderRecord[];
-}
-
-export async function getAmazonOrderById(id: number): Promise<AmazonOrderRecord | null> {
-  await ensureSchema();
-  const client = getTursoClient();
-  const result = await client.execute({
-    sql: "SELECT * FROM amazon_orders WHERE id = ? LIMIT 1",
-    args: [id],
-  });
-  return (result.rows?.[0] as unknown as AmazonOrderRecord | undefined) ?? null;
-}
-
-export async function updateAmazonOrderStripeSession(orderId: number, stripeSessionId: string | null): Promise<void> {
-  await ensureSchema();
-  const client = getTursoClient();
-  const now = new Date().toISOString();
-  await client.execute({
-    sql: "UPDATE amazon_orders SET stripe_session_id = ?, updated_at = ? WHERE id = ?",
-    args: [stripeSessionId, now, orderId],
-  });
-}
-
-export async function updateAmazonOrderStatus(orderId: number, status: string): Promise<void> {
-  await ensureSchema();
-  const client = getTursoClient();
-  const now = new Date().toISOString();
-  await client.execute({
-    sql: "UPDATE amazon_orders SET status = ?, updated_at = ? WHERE id = ?",
-    args: [status, now, orderId],
-  });
-}
 
 export async function createAgentRequest(params: {
   usernameLower: string;
