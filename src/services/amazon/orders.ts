@@ -8,6 +8,9 @@ export type AmazonOrderRecord = {
   shipping_location: string;
   status: string;
   estimated_price_cents: number | null;
+  estimated_tax_cents: number | null;
+  processing_fee_cents: number | null;
+  tax_state: string | null;
   product_title: string | null;
   stripe_session_id: string | null;
   created_at: string;
@@ -19,6 +22,9 @@ export async function createOrder(params: {
   itemUrl: string;
   shippingLocation: string;
   estimatedPriceCents?: number | null;
+  estimatedTaxCents?: number | null;
+  processingFeeCents?: number | null;
+  taxState?: string | null;
   productTitle?: string | null;
 }): Promise<AmazonOrderRecord> {
   await ensureAmazonSchema();
@@ -27,14 +33,18 @@ export async function createOrder(params: {
   const insertResult = await client.execute({
     sql: `INSERT INTO amazon_orders
             (username_lower, item_url, shipping_location, status,
-             estimated_price_cents, product_title, stripe_session_id,
+             estimated_price_cents, estimated_tax_cents, processing_fee_cents,
+             tax_state, product_title, stripe_session_id,
              created_at, updated_at)
-          VALUES (?, ?, ?, 'Submitted', ?, ?, NULL, ?, ?)`,
+          VALUES (?, ?, ?, 'Submitted', ?, ?, ?, ?, ?, NULL, ?, ?)`,
     args: [
       params.usernameLower,
       params.itemUrl,
       params.shippingLocation,
       params.estimatedPriceCents ?? null,
+      params.estimatedTaxCents ?? null,
+      params.processingFeeCents ?? null,
+      params.taxState ?? null,
       params.productTitle ?? null,
       now,
       now,

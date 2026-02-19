@@ -14,6 +14,9 @@ export async function ensureAmazonSchema() {
       shipping_location TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'Submitted',
       estimated_price_cents INTEGER,
+      estimated_tax_cents INTEGER,
+      processing_fee_cents INTEGER,
+      tax_state TEXT,
       product_title TEXT,
       stripe_session_id TEXT,
       created_at TEXT NOT NULL,
@@ -40,6 +43,21 @@ export async function ensureAmazonSchema() {
   if (!names.has("product_title")) {
     await client.execute(
       "ALTER TABLE amazon_orders ADD COLUMN product_title TEXT",
+    );
+  }
+  if (!names.has("estimated_tax_cents")) {
+    await client.execute(
+      "ALTER TABLE amazon_orders ADD COLUMN estimated_tax_cents INTEGER",
+    );
+  }
+  if (!names.has("tax_state")) {
+    await client.execute(
+      "ALTER TABLE amazon_orders ADD COLUMN tax_state TEXT",
+    );
+  }
+  if (!names.has("processing_fee_cents")) {
+    await client.execute(
+      "ALTER TABLE amazon_orders ADD COLUMN processing_fee_cents INTEGER",
     );
   }
 

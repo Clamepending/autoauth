@@ -14,16 +14,25 @@ export async function POST(request: Request) {
   const orders = await getOrdersByUsername(auth.usernameLower);
 
   return NextResponse.json({
-    orders: orders.map((o) => ({
-      id: o.id,
-      item_url: o.item_url,
-      shipping_location: o.shipping_location,
-      status: o.status,
-      estimated_price: o.estimated_price_cents
-        ? `$${(o.estimated_price_cents / 100).toFixed(2)}`
-        : null,
-      product_title: o.product_title,
-      created_at: o.created_at,
-    })),
+    orders: orders.map((o) => {
+      const itemCents = o.estimated_price_cents;
+      const taxCents = o.estimated_tax_cents ?? 0;
+      const feeCents = o.processing_fee_cents ?? 0;
+      const totalCents =
+        itemCents != null ? itemCents + taxCents + feeCents : null;
+      const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+      return {
+        id: o.id,
+        item_url: o.item_url,
+        shipping_location: o.shipping_location,
+        status: o.status,
+        estimated_price: itemCents ? fmt(itemCents) : null,
+        estimated_tax: taxCents ? fmt(taxCents) : null,
+        processing_fee: feeCents ? fmt(feeCents) : null,
+        estimated_total: totalCents ? fmt(totalCents) : null,
+        product_title: o.product_title,
+        created_at: o.created_at,
+      };
+    }),
   });
 }

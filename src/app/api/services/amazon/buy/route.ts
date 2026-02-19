@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { authenticateAgent } from "@/services/_shared/auth";
+import { calculateProcessingFee } from "@/services/_shared/pricing";
 import { createOrder } from "@/services/amazon/orders";
 import { scrapeAmazonPrice } from "@/services/amazon/scraper";
+import { estimateTax } from "@/services/amazon/tax";
 import { getBaseUrl } from "@/lib/base-url";
 
 export async function POST(request: Request) {
@@ -35,23 +37,39 @@ export async function POST(request: Request) {
 
   const scraped = await scrapeAmazonPrice(itemUrl);
 
+  let taxInfo: ReturnType<typeof estimateTax> | null = null;
+  let feeCents = 0;
+  let chargeTotal = 0;
+  if (scraped) {
+    taxInfo = estimateTax(scraped.priceCents, shippingLocation);
+    const fee = calculateProcessingFee(taxInfo.totalCents);
+    feeCents = fee.feeCents;
+    chargeTotal = fee.totalCents;
+  }
+
   const order = await createOrder({
     usernameLower: auth.usernameLower,
     itemUrl,
     shippingLocation,
     estimatedPriceCents: scraped?.priceCents ?? null,
+    estimatedTaxCents: taxInfo?.taxCents ?? null,
+    processingFeeCents: feeCents || null,
+    taxState: taxInfo?.state ?? null,
     productTitle: scraped?.productTitle ?? null,
   });
 
   const baseUrl = getBaseUrl();
   const paymentUrl = `${baseUrl}/pay/amazon/${order.id}`;
 
-  if (!scraped) {
+  if (!scraped || !taxInfo) {
     return NextResponse.json(
       {
         order_id: order.id,
         payment_url: paymentUrl,
         estimated_price: null,
+        estimated_tax: null,
+        processing_fee: null,
+        estimated_total: null,
         product_title: null,
         scrape_failed: true,
         message:
@@ -63,12 +81,21 @@ export async function POST(request: Request) {
     );
   }
 
+  const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+
   return NextResponse.json({
     order_id: order.id,
     payment_url: paymentUrl,
-    estimated_price: scraped.priceDisplay,
+    estimated_price: fmt(scraped.priceCents),
+    estimated_tax: fmt(taxInfo.taxCents),
+    processing_fee: fmt(feeCents),
+    estimated_total: fmt(chargeTotal),
+    tax_state: taxInfo.state,
     product_title: scraped.productTitle,
     scrape_failed: false,
-    message: `Order created. Estimated price: ${scraped.priceDisplay}. Send the payment_url to your human for payment.`,
+    message:
+      `Order created. Item: ${fmt(scraped.priceCents)}, est. tax: ${fmt(taxInfo.taxCents)}, ` +
+      `processing fee: ${fmt(feeCents)}, total: ${fmt(chargeTotal)}. ` +
+      `Send the payment_url to your human for payment.`,
   });
 }

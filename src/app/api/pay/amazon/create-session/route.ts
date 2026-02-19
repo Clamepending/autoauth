@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 import {
   getOrderById,
   updateOrderStripeSession,
@@ -53,32 +54,70 @@ export async function POST(request: Request) {
     );
   }
 
-  const amountCents = order.estimated_price_cents;
-  const priceLabel = `$${(amountCents / 100).toFixed(2)}`;
+  const itemCents = order.estimated_price_cents;
+  const taxCents = order.estimated_tax_cents ?? 0;
+  const feeCents = order.processing_fee_cents ?? 0;
+  const totalCents = itemCents + taxCents + feeCents;
+
   const productName = order.product_title
     ? `Amazon: ${order.product_title.slice(0, 100)}`
     : `Amazon order #${orderId}`;
 
   const baseUrl = getBaseUrl();
 
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    {
+      price_data: {
+        currency: "usd",
+        unit_amount: itemCents,
+        product_data: {
+          name: productName,
+          description: order.item_url.slice(0, 200),
+        },
+      },
+      quantity: 1,
+    },
+  ];
+
+  if (taxCents > 0) {
+    lineItems.push({
+      price_data: {
+        currency: "usd",
+        unit_amount: taxCents,
+        product_data: {
+          name: `Estimated sales tax${order.tax_state ? ` (${order.tax_state})` : ""}`,
+        },
+      },
+      quantity: 1,
+    });
+  }
+
+  if (feeCents > 0) {
+    lineItems.push({
+      price_data: {
+        currency: "usd",
+        unit_amount: feeCents,
+        product_data: {
+          name: "Processing fee",
+        },
+      },
+      quantity: 1,
+    });
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          unit_amount: amountCents,
-          product_data: {
-            name: productName,
-            description: `${priceLabel} — ${order.item_url.slice(0, 200)}`,
-          },
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: lineItems,
     success_url: `${baseUrl}/pay/amazon/${orderId}/success`,
     cancel_url: `${baseUrl}/pay/amazon/${orderId}`,
     client_reference_id: String(orderId),
+    metadata: {
+      order_id: String(orderId),
+      item_cents: String(itemCents),
+      tax_cents: String(taxCents),
+      fee_cents: String(feeCents),
+      total_cents: String(totalCents),
+    },
   });
 
   await updateOrderStripeSession(orderId, session.id);

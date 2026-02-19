@@ -6,6 +6,10 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ orderId: string }> };
 
+function fmt(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 export default async function AmazonPayPage({ params }: Props) {
   const { orderId } = await params;
   const id = Number(orderId);
@@ -34,9 +38,7 @@ export default async function AmazonPayPage({ params }: Props) {
     );
   }
 
-  const hasPriceEstimate = order.estimated_price_cents != null;
-
-  if (!hasPriceEstimate) {
+  if (order.estimated_price_cents == null) {
     return (
       <main className="pay-page">
         <div className="pay-card">
@@ -72,17 +74,16 @@ export default async function AmazonPayPage({ params }: Props) {
     );
   }
 
-  const priceDisplay = `$${(order.estimated_price_cents! / 100).toFixed(2)}`;
+  const itemCents = order.estimated_price_cents;
+  const taxCents = order.estimated_tax_cents ?? 0;
+  const feeCents = order.processing_fee_cents ?? 0;
+  const totalCents = itemCents + taxCents + feeCents;
 
   return (
     <main className="pay-page">
       <div className="pay-card">
         <div className="eyebrow">Amazon order #{order.id}</div>
         <h1>Complete payment</h1>
-        <p className="pay-lede">
-          Charge: {priceDisplay} (scraped from product page). Pay with card or
-          Google Pay via Stripe.
-        </p>
         {order.product_title && (
           <p className="pay-product-title">{order.product_title}</p>
         )}
@@ -101,7 +102,36 @@ export default async function AmazonPayPage({ params }: Props) {
           <dt>Shipping</dt>
           <dd>{order.shipping_location}</dd>
         </dl>
-        <PayButton orderId={order.id} priceDisplay={priceDisplay} />
+        <div className="pay-breakdown">
+          <div className="pay-breakdown-row">
+            <span>Item price</span>
+            <span>{fmt(itemCents)}</span>
+          </div>
+          {taxCents > 0 && (
+            <div className="pay-breakdown-row">
+              <span>Est. tax{order.tax_state ? ` (${order.tax_state})` : ""}</span>
+              <span>{fmt(taxCents)}</span>
+            </div>
+          )}
+          {feeCents > 0 && (
+            <div className="pay-breakdown-row pay-breakdown-fee">
+              <span>Processing fee</span>
+              <span>{fmt(feeCents)}</span>
+            </div>
+          )}
+          <div className="pay-breakdown-row pay-breakdown-total">
+            <span>Total</span>
+            <span>{fmt(totalCents)}</span>
+          </div>
+        </div>
+        <p className="pay-fee-note">
+          ottoauth does not profit from this transaction. The processing fee
+          covers the Stripe payment processing cost (2.9% + $0.30) so
+          the exact item price + tax reaches Amazon. You can verify the math:
+          {" "}{fmt(totalCents)} &minus; ({fmt(totalCents)} &times; 2.9% + $0.30)
+          = {fmt(itemCents + taxCents)}.
+        </p>
+        <PayButton orderId={order.id} priceDisplay={fmt(totalCents)} />
         <p className="pay-cancel">
           <Link href="/">Cancel and return to ottoauth</Link>
         </p>
