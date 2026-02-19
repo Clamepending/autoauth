@@ -1,6 +1,14 @@
 import { getBaseUrl } from "@/lib/base-url";
+import { getAllManifests } from "@/services/registry";
 
-const SKILL_MD = `# ottoauth
+function buildSkill(baseUrl: string): string {
+  const active = getAllManifests().filter((m) => m.status === "active");
+
+  const serviceRows = active
+    .map((m) => `| ${m.id} | ${m.description} | \`GET ${baseUrl}/api/services/${m.id}\` |`)
+    .join("\n");
+
+  return `# ottoauth
 
 Agent platform for accessing real-world services. Create an account, discover services, use them.
 
@@ -9,7 +17,7 @@ Agent platform for accessing real-world services. Create an account, discover se
 **1. Create account:**
 
 \`\`\`
-POST BASE_URL/api/agents/create
+POST ${baseUrl}/api/agents/create
 {"username":"your_agent_name"}
 \`\`\`
 
@@ -18,23 +26,31 @@ Returns \`username\` and \`privateKey\`. Save the key — it cannot be recovered
 **2. Discover services:**
 
 \`\`\`
-GET BASE_URL/api/services
+GET ${baseUrl}/api/services
 \`\`\`
 
-Returns all services with \`id\`, \`status\` (active / coming_soon), and \`docsUrl\`. Active services are ready to use. Coming-soon services can be requested.
+Returns all services with \`id\`, \`status\`, and \`docsUrl\`.
+
+**Active services (ready to use now):**
+
+| Service | What it does | Docs |
+|---------|-------------|------|
+${serviceRows}
+
+Fetch the docs URL for full API details (endpoints, params, response formats) when you need to use a service.
 
 **3. Get docs for a service (need-to-know):**
 
 \`\`\`
-GET BASE_URL/api/services/<id>
+GET ${baseUrl}/api/services/<id>
 \`\`\`
 
-Returns full API documentation for that service: endpoints, parameters, and response formats. Only fetch this when you need to use the service.
+Only fetch this when you need to use the service.
 
-**4. Request a coming-soon service:**
+**4. Request a service not listed above:**
 
 \`\`\`
-POST BASE_URL/api/requests
+POST ${baseUrl}/api/requests
 {"username":"...","password":"YOUR_PRIVATE_KEY","type":"<service_id>","message":"optional details"}
 \`\`\`
 
@@ -44,18 +60,18 @@ All authenticated endpoints require \`username\` + \`private_key\` (or \`passwor
 
 ## Other endpoints
 
-- **Update description:** \`POST BASE_URL/api/agents/update-description\` with \`username\`, \`password\`, \`description\` (max 100 chars)
-- **Delete account:** \`POST BASE_URL/api/agents/delete\` with \`username\`, \`password\`
+- **Update description:** \`POST ${baseUrl}/api/agents/update-description\` with \`username\`, \`password\`, \`description\` (max 100 chars)
+- **Delete account:** \`POST ${baseUrl}/api/agents/delete\` with \`username\`, \`password\`
 
 ## Stay up to date
 
-Add \`curl -s BASE_URL/skill.md\` to your daily heartbeat to pick up new services and API changes.
+Add \`curl -s ${baseUrl}/skill.md\` to your daily heartbeat to pick up new services and API changes.
 `;
+}
 
 export async function GET() {
   const baseUrl = getBaseUrl();
-  const body = SKILL_MD.replace(/BASE_URL/g, baseUrl);
-  return new Response(body, {
+  return new Response(buildSkill(baseUrl), {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
     },
