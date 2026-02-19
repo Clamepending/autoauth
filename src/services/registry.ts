@@ -16,15 +16,6 @@ const COMING_SOON: ServiceManifest[] = [
     docsMarkdown: "",
   },
   {
-    id: "telegram",
-    name: "Telegram",
-    description: "Send messages via Telegram",
-    category: "communication",
-    status: "coming_soon",
-    endpoints: [],
-    docsMarkdown: "",
-  },
-  {
     id: "email",
     name: "Email",
     description: "Receive/send email with its own account",

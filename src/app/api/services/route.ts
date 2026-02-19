@@ -4,18 +4,14 @@ import { getBaseUrl } from "@/lib/base-url";
 
 export async function GET() {
   const baseUrl = getBaseUrl();
-  const manifests = getAllManifests();
+  const active = getAllManifests().filter((m) => m.status === "active");
 
   return NextResponse.json({
-    services: manifests.map((m) => ({
+    services: active.map((m) => ({
       id: m.id,
       description: m.description,
-      status: m.status,
-      docsUrl:
-        m.status === "active"
-          ? `${baseUrl}/api/services/${m.id}`
-          : null,
+      docsUrl: `${baseUrl}/api/services/${m.id}`,
     })),
-    hint: "For active services, GET the docsUrl to see endpoints and usage. For coming_soon services, POST /api/requests to request human fulfillment.",
+    hint: "GET the docsUrl for full API details. For services not listed here, POST /api/requests to request human fulfillment.",
   });
 }
