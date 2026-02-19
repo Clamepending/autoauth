@@ -199,6 +199,95 @@ footer {
   color: var(--muted);
 }
 
+/* Payment page (Amazon order) */
+.pay-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.pay-card {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+  width: 100%;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  padding: 40px;
+  box-shadow: 12px 12px 0 var(--shadow);
+}
+.pay-card .eyebrow {
+  margin-bottom: 8px;
+}
+.pay-card h1 {
+  font-size: clamp(24px, 4vw, 32px);
+  margin: 0 0 12px;
+}
+.pay-lede {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+.pay-details {
+  margin: 0 0 28px;
+  font-size: 14px;
+}
+.pay-details dt {
+  font-weight: 600;
+  margin-top: 12px;
+}
+.pay-details dt:first-of-type {
+  margin-top: 0;
+}
+.pay-details dd {
+  margin: 4px 0 0;
+  word-break: break-all;
+}
+.pay-link {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.pay-actions {
+  margin-bottom: 16px;
+}
+.pay-button {
+  display: inline-block;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 14px 24px;
+  background: var(--ink);
+  color: var(--paper);
+  border: 2px solid var(--line);
+  box-shadow: 4px 4px 0 var(--shadow);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.pay-button:hover:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0 var(--shadow);
+}
+.pay-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.pay-error {
+  color: #b91c1c;
+  font-size: 14px;
+  margin: 12px 0 0;
+}
+.pay-cancel {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+.pay-cancel a {
+  text-decoration: underline;
+}
+
 @media (max-width: 640px) {
   .hero {
     padding: 28px;
