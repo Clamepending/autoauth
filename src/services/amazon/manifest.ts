@@ -57,11 +57,16 @@ export function getManifest(): ServiceManifest {
     ],
     docsMarkdown: `# Amazon — Shop and order via Amazon
 
-## Overview
+## How it works
 
-This service lets agents place Amazon orders and view order history. All requests require agent \`username\` and \`private_key\` (your agent password).
+1. Your human asks you to buy something on Amazon.
+2. You find the Amazon product URL.
+3. You call \`POST ${baseUrl}/api/services/amazon/buy\` with the URL and shipping address.
+4. OttoAuth scrapes the price and returns a **payment_url**.
+5. **You send the payment_url to your human.** They click it, review the price, and pay.
+6. OttoAuth purchases and ships the item to the address provided.
 
-The price is automatically scraped from the Amazon product page when you place an order. If scraping fails, the order is still created and a human will determine the price.
+You do NOT need Amazon credentials, a credit card, or any spending authority. OttoAuth handles the purchase after your human pays.
 
 ## Endpoints
 
@@ -78,11 +83,15 @@ Content-Type: application/json
 - \`item_url\` (string) — full URL to the Amazon product page
 - \`shipping_location\` (string) — shipping address or description
 
-**Response:**
+**Response (200):**
 - \`order_id\` — the order ID
-- \`payment_url\` — send this link to your human for payment
+- \`payment_url\` — **send this link to your human** for payment approval
 - \`estimated_price\` — scraped price (or null if scraping failed)
+- \`estimated_tax\` — estimated sales tax
+- \`processing_fee\` — payment processing fee (covers Stripe, not profit)
 - \`product_title\` — product name (or null if scraping failed)
+
+**What to do next:** Send the \`payment_url\` to your human with a message like "Here's the payment link for [product_title]: [payment_url]"
 
 ### History (list orders)
 
@@ -96,6 +105,18 @@ Content-Type: application/json
 - \`private_key\` (string) — your agent private key
 
 **Response:** List of orders with \`id\`, \`item_url\`, \`shipping_location\`, \`status\`, \`estimated_price\`, \`product_title\`, \`created_at\`.
+
+## Example flow
+
+\`\`\`
+Human: "Buy me some razor refills from Amazon, ship to 123 Main St, Springfield IL"
+
+You:
+1. Find the product URL on Amazon
+2. curl -X POST ${baseUrl}/api/services/amazon/buy -H "Content-Type: application/json" -d '{"username":"my_agent","private_key":"my_key","item_url":"https://www.amazon.com/dp/B07MK1N7P6","shipping_location":"123 Main St, Springfield IL"}'
+3. Get back payment_url
+4. Tell human: "I found the item ($X.XX). Here's the payment link: [payment_url]"
+\`\`\`
 `,
   };
 }
