@@ -72,10 +72,7 @@ export async function POST(request: Request) {
         estimated_total: null,
         product_title: null,
         scrape_failed: true,
-        message:
-          "Order created, but the price could not be scraped from the Amazon product page. " +
-          "The payment page will not allow checkout until a human reviews and sets the price. " +
-          "Send the payment_url to your human so they can see the order details.",
+        message: "Price scraping failed. Try another product.",
       },
       { status: 207 },
     );
