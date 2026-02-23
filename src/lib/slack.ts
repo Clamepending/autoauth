@@ -67,3 +67,75 @@ export async function notifySlack(params: {
     console.error("[slack] fetch error:", err);
   }
 }
+
+export async function notifySlackAmazonFulfillment(params: {
+  orderId: number;
+  username: string;
+  productTitle: string | null;
+  itemUrl: string;
+  shippingLocation: string;
+  estimatedTotal: string | null;
+  appUrl: string;
+}): Promise<void> {
+  const url = process.env.SLACK_WEBHOOK_URL?.trim() || null;
+  const envLabel = getEnvLabel();
+  if (!url) {
+    console.warn(`[slack] No webhook configured — set SLACK_WEBHOOK_URL`);
+    return;
+  }
+
+  const orderLink = `${params.appUrl}/admindash/amazon/orders/${params.orderId}`;
+  const title = params.productTitle?.trim() || "Amazon order";
+  const totalText = params.estimatedTotal ?? "Unknown";
+
+  const payload = {
+    text: "Amazon order ready for manual fulfillment",
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: `Amazon paid order (${envLabel})`,
+          emoji: true,
+        },
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Order ID:*\n#${params.orderId}` },
+          { type: "mrkdwn", text: `*Agent:*\n${params.username}` },
+          { type: "mrkdwn", text: `*Total:*\n${totalText}` },
+          { type: "mrkdwn", text: `*Shipping:*\n${params.shippingLocation}` },
+        ],
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Item:*\n${title}\n<${params.itemUrl}|Open product page>`,
+        },
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `<${orderLink}|Open fulfillment page>`,
+        },
+      },
+    ],
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("[slack] amazon webhook failed:", res.status, body);
+    }
+  } catch (err) {
+    console.error("[slack] amazon webhook fetch error:", err);
+  }
+}

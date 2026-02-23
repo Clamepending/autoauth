@@ -13,6 +13,8 @@ export type AmazonOrderRecord = {
   tax_state: string | null;
   product_title: string | null;
   stripe_session_id: string | null;
+  tracking_number: string | null;
+  fulfillment_note: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -117,5 +119,28 @@ export async function updateOrderStatus(
   await client.execute({
     sql: "UPDATE amazon_orders SET status = ?, updated_at = ? WHERE id = ?",
     args: [status, now, orderId],
+  });
+}
+
+export async function updateOrderFulfillment(params: {
+  orderId: number;
+  status: "Fulfilled" | "Failed";
+  trackingNumber: string | null;
+  fulfillmentNote: string | null;
+}): Promise<void> {
+  await ensureAmazonSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  await client.execute({
+    sql: `UPDATE amazon_orders
+          SET status = ?, tracking_number = ?, fulfillment_note = ?, updated_at = ?
+          WHERE id = ?`,
+    args: [
+      params.status,
+      params.trackingNumber,
+      params.fulfillmentNote,
+      now,
+      params.orderId,
+    ],
   });
 }

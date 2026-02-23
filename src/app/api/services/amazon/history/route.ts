@@ -31,7 +31,10 @@ export async function POST(request: Request) {
         processing_fee: feeCents ? fmt(feeCents) : null,
         estimated_total: totalCents ? fmt(totalCents) : null,
         product_title: o.product_title,
+        tracking_number: o.tracking_number,
+        fulfillment_note: o.fulfillment_note,
         created_at: o.created_at,
+        updated_at: o.updated_at,
       };
     }),
   });

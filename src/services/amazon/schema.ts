@@ -19,6 +19,8 @@ export async function ensureAmazonSchema() {
       tax_state TEXT,
       product_title TEXT,
       stripe_session_id TEXT,
+      tracking_number TEXT,
+      fulfillment_note TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
@@ -58,6 +60,16 @@ export async function ensureAmazonSchema() {
   if (!names.has("processing_fee_cents")) {
     await client.execute(
       "ALTER TABLE amazon_orders ADD COLUMN processing_fee_cents INTEGER",
+    );
+  }
+  if (!names.has("tracking_number")) {
+    await client.execute(
+      "ALTER TABLE amazon_orders ADD COLUMN tracking_number TEXT",
+    );
+  }
+  if (!names.has("fulfillment_note")) {
+    await client.execute(
+      "ALTER TABLE amazon_orders ADD COLUMN fulfillment_note TEXT",
     );
   }
 
