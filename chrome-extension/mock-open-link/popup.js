@@ -50,7 +50,9 @@ async function setupBrowserToken() {
     type: "save_settings",
     pollEndpoint: $("pollEndpoint").value.trim(),
     deviceId: $("deviceId").value.trim(),
-    liveListenEnabled: true,
+    // Don't start live listen before pairing+token registration succeeds.
+    // The background setup flow enables it after success.
+    liveListenEnabled: $("liveListenEnabled").checked,
   });
   if (!preSave?.ok) {
     setStatus(preSave?.error || "Save failed");
