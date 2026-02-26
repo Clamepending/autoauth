@@ -34,7 +34,8 @@ export function getManifest(): ServiceManifest {
           task_prompt: {
             type: "string",
             required: true,
-            description: "Natural-language task prompt. Current beta supports prompts containing an http/https URL (open URL).",
+            description:
+              "Natural-language task prompt. Cloud-triggered beta currently supports URL/open-link routing. The extension also has a local BYOK browser-agent chat mode for richer tasks.",
           },
           device: {
             type: "string",
@@ -69,7 +70,21 @@ export function getManifest(): ServiceManifest {
 
 Use this to trigger actions in a human's browser through the OttoAuth browser extension.
 
-Current beta behavior: task prompts that include an \`http/https\` URL will open that URL in the paired browser.
+## Two modes (important)
+
+### 1. Cloud-triggered mode (OttoAuth API)
+- Agent calls OttoAuth
+- OttoAuth routes a command to the paired browser extension
+- **Current beta cloud routing supports URL/open-link tasks**
+
+### 2. Local browser-agent mode (inside the extension)
+- Human opens the OttoAuth extension side panel
+- Enters BYOK model settings (OpenAI-compatible)
+- Sends a high-level task in chat
+- Extension generates a plan, asks for approval, then runs a local browser-agent loop
+- This mode supports richer browser interaction than the cloud-triggered open-link beta
+
+If you are an external agent using OttoAuth's public API today, use **Cloud-triggered mode** below.
 
 ## Onboarding (very important)
 
@@ -119,12 +134,21 @@ curl -s -X POST ${baseUrl}/api/computeruse/runs \\
 
 This returns a \`run_id\` immediately. The browser action happens asynchronously.
 
+## What the extension can do locally (human-operated)
+
+The OttoAuth browser extension now includes a local **BYOK browser agent chat sidebar** with:
+- plan generation + user approval before execution
+- local browser-agent loop (read page -> model -> action -> verify -> repeat)
+- step logs / transcript export for debugging
+
+This local mode is currently started from the extension UI (not the OttoAuth cloud API).
+
 ## Summary
 
 1. Ask human to install extension and send Browser Token
 2. Register token via \`/api/computeruse/register-device\`
-3. Start runs via \`/api/computeruse/runs\`
-4. OttoAuth will route the command to the paired browser extension
+3. Start cloud-triggered runs via \`/api/computeruse/runs\` (URL/open-link beta)
+4. For richer browser-agent tasks today, instruct the human to use the extension's local BYOK chat sidebar
 `,
   };
 }

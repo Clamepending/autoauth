@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OttoAuth Browser Agent</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brandDot" aria-hidden="true"></div>
+          <div>
+            <h1>OttoAuth Browser Agent</h1>
+            <p>Chat with an agent attached to the current tab (BYOK)</p>
+          </div>
+        </div>
+        <div id="runStatus" class="statusChip">Idle</div>
+      </header>
+
+      <section class="pairStrip">
+        <div class="pairStripHeader">
+          <strong>OpenClaw Pairing</strong>
+          <span id="pairingStatusText">Generate a browser token, then give it to your agent once.</span>
+        </div>
+        <div class="pairStripRow">
+          <div id="agentPairToken" class="tokenPill" title="Browser token">No token yet</div>
+          <button id="setupTokenBtn" type="button" class="secondary compact">Regenerate</button>
+          <button id="copyTokenBtn" type="button" class="secondary compact">Copy</button>
+        </div>
+      </section>
+
+      <section class="feedWrap">
+        <div class="feedHeader">
+          <strong>Chat</strong>
+          <div class="feedHeaderRight">
+            <button id="copyChatDebugBtn" type="button" class="iconButton secondary compactIcon" title="Copy debug transcript" aria-label="Copy debug transcript">
+              <svg class="iconGlyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 9.75A1.75 1.75 0 0 1 10.75 8h7.5A1.75 1.75 0 0 1 20 9.75v9.5A1.75 1.75 0 0 1 18.25 21h-7.5A1.75 1.75 0 0 1 9 19.25z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M15 8V6.75A1.75 1.75 0 0 0 13.25 5h-7.5A1.75 1.75 0 0 0 4 6.75v9.5A1.75 1.75 0 0 0 5.75 18H9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button id="approvePlanBtn" type="button" class="secondary compact hidden" title="Approve plan and start execution">Approve Plan</button>
+            <button id="continueMaxBtn" type="button" class="secondary compact hidden" title="Continue this run for another max-step budget">Continue</button>
+            <span id="metaText">No run yet</span>
+          </div>
+        </div>
+        <div id="feed" class="feed"></div>
+      </section>
+
+      <section class="composer">
+        <textarea id="goalInput" rows="3" placeholder="What should I do in this browser?"></textarea>
+        <div class="composerFooter">
+          <button id="settingsToggleBtn" type="button" class="iconButton secondary" title="Settings" aria-label="Settings">&#9881;</button>
+          <div class="composerActions">
+            <button id="primaryActionBtn" type="button" class="sendButton iconOnly" title="Send message" aria-label="Send message">
+              <span id="primaryActionIcon" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="settingsPanel" class="settingsPanel hidden" aria-hidden="true">
+        <div class="settingsPanelCard">
+          <div class="settingsPanelHeader">
+            <div>
+              <h2>Model Provider Settings</h2>
+              <p>Saved locally in this browser extension.</p>
+            </div>
+            <button id="settingsCloseBtn" type="button" class="iconButton secondary" aria-label="Close settings">x</button>
+          </div>
+
+          <div class="settingsPanelBody">
+            <label for="llmBaseUrl">LLM API Base URL (OpenAI-compatible)</label>
+            <input id="llmBaseUrl" type="text" placeholder="https://api.openai.com" />
+
+            <label for="llmModel">Model</label>
+            <input id="llmModel" type="text" placeholder="gpt-4.1-mini" />
+
+            <label for="llmApiKey">API Key (BYOK)</label>
+            <input id="llmApiKey" type="password" placeholder="sk-..." />
+
+            <label for="localAgentMaxSteps">Max Agent Steps</label>
+            <input id="localAgentMaxSteps" type="text" inputmode="numeric" placeholder="12" />
+
+            <div class="buttonRow">
+              <button id="saveSettingsBtn" type="button" class="secondary">Save</button>
+              <button id="refreshBtn" type="button" class="secondary">Reload Saved</button>
+            </div>
+
+            <details class="debugDetails">
+              <summary>Debug / Connection</summary>
+              <div class="settingsInlineBody">
+                <label for="pollEndpoint">OttoAuth Endpoint</label>
+                <input id="pollEndpoint" type="text" placeholder="https://ottoauth.vercel.app/api/computeruse/device/next-task" />
+
+                <label for="deviceId">Device ID (debug)</label>
+                <input id="deviceId" type="text" placeholder="local-device-1" />
+
+                <label class="rowInline">
+                  <input id="liveListenEnabled" type="checkbox" />
+                  <span>Live listen (long-poll)</span>
+                </label>
+
+                <button id="saveConnectionBtn" type="button" class="secondary">Save Connection</button>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

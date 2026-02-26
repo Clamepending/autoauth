@@ -146,9 +146,32 @@ async function testNotification() {
   setStatus("Notification sent");
 }
 
+async function openSidebar() {
+  try {
+    if (chrome.sidePanel?.open) {
+      const win = await chrome.windows.getLastFocused();
+      if (!win?.id) throw new Error("No focused window found");
+      await chrome.sidePanel.open({ windowId: win.id });
+      setStatus("Agent sidebar opened");
+      return;
+    }
+  } catch (error) {
+    setStatus(String(error?.message || error));
+    return;
+  }
+
+  const response = await sendMessage({ type: "open_side_panel" });
+  if (!response?.ok) {
+    setStatus(response?.error || "Failed to open sidebar");
+    return;
+  }
+  setStatus("Agent sidebar opened");
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   $("setupTokenBtn").addEventListener("click", () => void setupBrowserToken());
   $("copyTokenBtn").addEventListener("click", () => void copyToken());
+  $("openSidebarBtn").addEventListener("click", () => void openSidebar());
   $("saveBtn").addEventListener("click", () => void saveSettings());
   $("pollNowBtn").addEventListener("click", () => void pollNow());
   $("listenOnceBtn").addEventListener("click", () => void listenOnce());

@@ -259,3 +259,43 @@ curl -i 'http://localhost:3000/api/computeruse/device/wait-task?waitMs=25000' \
 - This is still a mock trigger receiver, but now includes a mock pair/token flow.
 - The extension popup includes **Test Notification** to validate `chrome.notifications` locally.
 - Next step is replacing polling with ottoauth device pairing + task delivery.
+
+## BYOK Local Browser Agent (early implementation)
+
+The extension now includes an **early local agent loop** (inside the browser/extension) in the **Advanced** panel.
+
+What it does (current version):
+- Reads a compact browser observation (URL/title/text/interactable elements)
+- Calls an **OpenAI-compatible** chat completions API directly from the extension (BYOK)
+- Executes one action at a time in the browser
+- Repeats until `done` or max steps
+
+Supported action types (current):
+- `open_url`
+- `click_text`
+- `click_selector`
+- `type_selector`
+- `wait`
+- `done`
+
+### How to test (BYOK)
+
+1. Open the extension popup
+2. Open **Advanced**
+3. Fill in:
+   - **LLM API Base URL** (default `https://api.openai.com`)
+   - **Model** (for example `gpt-4.1-mini`)
+   - **API Key (BYOK)**
+   - **Local Browser Agent Goal**
+4. Click **Run Local Browser Agent**
+
+Example goal:
+
+`Open https://example.com and then finish once the page is visible.`
+
+### Important limitations (current)
+
+- Early implementation; reliability is not production-grade yet
+- Uses an OpenAI-compatible `/v1/chat/completions` API shape
+- Does not yet report local-agent step logs/results back to OttoAuth
+- Does not yet use a dedicated side panel/offscreen runtime (currently background-driven)

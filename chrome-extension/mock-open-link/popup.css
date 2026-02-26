@@ -77,6 +77,16 @@ button:hover {
   background: #1d4ed8;
 }
 
+.secondaryButton {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+}
+
+.secondaryButton:hover {
+  background: #f8fafc;
+}
+
 .buttonRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
