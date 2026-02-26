@@ -5,3 +5,6 @@ out
 .env.local
 local.db
 local.db-*
+.vercel
+.env*.local
+.demo-agent-creds.json

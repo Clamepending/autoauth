@@ -1,5 +1,6 @@
 import type { ServiceManifest } from "@/services/_shared/types";
 import { getManifest as getAmazonManifest } from "@/services/amazon/manifest";
+import { getManifest as getComputerUseManifest } from "@/services/computeruse/manifest";
 
 /**
  * Static stubs for services that are announced but not yet implemented.
@@ -54,7 +55,7 @@ const COMING_SOON: ServiceManifest[] = [
 ];
 
 export function getAllManifests(): ServiceManifest[] {
-  return [getAmazonManifest(), ...COMING_SOON];
+  return [getAmazonManifest(), getComputerUseManifest(), ...COMING_SOON];
 }
 
 export function getManifest(serviceId: string): ServiceManifest | null {

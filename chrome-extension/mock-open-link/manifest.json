@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "OttoAuth Mock Computer Use",
+  "version": "0.1.0",
+  "description": "Paired-device OttoAuth extension that opens URLs from agent commands routed through OttoAuth.",
+  "permissions": ["tabs", "storage", "alarms", "notifications"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "OttoAuth Mock",
+    "default_popup": "popup.html"
+  }
+}

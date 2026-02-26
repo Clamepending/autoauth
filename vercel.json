@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/app/api/computeruse/device/wait-task/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/computeruse/mock/wait-task/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

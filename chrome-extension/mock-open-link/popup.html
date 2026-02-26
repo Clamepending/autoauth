@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OttoAuth Browser Pair</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>OttoAuth Browser Pair</h1>
+      <p class="subtle">Share this browser token with your agent. OttoAuth uses it to route commands to this browser after pairing.</p>
+
+      <section class="primaryCard">
+        <label for="agentPairToken">Browser Token</label>
+        <textarea id="agentPairToken" rows="3" readonly placeholder="Click Connect / Refresh Token"></textarea>
+        <div class="buttonRow">
+          <button id="setupTokenBtn" type="button">Regenerate</button>
+          <button id="copyTokenBtn" type="button">Copy Token</button>
+        </div>
+        <div id="status" class="statusText">Loading…</div>
+      </section>
+
+      <details>
+        <summary>Advanced</summary>
+        <section>
+          <label for="pollEndpoint">OttoAuth endpoint</label>
+          <input id="pollEndpoint" type="text" placeholder="https://ottoauth.vercel.app/api/computeruse/device/next-task" />
+
+          <label for="deviceId">Device ID (debug)</label>
+          <input id="deviceId" type="text" placeholder="local-device-1" />
+
+          <label class="row">
+            <input id="liveListenEnabled" type="checkbox" />
+            <span>Live listen (long-poll)</span>
+          </label>
+
+          <div class="buttonRow">
+            <button id="saveBtn" type="button">Save</button>
+            <button id="pollNowBtn" type="button">Poll Now</button>
+          </div>
+          <div class="buttonRow">
+            <button id="listenOnceBtn" type="button">Listen Once</button>
+            <button id="testNotificationBtn" type="button">Test Notification</button>
+          </div>
+          <button id="openNowBtn" type="button">Open URL (Debug)</button>
+          <input id="manualUrl" type="text" placeholder="https://example.com" />
+        </section>
+      </details>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+  </html>
