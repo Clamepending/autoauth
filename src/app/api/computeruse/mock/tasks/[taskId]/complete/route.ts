@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { emitAgentEvent } from "@/lib/agent-events";
 import {
   appendComputerUseRunEvent,
+  markComputerUseRunFinalState,
   markComputerUseRunFromTaskResult,
 } from "@/lib/computeruse-runs";
 import {
@@ -93,6 +94,8 @@ export async function POST(request: Request, context: Context) {
   const status = rawStatus === "failed" ? "failed" : "completed";
   const summary =
     typeof payload?.summary === "string" ? payload.summary.trim() : null;
+  const phase =
+    typeof payload?.phase === "string" ? payload.phase.trim().toLowerCase() : "";
   const openedUrl = typeof payload?.url === "string" ? payload.url : task.url;
   const result =
     status === "completed"
@@ -123,39 +126,57 @@ export async function POST(request: Request, context: Context) {
   }
 
   if (updated.agentUsername) {
+    const isLocalAgentPlanReady = updated.type === "start_local_agent_goal" && phase === "plan_ready";
     emitAgentEvent({
       type:
-        status === "completed"
-          ? "computeruse.task.completed"
-          : "computeruse.task.failed",
+        isLocalAgentPlanReady
+          ? "computeruse.local_agent.plan_ready"
+          : status === "completed"
+            ? "computeruse.task.completed"
+            : "computeruse.task.failed",
       agentUsername: updated.agentUsername,
       deviceId: updated.deviceId,
       data: {
         task_id: updated.id,
         run_id: updated.runId,
         status,
+        phase: phase || null,
         result: updated.result,
         error: updated.error,
-        executor: "mock_open_url",
+        executor:
+          updated.type === "start_local_agent_goal" ? "local_browser_agent" : "mock_open_url",
       },
     });
   }
 
   if (updated.runId) {
-    const run = await markComputerUseRunFromTaskResult(updated);
+    const isLocalAgentPlanReady = updated.type === "start_local_agent_goal" && phase === "plan_ready";
+    const run = isLocalAgentPlanReady
+      ? null
+      : await markComputerUseRunFromTaskResult(updated);
     await appendComputerUseRunEvent({
       runId: updated.runId,
       type:
-        status === "completed"
-          ? "computeruse.task.completed"
-          : "computeruse.task.failed",
+        isLocalAgentPlanReady
+          ? "computeruse.local_agent.plan_ready"
+          : status === "completed"
+            ? "computeruse.task.completed"
+            : "computeruse.task.failed",
       data: {
         task_id: updated.id,
         status,
+        phase: phase || null,
         result: updated.result,
         error: updated.error,
       },
     });
+    if (isLocalAgentPlanReady) {
+      await markComputerUseRunFinalState({
+        runId: updated.runId,
+        taskId: updated.id,
+        status: "running",
+      });
+    }
     if (run) {
       await appendComputerUseRunEvent({
         runId: updated.runId,

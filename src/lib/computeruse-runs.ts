@@ -281,6 +281,23 @@ export async function markComputerUseRunFromTaskResult(task: ComputerUseTaskReco
   });
 }
 
+export async function markComputerUseRunFinalState(params: {
+  runId: string;
+  taskId?: string | null;
+  status: ComputerUseRunStatus;
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+}) {
+  return updateRun({
+    runId: params.runId,
+    status: params.status,
+    currentTaskId:
+      typeof params.taskId === "undefined" ? undefined : (params.taskId ?? null),
+    result: typeof params.result === "undefined" ? undefined : (params.result ?? null),
+    error: typeof params.error === "undefined" ? undefined : (params.error ?? null),
+  });
+}
+
 export async function clearComputerUseRunsForTests() {
   await ensureComputerUseRunSchema();
   const client = getTursoClient();

@@ -46,6 +46,7 @@ function buildDefaultLocalAgentRuntime() {
     lastError: "",
     lastResult: null,
     pendingPlan: null,
+    cloudTaskId: "",
     logs: [],
     updatedAt: new Date().toISOString(),
   };
@@ -293,12 +294,13 @@ async function handleDeliveredDeviceTask(task, sourceLabel) {
   if (task.type === "start_local_agent_goal") {
     try {
       await initializeLocalChatSessionOnActiveTab({ source: "cloud_task" }).catch(() => null);
-      await generateLocalAgentPlan(task.goal);
+      await generateLocalAgentPlan(task.goal, { cloudTaskId: task.id || "" });
       if (task.id) {
         await setStorage({ lastTaskId: task.id });
         await reportTaskCompletion({
           taskId: task.id,
           status: "completed",
+          phase: "plan_ready",
           summary: "Local browser-agent plan generated and awaiting user approval in the extension side panel.",
           url: null,
         });
@@ -448,6 +450,22 @@ function deriveDeviceClaimTokenEndpoint(pollEndpoint) {
   }
 }
 
+function deriveLocalAgentCompleteEndpoint(pollEndpoint, taskId) {
+  const parsed = parseHttpUrl(pollEndpoint);
+  if (!parsed || !taskId) return null;
+  try {
+    const url = new URL(parsed);
+    if (!url.pathname.endsWith("/next-task")) return null;
+    url.pathname = url.pathname.replace(
+      /\/next-task$/,
+      `/tasks/${encodeURIComponent(String(taskId))}/local-agent-complete`
+    );
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function generateAgentPairToken() {
   return `browser_${Math.random().toString(36).slice(2, 8)}${Math.random()
     .toString(36)
@@ -477,6 +495,7 @@ async function reportTaskCompletion(params) {
       },
       body: JSON.stringify({
         status: params?.status || "completed",
+        phase: params?.phase || null,
         url: params?.url || null,
         error: params?.error || null,
         summary:
@@ -495,6 +514,50 @@ async function reportTaskCompletion(params) {
     const text = await response.text().catch(() => "");
     await setStatus(
       `Completion callback error ${response.status}${text ? `: ${text.slice(0, 80)}` : ""}`
+    );
+    return { ok: false, error: `HTTP ${response.status}` };
+  }
+
+  return { ok: true };
+}
+
+async function reportLocalAgentFinalCompletion(params) {
+  const taskId = params?.taskId ? String(params.taskId) : "";
+  if (!taskId) return { ok: false, skipped: true, error: "Missing taskId" };
+
+  const { pollEndpoint, deviceId, authToken } = await getStorage(DEFAULTS);
+  const endpoint = deriveLocalAgentCompleteEndpoint(pollEndpoint, taskId);
+  if (!endpoint) {
+    await setStatus("Cannot derive local-agent-complete endpoint from poll endpoint");
+    return { ok: false, error: "Invalid poll endpoint for local agent final callback" };
+  }
+
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-OttoAuth-Mock-Device": String(deviceId || ""),
+        ...(authToken ? { "Authorization": `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({
+        status: params?.status === "failed" ? "failed" : "completed",
+        summary: typeof params?.summary === "string" ? params.summary : "",
+        result: params?.result ?? null,
+        error: params?.error || null,
+      }),
+    });
+  } catch (error) {
+    await setStatus(`Local agent final callback failed: ${String(error)}`);
+    return { ok: false, error: String(error) };
+  }
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    await setStatus(
+      `Local agent final callback error ${response.status}${text ? `: ${text.slice(0, 80)}` : ""}`
     );
     return { ok: false, error: `HTTP ${response.status}` };
   }
@@ -1706,7 +1769,7 @@ async function callOpenAiCompatiblePlanGenerator(params) {
   };
 }
 
-async function generateLocalAgentPlan(goalInput) {
+async function generateLocalAgentPlan(goalInput, options = {}) {
   if (localAgentRunning) {
     throw new Error("A local browser agent session is already running");
   }
@@ -1720,6 +1783,7 @@ async function generateLocalAgentPlan(goalInput) {
     lastError: "",
     lastResult: null,
     pendingPlan: null,
+    cloudTaskId: typeof options?.cloudTaskId === "string" ? options.cloudTaskId : "",
     endedAt: "",
   });
   await appendLocalAgentLog("user", "Send message", {
@@ -1754,6 +1818,7 @@ async function generateLocalAgentPlan(goalInput) {
     status: "awaiting_plan_approval",
     pendingPlan,
     goal,
+    cloudTaskId: typeof options?.cloudTaskId === "string" ? options.cloudTaskId : "",
   });
   await appendLocalAgentLog("plan", "Plan ready for approval", pendingPlan);
   await setStatus("Plan ready for approval");
@@ -1875,6 +1940,8 @@ async function runLocalAgentGoal(goalInput, options = {}) {
   }
   localAgentRunning = true;
   const settings = await getStorage(DEFAULTS);
+  const runtimeAtStart = await getLocalAgentRuntime();
+  const cloudTaskIdAtStart = String(runtimeAtStart?.cloudTaskId || "").trim();
   const goal = safeString(goalInput || settings.localAgentGoal, 2000);
   if (!goal) throw new Error("Missing local agent goal");
   const mode = String(options?.mode || "new").toLowerCase() === "continue" ? "continue" : "new";
@@ -1902,6 +1969,7 @@ async function runLocalAgentGoal(goalInput, options = {}) {
         lastError: "",
         lastResult: null,
         pendingPlan: null,
+        cloudTaskId: cloudTaskIdAtStart,
         logs: [],
       });
     } else {
@@ -1918,6 +1986,7 @@ async function runLocalAgentGoal(goalInput, options = {}) {
         lastError: "",
         lastResult: null,
         pendingPlan: null,
+        cloudTaskId: cloudTaskIdAtStart,
       });
     }
     await appendLocalAgentLog("user", mode === "new" ? "Create run" : "Send message", {
@@ -2095,6 +2164,17 @@ async function runLocalAgentGoal(goalInput, options = {}) {
           execResult?.result || null
         );
         await setStatus(`Local agent done: ${safeString(execResult?.result?.summary || "Completed", 120)}`);
+        if (cloudTaskIdAtStart) {
+          await reportLocalAgentFinalCompletion({
+            taskId: cloudTaskIdAtStart,
+            status: "completed",
+            summary:
+              safeString(execResult?.result?.summary || "Local browser-agent execution completed", 300) ||
+              "Local browser-agent execution completed",
+            result: execResult.result || null,
+          }).catch(() => null);
+          await patchLocalAgentRuntime({ cloudTaskId: "" });
+        }
         return {
           ok: true,
           sessionId: session.id,
@@ -2144,6 +2224,16 @@ async function runLocalAgentGoal(goalInput, options = {}) {
       sessionTabGroupId: session.tabGroupId ?? null,
     });
     await appendLocalAgentLog("error", message);
+    if (cloudTaskIdAtStart) {
+      await reportLocalAgentFinalCompletion({
+        taskId: cloudTaskIdAtStart,
+        status: "failed",
+        summary: "Local browser-agent execution failed",
+        error: message,
+        result: null,
+      }).catch(() => null);
+      await patchLocalAgentRuntime({ cloudTaskId: "" });
+    }
     throw error;
   } finally {
     localAgentAbortController = null;
