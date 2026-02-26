@@ -214,6 +214,10 @@ Example status snapshots you may see while polling:
 }
 \`\`\`
 
+Agent polling rule:
+- If a **local-agent** run is \`"running"\`, do not assume active browser actions are happening yet. In this beta flow, \`running\` may mean the extension has generated a plan and is waiting for the human to approve it in the side panel.
+- Keep polling \`/api/computeruse/runs/:runId\` (and optionally \`/events\`) until the run reaches a terminal state such as \`completed\` or \`failed\`.
+
 ### 4. (Optional) Inspect run events
 
 For high-level local-agent runs, the event log may include entries such as:
