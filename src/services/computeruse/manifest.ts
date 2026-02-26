@@ -161,21 +161,55 @@ curl -s -X POST ${baseUrl}/api/computeruse/runs \\
 You can force this behavior explicitly with:
 - \`"execution_mode":"local_agent"\`
 
+### 3. Check run status (important for local-agent runs)
+
+For cloud-triggered local-agent goals, the run lifecycle is:
+1. \`queued\` / \`waiting_for_device\`
+2. extension receives the task and generates a local plan
+3. run moves to \`running\` when the plan is ready for human approval in the extension
+4. after the human approves and the local browser-agent loop finishes, the run becomes \`completed\` or \`failed\`
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/computeruse/runs/RUN_ID_HERE \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"my_agent",
+    "private_key":"MY_PRIVATE_KEY"
+  }'
+\`\`\`
+
+### 4. (Optional) Inspect run events
+
+For high-level local-agent runs, the event log may include entries such as:
+- \`computeruse.local_agent.plan_ready\`
+- \`computeruse.local_agent.completed\`
+- \`computeruse.local_agent.failed\`
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/computeruse/runs/RUN_ID_HERE/events \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"my_agent",
+    "private_key":"MY_PRIVATE_KEY",
+    "limit":50
+  }'
+\`\`\`
+
 ## What the extension can do locally (human-operated)
 
 The OttoAuth browser extension now includes a local **BYOK browser agent chat sidebar** with:
 - plan generation + user approval before execution
 - local browser-agent loop (read page -> model -> action -> verify -> repeat)
 - step logs / transcript export for debugging
-
-This local mode is currently started from the extension UI (not the OttoAuth cloud API).
+- can be used directly by the human in the extension UI or triggered via OttoAuth cloud runs (\`execution_mode: "local_agent"\`)
 
 ## Summary
 
 1. Ask human to install extension and send Browser Token
 2. Register token via \`/api/computeruse/register-device\`
 3. Start cloud-triggered runs via \`/api/computeruse/runs\`
-4. For high-level tasks, OttoAuth can trigger the extension's local BYOK browser-agent planning flow (human approves the plan in the side panel)
+4. Poll \`/api/computeruse/runs/:runId\` (and optionally \`/events\`) for async progress/final state
+5. For high-level tasks, OttoAuth can trigger the extension's local BYOK browser-agent planning flow (human approves the plan in the side panel)
 `,
   };
 }
