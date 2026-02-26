@@ -94,6 +94,8 @@ export async function GET(request: Request) {
       id: task.id,
       type: task.type,
       url: task.url,
+      goal: task.goal,
+      taskPrompt: task.taskPrompt,
       deviceId: task.deviceId,
       createdAt: task.createdAt,
       waitedMs,

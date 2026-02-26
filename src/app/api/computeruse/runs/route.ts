@@ -13,6 +13,7 @@ import {
 } from "@/lib/computeruse-mock";
 import {
   enqueueComputerUseOpenUrlTask,
+  enqueueComputerUseLocalAgentGoalTask,
   getComputerUseDeviceByBrowserToken,
   getComputerUseDeviceById,
 } from "@/lib/computeruse-store";
@@ -91,15 +92,16 @@ export async function POST(request: Request) {
 
   const explicitUrl = parseHttpUrl(payload.url);
   const derivedUrl = explicitUrl ?? extractUrlFromTaskPrompt(taskPrompt);
-  if (!derivedUrl) {
-    return NextResponse.json(
-      {
-        error:
-          "Mock run executor can only open URLs right now. Include an http/https URL in task_prompt (or provide url).",
-      },
-      { status: 400 }
-    );
-  }
+  const requestedMode =
+    typeof payload.execution_mode === "string"
+      ? payload.execution_mode.trim().toLowerCase()
+      : typeof payload.executionMode === "string"
+        ? payload.executionMode.trim().toLowerCase()
+        : "";
+  const useLocalAgentGoal =
+    requestedMode === "local_agent" ||
+    requestedMode === "browser_agent" ||
+    !derivedUrl;
 
   const run = await createComputerUseRun({
     agentUsername: auth.usernameLower,
@@ -115,14 +117,23 @@ export async function POST(request: Request) {
     },
   });
 
-  const { task, queueSize } = await enqueueComputerUseOpenUrlTask({
-    url: derivedUrl,
-    deviceId: paired.device_id,
-    source: "computeruse_tasks",
-    agentUsername: auth.usernameLower,
-    taskPrompt,
-    runId: run.id,
-  });
+  const { task, queueSize } = useLocalAgentGoal
+    ? await enqueueComputerUseLocalAgentGoalTask({
+        goal: taskPrompt,
+        deviceId: paired.device_id,
+        source: "computeruse_tasks",
+        agentUsername: auth.usernameLower,
+        taskPrompt,
+        runId: run.id,
+      })
+    : await enqueueComputerUseOpenUrlTask({
+        url: derivedUrl as string,
+        deviceId: paired.device_id,
+        source: "computeruse_tasks",
+        agentUsername: auth.usernameLower,
+        taskPrompt,
+        runId: run.id,
+      });
 
   await markComputerUseRunWaitingForTask({ runId: run.id, taskId: task.id });
   await appendComputerUseRunEvent({
@@ -130,7 +141,9 @@ export async function POST(request: Request) {
     type: "computeruse.task.queued",
     data: {
       task_id: task.id,
-      mapped_action: { type: "open_url", url: derivedUrl },
+      mapped_action: useLocalAgentGoal
+        ? { type: "start_local_agent_goal", goal: taskPrompt }
+        : { type: "open_url", url: derivedUrl },
       queue_size: queueSize,
     },
   });
@@ -144,7 +157,9 @@ export async function POST(request: Request) {
       task_id: task.id,
       status: "waiting_for_device",
       task_prompt: taskPrompt,
-      mapped_action: { type: "open_url", url: derivedUrl },
+      mapped_action: useLocalAgentGoal
+        ? { type: "start_local_agent_goal", goal: taskPrompt }
+        : { type: "open_url", url: derivedUrl },
     },
   });
 
@@ -155,9 +170,13 @@ export async function POST(request: Request) {
     device_id: paired.device_id,
     task_prompt: taskPrompt,
     current_task_id: task.id,
-    mapped_action: { type: "open_url", url: derivedUrl },
+    mapped_action: useLocalAgentGoal
+      ? { type: "start_local_agent_goal", goal: taskPrompt }
+      : { type: "open_url", url: derivedUrl },
     queue_size: queueSize,
     event_id: agentEvent.id,
-    note: "Mock async computer-use run. Use /api/computeruse/runs/:runId and /events to track progress.",
+    note: useLocalAgentGoal
+      ? "Cloud-triggered local browser-agent task queued. The extension will generate a plan and ask for approval."
+      : "Mock async computer-use run. Use /api/computeruse/runs/:runId and /events to track progress.",
   });
 }

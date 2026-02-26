@@ -1,6 +1,6 @@
 import { ensureSchema } from "@/lib/db";
 import { getTursoClient } from "@/lib/turso";
-import type { MockComputerUseTaskRecord } from "@/lib/computeruse-mock";
+import type { ComputerUseTaskRecord } from "@/lib/computeruse-store";
 
 export type ComputerUseRunStatus =
   | "queued"
@@ -269,7 +269,7 @@ export async function markComputerUseRunRunning(params: {
   });
 }
 
-export async function markComputerUseRunFromTaskResult(task: MockComputerUseTaskRecord) {
+export async function markComputerUseRunFromTaskResult(task: ComputerUseTaskRecord) {
   const runId = task.runId?.trim();
   if (!runId) return null;
   return updateRun({

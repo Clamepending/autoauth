@@ -243,10 +243,87 @@ function extractTask(payload) {
     typeof task.command === "string" ? task.command :
     "open_url";
   const url = typeof task.url === "string" ? task.url : null;
+  const goal =
+    typeof task.goal === "string" ? task.goal :
+    typeof task.taskPrompt === "string" ? task.taskPrompt :
+    typeof task.task_prompt === "string" ? task.task_prompt :
+    null;
   const id = typeof task.id === "string" || typeof task.id === "number" ? String(task.id) : "";
 
-  if (type !== "open_url" || !url) return null;
-  return { id, url };
+  if (type === "open_url" && url) return { id, type, url };
+  if (type === "start_local_agent_goal" && goal && goal.trim()) {
+    return { id, type, goal: goal.trim() };
+  }
+  return null;
+}
+
+async function handleDeliveredDeviceTask(task, sourceLabel) {
+  const {
+    lastTaskId,
+    openInBackground,
+  } = await getStorage(DEFAULTS);
+
+  if (task.id && task.id === lastTaskId) {
+    await setStatus(`Skipping duplicate task ${task.id}`);
+    return { ok: true, duplicate: true, id: task.id };
+  }
+
+  if (task.type === "open_url") {
+    let opened;
+    try {
+      opened = await openUrl(task.url, sourceLabel, Boolean(openInBackground));
+    } catch (error) {
+      if (task.id) {
+        await reportTaskCompletion({
+          taskId: task.id,
+          status: "failed",
+          error: String(error?.message || error),
+          url: task.url,
+        });
+      }
+      throw error;
+    }
+    if (task.id) {
+      await setStorage({ lastTaskId: task.id });
+      await reportTaskCompletion({ taskId: task.id, status: "completed", url: opened });
+    }
+    return { ok: true, opened: true, id: task.id || null, url: task.url };
+  }
+
+  if (task.type === "start_local_agent_goal") {
+    try {
+      await initializeLocalChatSessionOnActiveTab({ source: "cloud_task" }).catch(() => null);
+      await generateLocalAgentPlan(task.goal);
+      if (task.id) {
+        await setStorage({ lastTaskId: task.id });
+        await reportTaskCompletion({
+          taskId: task.id,
+          status: "completed",
+          summary: "Local browser-agent plan generated and awaiting user approval in the extension side panel.",
+          url: null,
+        });
+      }
+      await showNotification({
+        title: "OttoAuth plan ready",
+        message: "A cloud-triggered browser task is ready for plan approval in the side panel.",
+      }).catch(() => null);
+      return { ok: true, planned: true, id: task.id || null };
+    } catch (error) {
+      if (task.id) {
+        await reportTaskCompletion({
+          taskId: task.id,
+          status: "failed",
+          error: String(error?.message || error),
+          url: null,
+          summary: "Failed to generate local browser-agent plan",
+        });
+      }
+      throw error;
+    }
+  }
+
+  await setStatus(`Unhandled task type: ${String(task.type || "")}`);
+  return { ok: false, error: "Unhandled task type" };
 }
 
 async function pollOnce() {
@@ -255,8 +332,6 @@ async function pollOnce() {
     pollEndpoint,
     deviceId,
     authToken,
-    lastTaskId,
-    openInBackground,
   } = await getStorage(DEFAULTS);
 
   if (!pollEnabled) return { ok: true, skipped: true };
@@ -308,35 +383,10 @@ async function pollOnce() {
 
   const task = extractTask(payload);
   if (!task) {
-    await setStatus("No usable open_url task in response");
+    await setStatus("No usable task in response");
     return { ok: true, empty: true };
   }
-
-  if (task.id && task.id === lastTaskId) {
-    await setStatus(`Skipping duplicate task ${task.id}`);
-    return { ok: true, duplicate: true, id: task.id };
-  }
-
-  let opened;
-  try {
-    opened = await openUrl(task.url, "poll", Boolean(openInBackground));
-  } catch (error) {
-    if (task.id) {
-      await reportTaskCompletion({
-        taskId: task.id,
-        status: "failed",
-        error: String(error?.message || error),
-        url: task.url,
-      });
-    }
-    throw error;
-  }
-  if (task.id) {
-    await setStorage({ lastTaskId: task.id });
-    await reportTaskCompletion({ taskId: task.id, status: "completed", url: opened });
-  }
-
-  return { ok: true, opened: true, id: task.id || null, url: task.url };
+  return handleDeliveredDeviceTask(task, "poll");
 }
 
 function deriveWaitEndpoint(pollEndpoint) {
@@ -430,9 +480,10 @@ async function reportTaskCompletion(params) {
         url: params?.url || null,
         error: params?.error || null,
         summary:
-          params?.status === "failed"
-            ? "Extension failed to open URL"
-            : `Extension opened ${params?.url || "URL"}`,
+          (typeof params?.summary === "string" && params.summary.trim()) ||
+          (params?.status === "failed"
+            ? "Extension task failed"
+            : `Extension opened ${params?.url || "URL"}`),
       }),
     });
   } catch (error) {
@@ -2226,8 +2277,6 @@ async function waitForTaskOnce() {
     pollEndpoint,
     deviceId,
     authToken,
-    lastTaskId,
-    openInBackground,
   } = await getStorage(DEFAULTS);
 
   const endpoint = deriveWaitEndpoint(pollEndpoint);
@@ -2278,34 +2327,10 @@ async function waitForTaskOnce() {
 
   const task = extractTask(payload);
   if (!task) {
-    await setStatus("Live wait returned no usable open_url task");
+    await setStatus("Live wait returned no usable task");
     return { ok: true, empty: true };
   }
-
-  if (task.id && task.id === lastTaskId) {
-    await setStatus(`Live wait duplicate task ${task.id}`);
-    return { ok: true, duplicate: true, id: task.id };
-  }
-
-  let opened;
-  try {
-    opened = await openUrl(task.url, "live-listen", Boolean(openInBackground));
-  } catch (error) {
-    if (task.id) {
-      await reportTaskCompletion({
-        taskId: task.id,
-        status: "failed",
-        error: String(error?.message || error),
-        url: task.url,
-      });
-    }
-    throw error;
-  }
-  if (task.id) {
-    await setStorage({ lastTaskId: task.id });
-    await reportTaskCompletion({ taskId: task.id, status: "completed", url: opened });
-  }
-  return { ok: true, opened: true, id: task.id || null, url: task.url };
+  return handleDeliveredDeviceTask(task, "live-listen");
 }
 
 async function ensureLiveListenLoopRunning() {

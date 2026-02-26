@@ -10,12 +10,14 @@ export type ComputerUseDeviceRecord = {
 };
 
 export type ComputerUseTaskStatus = "queued" | "delivered" | "completed" | "failed";
+export type ComputerUseTaskType = "open_url" | "start_local_agent_goal";
 
 export type ComputerUseTaskRecord = {
   id: string;
   deviceId: string;
-  type: "open_url";
-  url: string;
+  type: ComputerUseTaskType;
+  url: string | null;
+  goal: string | null;
   createdAt: string;
   status: ComputerUseTaskStatus;
   deliveredAt: string | null;
@@ -54,7 +56,7 @@ async function ensureComputerUseTransportSchema() {
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
       type TEXT NOT NULL,
-      url TEXT NOT NULL,
+      url TEXT,
       status TEXT NOT NULL,
       source TEXT NOT NULL,
       agent_username TEXT,
@@ -97,11 +99,14 @@ function parseJsonObject(value: unknown): Record<string, unknown> | null {
 }
 
 function mapTaskRow(row: Record<string, unknown>): ComputerUseTaskRecord {
+  const type = String(row.type || "open_url") as ComputerUseTaskType;
+  const taskPrompt = row.task_prompt ? String(row.task_prompt) : null;
   return {
     id: String(row.id),
     deviceId: String(row.device_id),
-    type: "open_url",
-    url: String(row.url),
+    type,
+    url: row.url == null || String(row.url) === "" ? null : String(row.url),
+    goal: type === "start_local_agent_goal" ? taskPrompt : null,
     createdAt: String(row.created_at),
     status: String(row.status) as ComputerUseTaskStatus,
     deliveredAt: row.delivered_at ? String(row.delivered_at) : null,
@@ -110,7 +115,7 @@ function mapTaskRow(row: Record<string, unknown>): ComputerUseTaskRecord {
     error: row.error ? String(row.error) : null,
     source: (String(row.source) as ComputerUseTaskRecord["source"]) ?? "direct_mock_queue",
     agentUsername: row.agent_username ? String(row.agent_username) : null,
-    taskPrompt: row.task_prompt ? String(row.task_prompt) : null,
+    taskPrompt,
     runId: row.run_id ? String(row.run_id) : null,
     updatedAt: String(row.updated_at),
   };
@@ -228,6 +233,7 @@ export async function enqueueComputerUseOpenUrlTask(params: {
     deviceId: params.deviceId.trim() || "local-device-1",
     type: "open_url",
     url: params.url,
+    goal: null,
     createdAt: now,
     status: "queued",
     deliveredAt: null,
@@ -250,6 +256,66 @@ export async function enqueueComputerUseOpenUrlTask(params: {
       task.deviceId,
       task.type,
       task.url,
+      task.status,
+      task.source,
+      task.agentUsername,
+      task.taskPrompt,
+      task.runId,
+      null,
+      null,
+      task.createdAt,
+      null,
+      null,
+      task.updatedAt,
+    ],
+  });
+
+  const queueSize = await getQueuedComputerUseTaskCount();
+  return { task, queueSize };
+}
+
+export async function enqueueComputerUseLocalAgentGoalTask(params: {
+  goal: string;
+  deviceId: string;
+  id?: string;
+  source?: ComputerUseTaskRecord["source"];
+  agentUsername?: string | null;
+  taskPrompt?: string | null;
+  runId?: string | null;
+}) {
+  await ensureComputerUseTransportSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  const id = params.id?.trim() || `mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const goal = params.goal.trim();
+  const task: ComputerUseTaskRecord = {
+    id,
+    deviceId: params.deviceId.trim() || "local-device-1",
+    type: "start_local_agent_goal",
+    url: null,
+    goal,
+    createdAt: now,
+    status: "queued",
+    deliveredAt: null,
+    completedAt: null,
+    result: null,
+    error: null,
+    source: params.source ?? "computeruse_tasks",
+    agentUsername: params.agentUsername?.trim().toLowerCase() || null,
+    taskPrompt: params.taskPrompt?.trim() || goal,
+    runId: params.runId?.trim() || null,
+    updatedAt: now,
+  };
+
+  await client.execute({
+    sql: `INSERT INTO computeruse_tasks
+      (id, device_id, type, url, status, source, agent_username, task_prompt, run_id, result_json, error, created_at, delivered_at, completed_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      task.id,
+      task.deviceId,
+      task.type,
+      "", // existing schema rows historically require a url; empty string keeps compatibility
       task.status,
       task.source,
       task.agentUsername,
