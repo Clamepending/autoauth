@@ -178,6 +178,42 @@ curl -s -X POST ${baseUrl}/api/computeruse/runs/RUN_ID_HERE \\
   }'
 \`\`\`
 
+Example status snapshots you may see while polling:
+
+\`\`\`json
+{
+  "run": {
+    "id": "run_123",
+    "status": "waiting_for_device"
+  }
+}
+\`\`\`
+
+\`\`\`json
+{
+  "run": {
+    "id": "run_123",
+    "status": "running"
+  },
+  "note": "The extension has generated a local plan and is waiting for human approval in the side panel."
+}
+\`\`\`
+
+\`\`\`json
+{
+  "run": {
+    "id": "run_123",
+    "status": "completed"
+  },
+  "current_task": {
+    "status": "completed",
+    "result": {
+      "summary": "Local browser-agent run completed after human-approved plan."
+    }
+  }
+}
+\`\`\`
+
 ### 4. (Optional) Inspect run events
 
 For high-level local-agent runs, the event log may include entries such as:
