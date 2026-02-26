@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "package:extension": "./scripts/package-extension.sh"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
