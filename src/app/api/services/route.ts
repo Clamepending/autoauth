@@ -4,10 +4,12 @@ import { getBaseUrl } from "@/lib/base-url";
 
 export async function GET() {
   const baseUrl = getBaseUrl();
-  const active = getAllManifests().filter((m) => m.status === "active");
+  const visible = getAllManifests().filter(
+    (m) => m.status === "active" || m.status === "beta"
+  );
 
   return NextResponse.json({
-    services: active.map((m) => ({
+    services: visible.map((m) => ({
       id: m.id,
       description: m.description,
       docsUrl: `${baseUrl}/api/services/${m.id}`,
