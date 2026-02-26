@@ -4,12 +4,16 @@ const LOCAL_AGENT_LOG_LIMIT = 200;
 const DEFAULTS = {
   pollEnabled: false,
   pollEndpoint: "https://ottoauth.vercel.app/api/computeruse/device/next-task",
-  deviceId: "local-device-1",
+  deviceId: "",
   authToken: "",
   agentPairToken: "",
   llmBaseUrl: "https://api.openai.com",
-  llmModel: "gpt-4.1-mini",
+  llmProvider: "openai",
+  llmModel: "gpt-5-mini",
   llmApiKey: "",
+  anthropicApiKey: "",
+  googleApiKey: "",
+  planApprovalMode: "ask_first",
   localAgentMaxSteps: 12,
   localAgentGoal: "",
   openInBackground: false,
@@ -18,10 +22,95 @@ const DEFAULTS = {
   lastStatus: "Idle",
 };
 
+const LLM_MODEL_CATALOG = {
+  openai: [
+    { id: "gpt-5.3-codex", apiModel: "gpt-5-codex", label: "GPT 5.3-codex", description: "Coding-focused GPT-5 model" },
+    { id: "gpt-5-thinking-high", apiModel: "gpt-5", reasoningEffort: "high", label: "GPT-5-Thinking (High)", description: "High-reasoning GPT-5 mode" },
+    { id: "gpt-5-mini", apiModel: "gpt-5-mini", label: "GPT-5 mini", description: "Fast and efficient GPT-5 option" },
+    { id: "gpt-5.2-pro", apiModel: "gpt-5.2-pro", label: "GPT-5.2 Pro", description: "High-capability GPT-5.2 model" },
+  ],
+  anthropic: [
+    { id: "claude-opus-4-6", label: "Opus 4.6", description: "Most capable for complex tasks" },
+    { id: "claude-sonnet-4-6", label: "Sonnet 4.6", description: "Balanced performance and speed" },
+    { id: "claude-haiku-4-5", label: "Haiku 4.5", description: "Fastest low-latency responses" },
+  ],
+  google: [
+    { id: "gemini-3.1-pro", apiModel: "gemini-pro-latest", label: "Gemini 3.1 Pro", description: "Latest Gemini Pro alias" },
+    { id: "gemini-3-flash", apiModel: "gemini-flash-latest", label: "Gemini 3 Flash", description: "Latest Gemini Flash alias" },
+  ],
+};
+
+function normalizeLlmProvider(provider) {
+  const p = String(provider || "").trim().toLowerCase();
+  if (p === "anthropic" || p === "google" || p === "openai") return p;
+  return "openai";
+}
+
+function getConfiguredProvidersFromSettings(settings) {
+  const providers = [];
+  if (String(settings?.llmApiKey || "").trim()) providers.push("openai");
+  if (String(settings?.anthropicApiKey || "").trim()) providers.push("anthropic");
+  if (String(settings?.googleApiKey || "").trim()) providers.push("google");
+  return providers;
+}
+
+function getLlmProviderConfigFromSettings(settings) {
+  const configured = getConfiguredProvidersFromSettings(settings);
+  const requested = normalizeLlmProvider(settings?.llmProvider);
+  const provider = configured.includes(requested)
+    ? requested
+    : (configured[0] || "openai");
+
+  const modelCatalog = LLM_MODEL_CATALOG[provider] || [];
+  const fallbackModel = modelCatalog[0]?.id || DEFAULTS.llmModel;
+  const currentModel = String(settings?.llmModel || "").trim();
+  const selectedId = currentModel || fallbackModel;
+  const selectedEntry = modelCatalog.find((m) => m.id === selectedId) || null;
+  const model = String(selectedEntry?.apiModel || selectedId || "");
+
+  return {
+    provider,
+    model,
+    modelChoiceId: selectedId,
+    reasoningEffort: typeof selectedEntry?.reasoningEffort === "string" ? selectedEntry.reasoningEffort : "",
+    baseUrl: normalizeLlmBaseUrl(settings?.llmBaseUrl || DEFAULTS.llmBaseUrl),
+    openAiApiKey: String(settings?.llmApiKey || "").trim(),
+    anthropicApiKey: String(settings?.anthropicApiKey || "").trim(),
+    googleApiKey: String(settings?.googleApiKey || "").trim(),
+  };
+}
+
+function extractOpenAiResponsesText(payload) {
+  if (typeof payload?.output_text === "string" && payload.output_text.trim()) {
+    return payload.output_text;
+  }
+  const chunks = [];
+  if (Array.isArray(payload?.output)) {
+    for (const item of payload.output) {
+      if (!item || !Array.isArray(item.content)) continue;
+      for (const part of item.content) {
+        if (typeof part?.text === "string" && part.text) chunks.push(part.text);
+      }
+    }
+  }
+  return chunks.join("\n").trim();
+}
+
 let liveListenLoopActive = false;
 let localAgentRunning = false;
 let localAgentAbortController = null;
 let localAgentRuntimeCache = null;
+
+function generateDeviceId() {
+  try {
+    if (globalThis.crypto?.randomUUID) {
+      return `device_${globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    }
+  } catch {
+    // fallback below
+  }
+  return `device_${Math.random().toString(36).slice(2, 12)}${Date.now().toString(36).slice(-4)}`;
+}
 
 function getStorage(keys) {
   return chrome.storage.local.get(keys);
@@ -164,7 +253,60 @@ async function requestLocalAgentStop() {
     cancelRequested: true,
     status: localAgentRunning ? "stop_requested" : "idle",
   });
+  const runtime = await getLocalAgentRuntime().catch(() => null);
+  await setExecutionViewportOverlay(runtime?.sessionTabId, false);
   await appendLocalAgentLog("control", "Stop requested");
+  return { ok: true };
+}
+
+async function terminateLocalAgentSessionFromContainerChange(reason, details = {}) {
+  const runtime = await getLocalAgentRuntime();
+  const hasSession = Boolean(runtime?.sessionId) && Number.isFinite(Number(runtime?.sessionTabId));
+  if (!hasSession) return { ok: true, skipped: true };
+
+  if (localAgentAbortController) {
+    try {
+      localAgentAbortController.abort(`Session stopped: ${reason}`);
+    } catch {
+      // ignore
+    }
+  }
+
+  await patchLocalAgentRuntime({
+    isRunning: false,
+    cancelRequested: true,
+    status: "stopped",
+    endedAt: new Date().toISOString(),
+    lastError: "",
+    pendingPlan: null,
+  });
+  await setExecutionViewportOverlay(runtime?.sessionTabId, false);
+  await appendLocalAgentLog(
+    "system",
+    `Session ended: ${reason}`,
+    details
+  );
+  await setStatus(`Local agent session ended: ${reason}`);
+  return { ok: true };
+}
+
+async function clearLocalAgentChat() {
+  const runtime = await getLocalAgentRuntime();
+  if (runtime?.isRunning) {
+    throw new Error("Stop the agent before clearing chat");
+  }
+  const cleared = {
+    ...runtime,
+    logs: [],
+    step: 0,
+    lastError: "",
+    lastResult: null,
+    pendingPlan: null,
+    status: runtime?.sessionId ? "idle" : "idle",
+    endedAt: "",
+  };
+  await saveLocalAgentRuntime(cleared);
+  await setStatus("Chat cleared");
   return { ok: true };
 }
 
@@ -589,6 +731,67 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function setExecutionViewportOverlay(tabId, enabled) {
+  if (!Number.isFinite(Number(tabId))) return;
+  let tab;
+  try {
+    tab = await chrome.tabs.get(Number(tabId));
+  } catch {
+    return;
+  }
+  const url = String(tab?.url || "");
+  if (!/^https?:/i.test(url)) return;
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: Number(tabId) },
+      args: [Boolean(enabled)],
+      func: (isEnabled) => {
+        const OVERLAY_ID = "__ottoauth_agent_running_overlay";
+        const existing = document.getElementById(OVERLAY_ID);
+        if (!isEnabled) {
+          if (existing) existing.remove();
+          return;
+        }
+
+        let el = existing;
+        if (!el) {
+          el = document.createElement("div");
+          el.id = OVERLAY_ID;
+          document.documentElement.appendChild(el);
+        }
+        Object.assign(el.style, {
+          position: "fixed",
+          inset: "0",
+          pointerEvents: "none",
+          zIndex: "2147483647",
+          boxSizing: "border-box",
+          border: "2px solid rgba(181, 132, 255, 0.9)",
+          boxShadow: [
+            "inset 0 0 0 1px rgba(239, 227, 255, 0.42)",
+            "0 0 22px rgba(115, 64, 214, 0.46)",
+            "0 0 56px rgba(84, 39, 178, 0.28)",
+            "0 0 96px rgba(55, 20, 121, 0.18)",
+          ].join(", "),
+          borderRadius: "0px",
+          background: [
+            // top edge fade inward
+            "linear-gradient(to bottom, rgba(74, 34, 138, 0.58), rgba(64, 27, 127, 0.34) 42%, rgba(45, 18, 90, 0.14) 68%, rgba(0,0,0,0) 100%) top / 100% 22px no-repeat",
+            // bottom edge fade inward
+            "linear-gradient(to top, rgba(68, 30, 132, 0.52), rgba(57, 24, 114, 0.3) 40%, rgba(42, 16, 82, 0.12) 66%, rgba(0,0,0,0) 100%) bottom / 100% 22px no-repeat",
+            // left edge fade inward
+            "linear-gradient(to right, rgba(72, 32, 136, 0.56), rgba(60, 25, 118, 0.32) 42%, rgba(43, 17, 85, 0.13) 68%, rgba(0,0,0,0) 100%) left / 22px 100% no-repeat",
+            // right edge fade inward
+            "linear-gradient(to left, rgba(72, 32, 136, 0.56), rgba(60, 25, 118, 0.32) 42%, rgba(43, 17, 85, 0.13) 68%, rgba(0,0,0,0) 100%) right / 22px 100% no-repeat",
+          ].join(", "),
+        });
+      },
+    });
+  } catch {
+    // Ignore overlay failures on transient navigation / restricted pages.
+  }
+}
+
 function normalizeLlmBaseUrl(input) {
   const parsed = parseHttpUrl(input);
   if (!parsed) return null;
@@ -632,7 +835,157 @@ function parseJsonFromModelText(text) {
 
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenced ? fenced[1].trim() : raw;
-  return JSON.parse(candidate);
+
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    // Anthropic (and sometimes others) may prepend prose before the JSON.
+    // Extract the first balanced JSON object/array and parse that.
+    const starts = [];
+    for (let i = 0; i < candidate.length; i += 1) {
+      const ch = candidate[i];
+      if (ch === "{" || ch === "[") starts.push(i);
+    }
+
+    for (const start of starts) {
+      const open = candidate[start];
+      const close = open === "{" ? "}" : "]";
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+
+      for (let i = start; i < candidate.length; i += 1) {
+        const ch = candidate[i];
+        if (inString) {
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+          if (ch === "\\") {
+            escaped = true;
+            continue;
+          }
+          if (ch === "\"") {
+            inString = false;
+          }
+          continue;
+        }
+
+        if (ch === "\"") {
+          inString = true;
+          continue;
+        }
+        if (ch === open) {
+          depth += 1;
+          continue;
+        }
+        if (ch === close) {
+          depth -= 1;
+          if (depth === 0) {
+            const slice = candidate.slice(start, i + 1).trim();
+            try {
+              return JSON.parse(slice);
+            } catch {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    throw new Error(`Model returned non-JSON text: ${candidate.slice(0, 120)}`);
+  }
+}
+
+function compactObservationForLlm(observation, mode = "planner") {
+  if (!observation || typeof observation !== "object") return observation;
+  const textLimit = mode === "plan" ? 1200 : mode === "done" ? 900 : 1600;
+  const interactiveLimit = mode === "plan" ? 14 : mode === "done" ? 12 : 20;
+  const formControlLimit = mode === "plan" ? 8 : 12;
+
+  const compactInteractive = Array.isArray(observation.interactiveElements)
+    ? observation.interactiveElements.slice(0, interactiveLimit).map((el) => ({
+        role: safeString(String(el?.role || ""), 30),
+        text: safeString(String(el?.text || ""), 100),
+        label: safeString(String(el?.label || ""), 100),
+        selector: safeString(String(el?.selector || ""), 160),
+      }))
+    : [];
+
+  const compactEditable = Array.isArray(observation.editableFields)
+    ? observation.editableFields.slice(0, 8).map((f) => ({
+        kind: safeString(String(f?.kind || ""), 20),
+        role: safeString(String(f?.role || ""), 20),
+        label: safeString(String(f?.label || ""), 100),
+      }))
+    : [];
+
+  const compactControls = Array.isArray(observation.formControls)
+    ? observation.formControls.slice(0, formControlLimit).map((c) => ({
+        kind: safeString(String(c?.kind || ""), 20),
+        checked: Boolean(c?.checked),
+        label: safeString(String(c?.label || ""), 120),
+        selector: safeString(String(c?.selector || ""), 180),
+        group: safeString(String(c?.group || ""), 80),
+      }))
+    : [];
+
+  return {
+    url: safeString(String(observation.url || ""), 400),
+    title: safeString(String(observation.title || ""), 160),
+    pageKind: safeString(String(observation.pageKind || ""), 40),
+    pageTextExcerpt: safeString(String(observation.pageTextExcerpt || ""), textLimit),
+    activeModal: observation.activeModal
+      ? {
+          title: safeString(String(observation.activeModal.title || ""), 140),
+          text: safeString(String(observation.activeModal.text || ""), 350),
+          interactiveCount: Number(observation.activeModal.interactiveCount || 0),
+        }
+      : null,
+    interactiveElements: compactInteractive,
+    interactiveCount: Number(observation.interactiveCount || compactInteractive.length || 0),
+    editableFields: compactEditable,
+    formControls: compactControls,
+    formControlStateHash: safeString(String(observation.formControlStateHash || ""), 40),
+    quizProgress: observation.quizProgress
+      ? {
+          answered: Number(observation.quizProgress.answered || 0),
+          total: Number(observation.quizProgress.total || 0),
+        }
+      : null,
+    focusedElement: observation.focusedElement
+      ? {
+          tag: safeString(String(observation.focusedElement.tag || ""), 20),
+          role: safeString(String(observation.focusedElement.role || ""), 20),
+          label: safeString(String(observation.focusedElement.label || ""), 80),
+        }
+      : null,
+  };
+}
+
+function compactPreviousActionsForLlm(previousActions, limit = 8) {
+  if (!Array.isArray(previousActions)) return [];
+  return previousActions.slice(-limit).map((a) => ({
+    step: Number(a?.step || 0),
+    observedUrl: safeString(String(a?.observedUrl || ""), 300),
+    action: a?.action
+      ? {
+          type: safeString(String(a.action.type || ""), 40),
+          text: safeString(String(a.action.text || ""), 120),
+          selector: safeString(String(a.action.selector || ""), 160),
+          url: safeString(String(a.action.url || ""), 220),
+          ms: Number(a.action.ms || 0) || undefined,
+        }
+      : null,
+    exec: a?.execResult
+      ? {
+          ok: Boolean(a.execResult.ok),
+          code: safeString(String(a.execResult.code || a.execResult?.verification?.code || ""), 40),
+          verificationFailed: Boolean(a.execResult.verificationFailed),
+          message: safeString(String(a.execResult.message || a.execResult?.verification?.message || ""), 160),
+        }
+      : null,
+  }));
 }
 
 function isGoogleDocsEditorUrl(url) {
@@ -1622,12 +1975,202 @@ async function executeLocalAgentAction(session, action) {
   throw new Error(`Unsupported action type: ${type}`);
 }
 
-async function callOpenAiCompatiblePlanner(params) {
-  const baseUrl = normalizeLlmBaseUrl(params.baseUrl);
-  if (!baseUrl) throw new Error("Invalid LLM base URL");
-  if (!params.apiKey) throw new Error("Missing LLM API key (BYOK)");
-  if (!params.model) throw new Error("Missing model");
+async function callLlmJsonByProvider(params) {
+  const provider = normalizeLlmProvider(params.provider);
+  const model = safeString(params.model, 120);
+  if (!model) throw new Error("Missing model");
+  const systemPrompt = String(params.systemPrompt || "");
+  const userPrompt = String(params.userPrompt || "");
 
+  if (provider === "openai") {
+    const baseUrl = normalizeLlmBaseUrl(params.baseUrl);
+    if (!baseUrl) throw new Error("Invalid OpenAI-compatible base URL");
+    if (!params.apiKey) throw new Error("Missing OpenAI API key");
+    const commonHeaders = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${params.apiKey}`,
+    };
+    const tryResponsesFirst =
+      model.startsWith("gpt-5") || model.includes("codex") || model.includes("o1") || model.includes("o3");
+
+    async function tryOpenAiResponses() {
+      const body = {
+        model,
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      };
+      if (typeof params.reasoningEffort === "string" && params.reasoningEffort.trim()) {
+        body.reasoning = { effort: params.reasoningEffort.trim() };
+      }
+      const response = await fetch(`${baseUrl}/v1/responses`, {
+        method: "POST",
+        signal: params?.signal || undefined,
+        headers: commonHeaders,
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        const err = new Error(`OpenAI API ${response.status}${text ? `: ${text.slice(0, 300)}` : ""}`);
+        err._openaiStatus = response.status;
+        err._openaiBody = text;
+        throw err;
+      }
+      const payload = await response.json();
+      const content = extractOpenAiResponsesText(payload);
+      if (!content) throw new Error("OpenAI responses API missing output text");
+      return parseJsonFromModelText(content);
+    }
+
+    async function tryOpenAiChatCompletions() {
+      const chatBody = {
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+      };
+      const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+        method: "POST",
+        signal: params?.signal || undefined,
+        headers: commonHeaders,
+        body: JSON.stringify(chatBody),
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`OpenAI API ${response.status}${text ? `: ${text.slice(0, 300)}` : ""}`);
+      }
+      const payload = await response.json();
+      const content = payload?.choices?.[0]?.message?.content;
+      if (typeof content !== "string") throw new Error("OpenAI response missing message content");
+      return parseJsonFromModelText(content);
+    }
+
+    if (tryResponsesFirst) {
+      try {
+        return await tryOpenAiResponses();
+      } catch (error) {
+        const msg = String(error?.message || error);
+        // Fallback to chat/completions for OpenAI-compatible backends that don't implement /v1/responses.
+        const shouldFallback =
+          /404/.test(msg) || /not found/i.test(msg) || /unknown url/i.test(msg) || /responses/i.test(msg);
+        if (!shouldFallback) throw error;
+      }
+      return tryOpenAiChatCompletions();
+    }
+
+    try {
+      return await tryOpenAiChatCompletions();
+    } catch (error) {
+      const msg = String(error?.message || error);
+      // If the chosen model is not a chat model, retry using the Responses API.
+      if (/not a chat model/i.test(msg) || /v1\/completions/i.test(msg)) {
+        return tryOpenAiResponses();
+      }
+      throw error;
+    }
+  }
+
+  if (provider === "anthropic") {
+    if (!params.apiKey) throw new Error("Missing Anthropic API key");
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: params?.signal || undefined,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": params.apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1200,
+        temperature: typeof params.temperature === "number" ? params.temperature : 0.2,
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      }),
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Anthropic API ${response.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
+    }
+    const payload = await response.json();
+    const textParts = Array.isArray(payload?.content)
+      ? payload.content.filter((p) => p?.type === "text").map((p) => p.text).join("\n")
+      : "";
+    if (!textParts) throw new Error("Anthropic response missing text content");
+    return parseJsonFromModelText(textParts);
+  }
+
+  if (provider === "google") {
+    if (!params.apiKey) throw new Error("Missing Google API key");
+    const modelPath = encodeURIComponent(model);
+    const requestBody = {
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: systemPrompt }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: userPrompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: typeof params.temperature === "number" ? params.temperature : 0.2,
+        responseMimeType: "application/json",
+      },
+    };
+
+    async function callGoogleGenerateContent(apiVersion) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelPath}:generateContent?key=${encodeURIComponent(params.apiKey)}`,
+        {
+          method: "POST",
+          signal: params?.signal || undefined,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        }
+      );
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        const err = new Error(`Google API ${response.status}${text ? `: ${text.slice(0, 300)}` : ""}`);
+        err._googleStatus = response.status;
+        err._googleBody = text;
+        throw err;
+      }
+      return response.json();
+    }
+
+    let payload;
+    try {
+      payload = await callGoogleGenerateContent("v1beta");
+    } catch (error) {
+      const msg = String(error?.message || error);
+      const shouldRetryV1 =
+        /404/.test(msg) || /not found/i.test(msg) || /not supported/i.test(msg) || /v1beta/i.test(msg);
+      if (!shouldRetryV1) throw error;
+      payload = await callGoogleGenerateContent("v1");
+    }
+
+    const content = payload?.candidates?.[0]?.content?.parts?.map((p) => p?.text || "").join("\n") || "";
+    if (!content) throw new Error("Google response missing text content");
+    return parseJsonFromModelText(content);
+  }
+
+  throw new Error(`Unsupported LLM provider: ${provider}`);
+}
+
+async function callOpenAiCompatiblePlanner(params) {
   const systemPrompt = [
     "You are a browser automation planner running inside a Chrome extension.",
     "Return exactly one JSON object and no markdown.",
@@ -1660,51 +2203,26 @@ async function callOpenAiCompatiblePlanner(params) {
       goal: params.goal,
       step: params.step,
       plannerFeedback: params.plannerFeedback || null,
-      previousActions: params.previousActions || [],
-      observation: params.observation,
+      previousActions: compactPreviousActionsForLlm(params.previousActions || [], 8),
+      observation: compactObservationForLlm(params.observation, "planner"),
     },
     null,
     2
   );
-
-  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: "POST",
-    signal: params?.signal || undefined,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${params.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: params.model,
-      temperature: 0.2,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-    }),
+  return callLlmJsonByProvider({
+    provider: params.provider,
+    baseUrl: params.baseUrl,
+    apiKey: params.apiKey,
+    model: params.model,
+    reasoningEffort: params.reasoningEffort,
+    systemPrompt,
+    userPrompt,
+    temperature: 0.2,
+    signal: params?.signal,
   });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`LLM API ${response.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
-  }
-
-  const payload = await response.json();
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    throw new Error("LLM response missing message content");
-  }
-
-  return parseJsonFromModelText(content);
 }
 
 async function callOpenAiCompatiblePlanGenerator(params) {
-  const baseUrl = normalizeLlmBaseUrl(params.baseUrl);
-  if (!baseUrl) throw new Error("Invalid LLM base URL");
-  if (!params.apiKey) throw new Error("Missing LLM API key (BYOK)");
-  if (!params.model) throw new Error("Missing model");
-
   const systemPrompt = [
     "You are planning a browser automation run before execution begins.",
     "Return exactly one JSON object and no markdown.",
@@ -1717,39 +2235,19 @@ async function callOpenAiCompatiblePlanGenerator(params) {
 
   const userPayload = {
     goal: params.goal,
-    observation: params.observation || null,
+    observation: compactObservationForLlm(params.observation || null, "plan"),
   };
-
-  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: "POST",
-    signal: params?.signal || undefined,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${params.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: params.model,
-      temperature: 0.2,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: JSON.stringify(userPayload, null, 2) },
-      ],
-      response_format: { type: "json_object" },
-    }),
+  const parsed = await callLlmJsonByProvider({
+    provider: params.provider,
+    baseUrl: params.baseUrl,
+    apiKey: params.apiKey,
+    model: params.model,
+    reasoningEffort: params.reasoningEffort,
+    systemPrompt,
+    userPrompt: JSON.stringify(userPayload, null, 2),
+    temperature: 0.2,
+    signal: params?.signal,
   });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Plan LLM API ${response.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
-  }
-
-  const payload = await response.json();
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    throw new Error("Plan LLM response missing message content");
-  }
-
-  const parsed = parseJsonFromModelText(content);
   const steps = Array.isArray(parsed?.steps)
     ? parsed.steps
         .slice(0, 12)
@@ -1774,6 +2272,7 @@ async function generateLocalAgentPlan(goalInput, options = {}) {
     throw new Error("A local browser agent session is already running");
   }
   const settings = await getStorage(DEFAULTS);
+  const llm = getLlmProviderConfigFromSettings(settings);
   const goal = safeString(goalInput || settings.localAgentGoal, 2000);
   if (!goal) throw new Error("Missing local agent goal");
   const session = await getContinuableLocalAgentSession(goal);
@@ -1800,9 +2299,11 @@ async function generateLocalAgentPlan(goalInput, options = {}) {
   const observation = await captureObservation(session.tabId);
   await appendLocalAgentLog("observation", "Read browser state for planning", summarizeObservationForLog(observation));
   const plan = await callOpenAiCompatiblePlanGenerator({
-    baseUrl: settings.llmBaseUrl,
-    apiKey: settings.llmApiKey,
-    model: settings.llmModel,
+    provider: llm.provider,
+    baseUrl: llm.baseUrl,
+    apiKey: llm.provider === "anthropic" ? llm.anthropicApiKey : llm.provider === "google" ? llm.googleApiKey : llm.openAiApiKey,
+    model: llm.model,
+    reasoningEffort: llm.reasoningEffort,
     goal,
     observation,
   });
@@ -1841,15 +2342,10 @@ async function approvePendingLocalAgentPlan() {
     pendingPlan: null,
     status: "starting_run",
   });
-  return runLocalAgentGoal(goal, { mode: "continue", skipPlan: true });
+  return runLocalAgentGoal(goal, { mode: "continue", skipPlan: true, suppressUserLog: true });
 }
 
 async function callOpenAiCompatibleDoneChecker(params) {
-  const baseUrl = normalizeLlmBaseUrl(params.baseUrl);
-  if (!baseUrl) throw new Error("Invalid LLM base URL");
-  if (!params.apiKey) throw new Error("Missing LLM API key (BYOK)");
-  if (!params.model) throw new Error("Missing model");
-
   const systemPrompt = [
     "You are a completion verifier for a browser automation agent.",
     "Decide whether a proposed done result is actually supported by the evidence.",
@@ -1864,41 +2360,21 @@ async function callOpenAiCompatibleDoneChecker(params) {
   const payloadForChecker = {
     goal: params.goal,
     doneResult: params.doneResult || null,
-    observationBeforeDone: params.beforeObs || null,
-    observationAtDone: params.afterObs || null,
-    recentActions: (params.previousActions || []).slice(-8),
+    observationBeforeDone: compactObservationForLlm(params.beforeObs || null, "done"),
+    observationAtDone: compactObservationForLlm(params.afterObs || null, "done"),
+    recentActions: compactPreviousActionsForLlm(params.previousActions || [], 6),
   };
-
-  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: "POST",
-    signal: params?.signal || undefined,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${params.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: params.model,
-      temperature: 0,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: JSON.stringify(payloadForChecker, null, 2) },
-      ],
-      response_format: { type: "json_object" },
-    }),
+  const parsed = await callLlmJsonByProvider({
+    provider: params.provider,
+    baseUrl: params.baseUrl,
+    apiKey: params.apiKey,
+    model: params.model,
+    reasoningEffort: params.reasoningEffort,
+    systemPrompt,
+    userPrompt: JSON.stringify(payloadForChecker, null, 2),
+    temperature: 0,
+    signal: params?.signal,
   });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Done-check LLM API ${response.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
-  }
-
-  const payload = await response.json();
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    throw new Error("Done-check LLM response missing message content");
-  }
-
-  const parsed = parseJsonFromModelText(content);
   return {
     ok: true,
     accept: Boolean(parsed?.accept),
@@ -1940,6 +2416,7 @@ async function runLocalAgentGoal(goalInput, options = {}) {
   }
   localAgentRunning = true;
   const settings = await getStorage(DEFAULTS);
+  const llm = getLlmProviderConfigFromSettings(settings);
   const runtimeAtStart = await getLocalAgentRuntime();
   const cloudTaskIdAtStart = String(runtimeAtStart?.cloudTaskId || "").trim();
   const goal = safeString(goalInput || settings.localAgentGoal, 2000);
@@ -1989,17 +2466,20 @@ async function runLocalAgentGoal(goalInput, options = {}) {
         cloudTaskId: cloudTaskIdAtStart,
       });
     }
-    await appendLocalAgentLog("user", mode === "new" ? "Create run" : "Send message", {
-      goal: session.goal,
-      mode,
-      maxSteps,
-    });
+    if (!options?.suppressUserLog) {
+      await appendLocalAgentLog("user", mode === "new" ? "Create run" : "Send message", {
+        goal: session.goal,
+        mode,
+        maxSteps,
+      });
+    }
     await appendLocalAgentLog("session", mode === "new" ? "Started local browser agent session" : "Continuing local browser agent session", {
       sessionId: session.id,
       tabId: session.tabId,
       tabGroupId: session.tabGroupId ?? null,
       goal: session.goal,
     });
+    await setExecutionViewportOverlay(session.tabId, true);
     await setStatus(`Local agent session started (${session.id})`);
     for (let step = 1; step <= maxSteps; step += 1) {
       const runtime = await getLocalAgentRuntime();
@@ -2012,15 +2492,18 @@ async function runLocalAgentGoal(goalInput, options = {}) {
       if (!observation) {
         throw new Error("Failed to read browser observation");
       }
+      await setExecutionViewportOverlay(session.tabId, true);
       await appendLocalAgentLog("observation", `Read browser state at step ${step}`, summarizeObservationForLog(observation));
 
       await patchLocalAgentRuntime({ status: "planning" });
       await setStatus(`Local agent step ${step}: planning`);
       localAgentAbortController = new AbortController();
       const action = await callOpenAiCompatiblePlanner({
-        baseUrl: settings.llmBaseUrl,
-        apiKey: settings.llmApiKey,
-        model: settings.llmModel,
+        provider: llm.provider,
+        baseUrl: llm.baseUrl,
+        apiKey: llm.provider === "anthropic" ? llm.anthropicApiKey : llm.provider === "google" ? llm.googleApiKey : llm.openAiApiKey,
+        model: llm.model,
+        reasoningEffort: llm.reasoningEffort,
         goal: session.goal,
         step,
         plannerFeedback,
@@ -2113,9 +2596,11 @@ async function runLocalAgentGoal(goalInput, options = {}) {
         let doneValidation;
         try {
           doneValidation = await callOpenAiCompatibleDoneChecker({
-            baseUrl: settings.llmBaseUrl,
-            apiKey: settings.llmApiKey,
-            model: settings.llmModel,
+            provider: llm.provider,
+            baseUrl: llm.baseUrl,
+            apiKey: llm.provider === "anthropic" ? llm.anthropicApiKey : llm.provider === "google" ? llm.googleApiKey : llm.openAiApiKey,
+            model: llm.model,
+            reasoningEffort: llm.reasoningEffort,
             goal: session.goal,
             doneResult: execResult.result || null,
             beforeObs: observationBeforeAction,
@@ -2158,6 +2643,7 @@ async function runLocalAgentGoal(goalInput, options = {}) {
           sessionTabId: session.tabId,
           sessionTabGroupId: session.tabGroupId ?? null,
         });
+        await setExecutionViewportOverlay(session.tabId, false);
         await appendLocalAgentLog(
           "done",
           safeString(execResult?.result?.summary || "Completed", 200),
@@ -2197,6 +2683,7 @@ async function runLocalAgentGoal(goalInput, options = {}) {
       sessionTabId: session.tabId ?? null,
       sessionTabGroupId: session.tabGroupId ?? null,
     });
+    await setExecutionViewportOverlay(session.tabId, false);
     await appendLocalAgentLog(
       "system",
       `Paused after reaching max steps (${maxSteps}). Increase Max Agent Steps or click Continue.`,
@@ -2223,6 +2710,7 @@ async function runLocalAgentGoal(goalInput, options = {}) {
       sessionTabId: session.tabId ?? null,
       sessionTabGroupId: session.tabGroupId ?? null,
     });
+    await setExecutionViewportOverlay(session.tabId, false);
     await appendLocalAgentLog("error", message);
     if (cloudTaskIdAtStart) {
       await reportLocalAgentFinalCompletion({
@@ -2236,6 +2724,7 @@ async function runLocalAgentGoal(goalInput, options = {}) {
     }
     throw error;
   } finally {
+    await setExecutionViewportOverlay(session?.tabId, false);
     localAgentAbortController = null;
     localAgentRunning = false;
   }
@@ -2454,6 +2943,11 @@ async function ensureDefaultsAndAlarm() {
   if (Object.keys(missing).length > 0) {
     await setStorage(missing);
   }
+  const withDefaults = await getStorage(DEFAULTS);
+  const currentDeviceId = String(withDefaults?.deviceId || "").trim();
+  if (!currentDeviceId) {
+    await setStorage({ deviceId: generateDeviceId() });
+  }
   const runtime = await getLocalAgentRuntime();
   if (!runtime || typeof runtime !== "object") {
     await saveLocalAgentRuntime(buildDefaultLocalAgentRuntime());
@@ -2487,6 +2981,76 @@ chrome.action.onClicked.addListener((tab) => {
   void initializeLocalChatSessionOnTab(tab, { source: "action_click" }).catch((err) => {
     console.error("Failed to initialize local chat session from action click:", err);
   });
+});
+
+if (chrome.tabGroups?.onRemoved) {
+  chrome.tabGroups.onRemoved.addListener((group) => {
+    void (async () => {
+      try {
+        const runtime = await getLocalAgentRuntime();
+        const sessionGroupId = Number(runtime?.sessionTabGroupId);
+        if (!Number.isFinite(sessionGroupId) || sessionGroupId < 0) return;
+        const removedGroupId = Number(group?.id);
+        if (!Number.isFinite(removedGroupId)) return;
+        if (removedGroupId !== sessionGroupId) return;
+        await terminateLocalAgentSessionFromContainerChange("tab group deleted", {
+          groupId: removedGroupId,
+          sessionId: runtime?.sessionId || "",
+        });
+      } catch (err) {
+        console.error("Failed handling tab group removal:", err);
+      }
+    })();
+  });
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!("groupId" in changeInfo)) return;
+  void (async () => {
+    try {
+      const runtime = await getLocalAgentRuntime();
+      const sessionTabId = Number(runtime?.sessionTabId);
+      if (!Number.isFinite(sessionTabId)) return;
+      if (tabId !== sessionTabId) return;
+      const sessionGroupId = Number(runtime?.sessionTabGroupId);
+      const newGroupId = Number(changeInfo.groupId);
+      if (!Number.isFinite(sessionGroupId) || sessionGroupId < 0) return;
+      if (Number.isFinite(newGroupId) && newGroupId >= 0 && newGroupId !== sessionGroupId) {
+        await terminateLocalAgentSessionFromContainerChange("session tab moved to a different group", {
+          previousGroupId: sessionGroupId,
+          newGroupId,
+          tabId,
+          url: String(tab?.url || ""),
+        });
+        return;
+      }
+      if (newGroupId === -1) {
+        await terminateLocalAgentSessionFromContainerChange("session tab was removed from its tab group", {
+          previousGroupId: sessionGroupId,
+          tabId,
+          url: String(tab?.url || ""),
+        });
+      }
+    } catch (err) {
+      console.error("Failed handling tab group change for session tab:", err);
+    }
+  })();
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void (async () => {
+    try {
+      const runtime = await getLocalAgentRuntime();
+      const sessionTabId = Number(runtime?.sessionTabId);
+      if (!Number.isFinite(sessionTabId) || tabId !== sessionTabId) return;
+      await terminateLocalAgentSessionFromContainerChange("session tab closed", {
+        tabId,
+        sessionId: runtime?.sessionId || "",
+      });
+    } catch (err) {
+      console.error("Failed handling session tab removal:", err);
+    }
+  })();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -2551,6 +3115,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ ok: false, error: "A local browser agent session is already running" });
         return;
       }
+      if (message.editedPlan && typeof message.editedPlan === "object") {
+        const runtime = await getLocalAgentRuntime();
+        const pendingPlan = runtime?.pendingPlan && typeof runtime.pendingPlan === "object" ? runtime.pendingPlan : null;
+        if (pendingPlan) {
+          const edited = message.editedPlan;
+          const nextPendingPlan = {
+            ...pendingPlan,
+            summary: typeof edited.summary === "string" ? edited.summary : pendingPlan.summary,
+            steps: Array.isArray(edited.steps) ? edited.steps : pendingPlan.steps,
+            risks: Array.isArray(edited.risks) ? edited.risks : pendingPlan.risks,
+            requiresConfirmationBefore: Array.isArray(edited.requiresConfirmationBefore)
+              ? edited.requiresConfirmationBefore
+              : pendingPlan.requiresConfirmationBefore,
+            editedAt: new Date().toISOString(),
+          };
+          await patchLocalAgentRuntime({ pendingPlan: nextPendingPlan });
+          await appendLocalAgentLog("plan", "Plan edited before approval", {
+            summary: nextPendingPlan.summary,
+            steps: nextPendingPlan.steps,
+          });
+        }
+      }
       void approvePendingLocalAgentPlan().catch(async (err) => {
         console.error("Approving local agent plan failed:", err);
         await patchLocalAgentRuntime({
@@ -2595,6 +3181,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return;
     }
 
+    if (message.type === "clear_local_agent_chat") {
+      const result = await clearLocalAgentChat();
+      sendResponse(result);
+      return;
+    }
+
     if (message.type === "open_side_panel") {
       const result = await openSidePanelForCurrentWindow();
       sendResponse(result);
@@ -2617,7 +3209,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     if (message.type === "get_settings") {
-      const settings = await getStorage(DEFAULTS);
+      let settings = await getStorage(DEFAULTS);
+      if (!String(settings?.deviceId || "").trim()) {
+        const generated = generateDeviceId();
+        await setStorage({ deviceId: generated });
+        settings = { ...settings, deviceId: generated };
+      }
       sendResponse({ ok: true, settings });
       return;
     }
@@ -2626,12 +3223,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const next = {};
       if ("pollEnabled" in message) next.pollEnabled = Boolean(message.pollEnabled);
       if ("pollEndpoint" in message) next.pollEndpoint = String(message.pollEndpoint ?? "");
-      if ("deviceId" in message) next.deviceId = String(message.deviceId ?? "");
+      if ("deviceId" in message) {
+        const incomingDeviceId = String(message.deviceId ?? "").trim();
+        next.deviceId = incomingDeviceId || generateDeviceId();
+      }
       if ("authToken" in message) next.authToken = String(message.authToken ?? "");
       if ("agentPairToken" in message) next.agentPairToken = String(message.agentPairToken ?? "");
       if ("llmBaseUrl" in message) next.llmBaseUrl = String(message.llmBaseUrl ?? "");
+      if ("llmProvider" in message) next.llmProvider = normalizeLlmProvider(message.llmProvider);
       if ("llmModel" in message) next.llmModel = String(message.llmModel ?? "");
       if ("llmApiKey" in message) next.llmApiKey = String(message.llmApiKey ?? "");
+      if ("anthropicApiKey" in message) next.anthropicApiKey = String(message.anthropicApiKey ?? "");
+      if ("googleApiKey" in message) next.googleApiKey = String(message.googleApiKey ?? "");
+      if ("planApprovalMode" in message) {
+        const mode = String(message.planApprovalMode ?? "").trim().toLowerCase();
+        next.planApprovalMode = mode === "act_without_asking" ? "act_without_asking" : "ask_first";
+      }
       if ("localAgentMaxSteps" in message) {
         const parsed = Number(message.localAgentMaxSteps ?? DEFAULTS.localAgentMaxSteps);
         next.localAgentMaxSteps = Math.max(
