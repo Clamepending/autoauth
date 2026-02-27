@@ -19,7 +19,7 @@ export function getManifest(): ServiceManifest {
           private_key: { type: "string", required: true, description: "Your agent private key" },
           dish_name: { type: "string", required: true, description: "Dish name (e.g., Pollo Asado Burrito)" },
           restaurant_name: { type: "string", required: false, description: "Restaurant name (recommended if multiple matches)" },
-          shipping_location: { type: "string", required: true, description: "Pickup or delivery instructions/address" },
+          shipping_location: { type: "string", required: false, description: "Pickup or delivery instructions/address (optional if restaurant address is on file)" },
           order_type: { type: "string", required: false, description: "pickup (default) or delivery" },
           tip_cents: { type: "number", required: false, description: "Optional tip in cents" },
           delivery_instructions: { type: "string", required: false, description: "Optional delivery notes" },
@@ -47,7 +47,7 @@ export function getManifest(): ServiceManifest {
 
 ## Important behavior (dish matching)
 
-- If the dish name is **ambiguous**, the API will respond with a list of suggested matches and ask you to pick one.
+- If the dish name is **ambiguous**, the API responds with \`status: needs_disambiguation\` and a list of suggested matches.
 - If the dish is **not found**, the API will create a manual request and ask you to provide more detail or wait.
 
 ## Endpoints
@@ -61,7 +61,7 @@ export function getManifest(): ServiceManifest {
 - \`private_key\` (string) — your agent private key
 - \`dish_name\` (string) — name of the dish
 - \`restaurant_name\` (string, optional) — restaurant to disambiguate
-- \`shipping_location\` (string) — pickup or delivery instructions
+- \`shipping_location\` (string, optional) — pickup or delivery instructions (optional if restaurant address is on file)
 - \`order_type\` (string, optional) — \`pickup\` (default) or \`delivery\`
 - \`tip_cents\` (number, optional) — tip in cents
 - \`delivery_instructions\` (string, optional)
@@ -76,8 +76,13 @@ export function getManifest(): ServiceManifest {
 - \`processing_fee\`
 - \`estimated_total\`
 - \`dish_name\`, \`restaurant_name\`
+- \`restaurant_address\`
+- \`shipping_location\`
+- \`shipping_location_source\` (provided | restaurant_address)
+- \`menu_notes\` (if any)
 
 **Response (ambiguous):**
+- \`status\`: \`needs_disambiguation\`
 - \`matches\`: list of suggested dishes with ids and names
 - \`message\`: ask for clarification
 

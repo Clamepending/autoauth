@@ -60,11 +60,73 @@ export async function listMenuItems(): Promise<SnackpassMenuItemRecord[]> {
   return rows.map(mapRow);
 }
 
+type ScoredMenuItem = SnackpassMenuItemRecord & {
+  score: number;
+  exactDishMatch: boolean;
+};
+
+function normalizeText(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenize(input: string): string[] {
+  const normalized = normalizeText(input);
+  if (!normalized) return [];
+  return normalized.split(" ");
+}
+
+function scoreItem(item: SnackpassMenuItemRecord, dishQuery: string, restaurantQuery?: string): ScoredMenuItem {
+  const dishNorm = normalizeText(item.dish_name);
+  const restaurantNorm = normalizeText(item.restaurant_name);
+  const queryNorm = normalizeText(dishQuery);
+  const queryTokens = tokenize(dishQuery);
+  const restaurantTokens = restaurantQuery ? tokenize(restaurantQuery) : [];
+
+  let score = 0;
+  const exactDishMatch = dishNorm === queryNorm;
+  if (exactDishMatch) score += 100;
+  if (dishNorm.includes(queryNorm) && queryNorm) score += 50;
+
+  let tokenMatches = 0;
+  for (const token of queryTokens) {
+    if (!token) continue;
+    if (dishNorm.includes(token)) {
+      score += 8;
+      tokenMatches += 1;
+    } else if (restaurantNorm.includes(token)) {
+      score += 4;
+    }
+  }
+  if (queryTokens.length > 0 && tokenMatches === queryTokens.length) {
+    score += 20;
+  }
+
+  if (restaurantTokens.length > 0) {
+    let restaurantMatches = 0;
+    for (const token of restaurantTokens) {
+      if (restaurantNorm.includes(token)) {
+        restaurantMatches += 1;
+      }
+    }
+    if (restaurantMatches === restaurantTokens.length) {
+      score += 30;
+    } else if (restaurantMatches > 0) {
+      score += restaurantMatches * 6;
+    }
+  }
+
+  return { ...item, score, exactDishMatch };
+}
+
 export async function searchMenuItems(params: {
   dishQuery: string;
   restaurantQuery?: string;
   limit?: number;
-}): Promise<SnackpassMenuItemRecord[]> {
+}): Promise<ScoredMenuItem[]> {
   await ensureSnackpassSchema();
   const client = getTursoClient();
   const dishQuery = params.dishQuery.trim().toLowerCase();
@@ -73,30 +135,20 @@ export async function searchMenuItems(params: {
   const restaurantQuery = params.restaurantQuery?.trim().toLowerCase() ?? "";
   const limit = Math.max(1, Math.min(params.limit ?? 10, 50));
 
-  if (restaurantQuery) {
-    const result = await client.execute({
-      sql: `SELECT * FROM snackpass_menu_items
-            WHERE is_active = 1
-              AND LOWER(dish_name) LIKE ?
-              AND LOWER(restaurant_name) LIKE ?
-            ORDER BY dish_name ASC
-            LIMIT ?`,
-      args: [`%${dishQuery}%`, `%${restaurantQuery}%`, limit],
-    });
-    const rows = (result.rows ?? []) as unknown as Record<string, unknown>[];
-    return rows.map(mapRow);
-  }
-
   const result = await client.execute({
     sql: `SELECT * FROM snackpass_menu_items
-          WHERE is_active = 1
-            AND LOWER(dish_name) LIKE ?
-          ORDER BY dish_name ASC
-          LIMIT ?`,
-    args: [`%${dishQuery}%`, limit],
+          WHERE is_active = 1`,
+    args: [],
   });
   const rows = (result.rows ?? []) as unknown as Record<string, unknown>[];
-  return rows.map(mapRow);
+  const items = rows.map(mapRow);
+
+  const scored = items
+    .map((item) => scoreItem(item, dishQuery, restaurantQuery || undefined))
+    .filter((item) => item.score > 0);
+
+  scored.sort((a, b) => b.score - a.score || a.dish_name.localeCompare(b.dish_name));
+  return scored.slice(0, limit);
 }
 
 export async function getMenuItemById(id: number): Promise<SnackpassMenuItemRecord | null> {

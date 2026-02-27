@@ -32,7 +32,7 @@ function normalizeOrderType(value: unknown): "pickup" | "delivery" {
   return normalized === "delivery" ? "delivery" : "pickup";
 }
 
-function serializeMatch(item: SnackpassMenuItemRecord) {
+function serializeMatch(item: SnackpassMenuItemRecord & { score?: number; exactDishMatch?: boolean }) {
   return {
     id: item.id,
     dish_name: item.dish_name,
@@ -41,6 +41,9 @@ function serializeMatch(item: SnackpassMenuItemRecord) {
     base_price: fmt(item.base_price_cents),
     service_fee: fmt(item.service_fee_cents),
     delivery_fee: fmt(item.delivery_fee_cents),
+    menu_notes: item.notes ?? null,
+    score: typeof item.score === "number" ? Math.round(item.score) : undefined,
+    exact_match: Boolean(item.exactDishMatch),
   };
 }
 
@@ -65,9 +68,7 @@ export async function POST(request: Request) {
   if (!dishName) {
     return NextResponse.json({ error: "dish_name is required." }, { status: 400 });
   }
-  if (!shippingLocation) {
-    return NextResponse.json({ error: "shipping_location is required." }, { status: 400 });
-  }
+  // shipping_location can be omitted if the menu item has a restaurant address on file.
 
   const matches = await searchMenuItems({
     dishQuery: dishName,
@@ -101,25 +102,42 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!restaurantName && matches.length > 1) {
+  const exactMatches = matches.filter((m) => (m as { exactDishMatch?: boolean }).exactDishMatch);
+
+  if (!restaurantName && exactMatches.length === 1) {
+    // Auto-select the unique exact match to avoid unnecessary disambiguation.
+  } else if (!restaurantName && matches.length > 1) {
     return NextResponse.json(
       {
-        error: "Multiple matches found. Please specify restaurant_name.",
+        ok: false,
+        status: "needs_disambiguation",
         matches: matches.map(serializeMatch),
         message: "Multiple dishes match your request. Please provide restaurant_name and retry.",
       },
-      { status: 409 }
+      { status: 200 }
     );
   }
 
-  const match = matches[0];
+  const match = exactMatches.length === 1 ? exactMatches[0] : matches[0];
   const { serviceFeeCents: defaultServiceFee, deliveryFeeCents: defaultDeliveryFee } = getSnackpassDefaultFees();
 
   const serviceFeeCents = match.service_fee_cents ?? defaultServiceFee;
   const deliveryFeeCents = match.delivery_fee_cents ?? (orderType === "delivery" ? defaultDeliveryFee : 0);
 
+  const resolvedShippingLocation =
+    shippingLocation || match.restaurant_address || "";
+  if (!resolvedShippingLocation) {
+    return NextResponse.json(
+      {
+        error: "shipping_location is required when the restaurant address is not on file.",
+        message: "Provide pickup/delivery instructions, or add restaurant_address to the menu item.",
+      },
+      { status: 400 }
+    );
+  }
+
   const taxableSubtotal = match.base_price_cents + serviceFeeCents + deliveryFeeCents;
-  const taxInfo = estimateTax(taxableSubtotal, shippingLocation);
+  const taxInfo = estimateTax(taxableSubtotal, resolvedShippingLocation);
   const tip = tipCents ?? 0;
   const totalBeforeProcessing = taxInfo.totalCents + tip;
   const fee = calculateProcessingFee(totalBeforeProcessing);
@@ -129,7 +147,7 @@ export async function POST(request: Request) {
     menuItemId: match.id,
     dishName: match.dish_name,
     restaurantName: match.restaurant_name,
-    shippingLocation,
+    shippingLocation: resolvedShippingLocation,
     orderType,
     deliveryInstructions: deliveryInstructions || null,
     tipCents: tipCents ?? null,
@@ -149,6 +167,7 @@ export async function POST(request: Request) {
     payment_url: paymentUrl,
     dish_name: match.dish_name,
     restaurant_name: match.restaurant_name,
+    restaurant_address: match.restaurant_address ?? null,
     estimated_price: fmt(match.base_price_cents),
     estimated_tax: fmt(taxInfo.taxCents),
     service_fee: fmt(serviceFeeCents),
@@ -158,6 +177,9 @@ export async function POST(request: Request) {
     estimated_total: fmt(fee.totalCents),
     tax_state: taxInfo.state,
     order_type: orderType,
+    shipping_location: resolvedShippingLocation,
+    shipping_location_source: shippingLocation ? "provided" : "restaurant_address",
+    menu_notes: match.notes ?? null,
     message: "Order created. Send the payment_url to your human for payment approval.",
   });
 }
