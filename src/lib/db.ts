@@ -5,6 +5,7 @@ export type AgentRecord = {
   username_lower: string;
   username_display: string;
   private_key: string;
+  callback_url: string | null;
   description: string | null;
   created_at: string;
   updated_at: string;
@@ -22,6 +23,7 @@ export async function ensureSchema() {
       username_lower TEXT NOT NULL UNIQUE,
       username_display TEXT NOT NULL,
       private_key TEXT NOT NULL,
+      callback_url TEXT,
       description TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -42,11 +44,17 @@ export async function ensureSchema() {
         username_lower TEXT NOT NULL UNIQUE,
         username_display TEXT NOT NULL,
         private_key TEXT NOT NULL,
+        callback_url TEXT,
         description TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )`
     );
+  }
+
+  const hasCallbackUrl = columns.some((c) => c.name === "callback_url");
+  if (!hasOldSchema && !hasCallbackUrl) {
+    await client.execute("ALTER TABLE agents ADD COLUMN callback_url TEXT");
   }
 
   await client.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_username_lower ON agents(username_lower)");
@@ -58,9 +66,46 @@ export async function ensureSchema() {
       request_type TEXT NOT NULL,
       message TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
+      resolution_action TEXT,
+      resolution_notes TEXT,
+      resolved_at TEXT,
+      callback_status TEXT NOT NULL DEFAULT 'queued',
+      callback_http_status INTEGER,
+      callback_error TEXT,
+      callback_attempts INTEGER NOT NULL DEFAULT 0,
+      callback_last_attempt_at TEXT,
       created_at TEXT NOT NULL
     )`
   );
+  const requestTableInfo = await client.execute({
+    sql: "PRAGMA table_info(agent_requests)",
+    args: [],
+  });
+  const requestColumns = (requestTableInfo.rows ?? []) as unknown as { name: string }[];
+  if (!requestColumns.some((c) => c.name === "resolution_action")) {
+    await client.execute("ALTER TABLE agent_requests ADD COLUMN resolution_action TEXT");
+  }
+  if (!requestColumns.some((c) => c.name === "resolution_notes")) {
+    await client.execute("ALTER TABLE agent_requests ADD COLUMN resolution_notes TEXT");
+  }
+  if (!requestColumns.some((c) => c.name === "resolved_at")) {
+    await client.execute("ALTER TABLE agent_requests ADD COLUMN resolved_at TEXT");
+  }
+  if (!requestColumns.some((c) => c.name === "callback_status")) {
+    await client.execute("ALTER TABLE agent_requests ADD COLUMN callback_status TEXT NOT NULL DEFAULT 'queued'");
+  }
+  if (!requestColumns.some((c) => c.name === "callback_http_status")) {
+    await client.execute("ALTER TABLE agent_requests ADD COLUMN callback_http_status INTEGER");
+  }
+  if (!requestColumns.some((c) => c.name === "callback_error")) {
+    await client.execute("ALTER TABLE agent_requests ADD COLUMN callback_error TEXT");
+  }
+  if (!requestColumns.some((c) => c.name === "callback_attempts")) {
+    await client.execute("ALTER TABLE agent_requests ADD COLUMN callback_attempts INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!requestColumns.some((c) => c.name === "callback_last_attempt_at")) {
+    await client.execute("ALTER TABLE agent_requests ADD COLUMN callback_last_attempt_at TEXT");
+  }
   await client.execute("CREATE INDEX IF NOT EXISTS idx_agent_requests_username ON agent_requests(username_lower)");
   await client.execute("CREATE INDEX IF NOT EXISTS idx_agent_requests_status ON agent_requests(status)");
 
@@ -73,7 +118,20 @@ export type AgentRequestRecord = {
   request_type: string;
   message: string | null;
   status: string;
+  resolution_action: string | null;
+  resolution_notes: string | null;
+  resolved_at: string | null;
+  callback_status: string;
+  callback_http_status: number | null;
+  callback_error: string | null;
+  callback_attempts: number;
+  callback_last_attempt_at: string | null;
   created_at: string;
+};
+
+export type AdminAgentRequestRecord = AgentRequestRecord & {
+  username_display: string;
+  callback_url: string | null;
 };
 
 export async function createAgentRequest(params: {
@@ -85,8 +143,8 @@ export async function createAgentRequest(params: {
   const client = getTursoClient();
   const now = new Date().toISOString();
   const insertResult = await client.execute({
-    sql: `INSERT INTO agent_requests (username_lower, request_type, message, status, created_at)
-          VALUES (?, ?, ?, 'pending', ?)`,
+    sql: `INSERT INTO agent_requests (username_lower, request_type, message, status, callback_status, created_at)
+          VALUES (?, ?, ?, 'pending', 'queued', ?)`,
     args: [
       params.usernameLower,
       params.requestType,
@@ -120,10 +178,137 @@ export async function getAgentByUsername(usernameLower: string) {
   return (result.rows?.[0] as unknown as AgentRecord | undefined) ?? null;
 }
 
+export async function getAgentRequestById(id: number): Promise<AdminAgentRequestRecord | null> {
+  await ensureSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: `SELECT
+            r.id,
+            r.username_lower,
+            a.username_display,
+            a.callback_url,
+            r.request_type,
+            r.message,
+            r.status,
+            r.resolution_action,
+            r.resolution_notes,
+            r.resolved_at,
+            r.callback_status,
+            r.callback_http_status,
+            r.callback_error,
+            r.callback_attempts,
+            r.callback_last_attempt_at,
+            r.created_at
+          FROM agent_requests r
+          LEFT JOIN agents a ON a.username_lower = r.username_lower
+          WHERE r.id = ?
+          LIMIT 1`,
+    args: [id],
+  });
+  return (result.rows?.[0] as unknown as AdminAgentRequestRecord | undefined) ?? null;
+}
+
+export async function getAdminAgentRequests(statuses?: string[]): Promise<AdminAgentRequestRecord[]> {
+  await ensureSchema();
+  const client = getTursoClient();
+  if (statuses && statuses.length > 0) {
+    const placeholders = statuses.map(() => "?").join(", ");
+    const result = await client.execute({
+      sql: `SELECT
+              r.id,
+              r.username_lower,
+              a.username_display,
+              a.callback_url,
+              r.request_type,
+              r.message,
+              r.status,
+              r.resolution_action,
+              r.resolution_notes,
+              r.resolved_at,
+              r.callback_status,
+              r.callback_http_status,
+              r.callback_error,
+              r.callback_attempts,
+              r.callback_last_attempt_at,
+              r.created_at
+            FROM agent_requests r
+            LEFT JOIN agents a ON a.username_lower = r.username_lower
+            WHERE r.status IN (${placeholders})
+            ORDER BY r.created_at DESC`,
+      args: statuses,
+    });
+    return (result.rows ?? []) as unknown as AdminAgentRequestRecord[];
+  }
+
+  const result = await client.execute({
+    sql: `SELECT
+            r.id,
+            r.username_lower,
+            a.username_display,
+            a.callback_url,
+            r.request_type,
+            r.message,
+            r.status,
+            r.resolution_action,
+            r.resolution_notes,
+            r.resolved_at,
+            r.callback_status,
+            r.callback_http_status,
+            r.callback_error,
+            r.callback_attempts,
+            r.callback_last_attempt_at,
+            r.created_at
+          FROM agent_requests r
+          LEFT JOIN agents a ON a.username_lower = r.username_lower
+          ORDER BY r.created_at DESC`,
+    args: [],
+  });
+  return (result.rows ?? []) as unknown as AdminAgentRequestRecord[];
+}
+
+export async function finalizeAgentRequest(params: {
+  id: number;
+  action: "resolved" | "rejected";
+  notes: string | null;
+  callbackOk: boolean;
+  callbackStatusCode?: number | null;
+  callbackError?: string | null;
+}) {
+  await ensureSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  await client.execute({
+    sql: `UPDATE agent_requests
+          SET status = ?,
+              resolution_action = ?,
+              resolution_notes = ?,
+              resolved_at = ?,
+              callback_status = ?,
+              callback_http_status = ?,
+              callback_error = ?,
+              callback_attempts = COALESCE(callback_attempts, 0) + 1,
+              callback_last_attempt_at = ?
+          WHERE id = ?`,
+    args: [
+      params.callbackOk ? params.action : "notify_failed",
+      params.action,
+      params.notes,
+      params.callbackOk ? now : null,
+      params.callbackOk ? "sent" : "failed",
+      params.callbackStatusCode ?? null,
+      params.callbackError ?? null,
+      now,
+      params.id,
+    ],
+  });
+  return getAgentRequestById(params.id);
+}
+
 export async function createAgent(params: {
   usernameLower: string;
   usernameDisplay: string;
   privateKey: string;
+  callbackUrl: string;
   description?: string | null;
 }) {
   await ensureSchema();
@@ -131,12 +316,13 @@ export async function createAgent(params: {
   const now = new Date().toISOString();
   await client.execute({
     sql: `INSERT INTO agents (
-      username_lower, username_display, private_key, description, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?)` ,
+      username_lower, username_display, private_key, callback_url, description, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)` ,
     args: [
       params.usernameLower,
       params.usernameDisplay,
       params.privateKey,
+      params.callbackUrl,
       params.description ?? null,
       now,
       now,
@@ -165,7 +351,7 @@ export async function getAllAgents(): Promise<AgentRecord[]> {
   await ensureSchema();
   const client = getTursoClient();
   const result = await client.execute({
-    sql: "SELECT id, username_lower, username_display, private_key, description, created_at, updated_at FROM agents ORDER BY created_at DESC",
+    sql: "SELECT id, username_lower, username_display, private_key, callback_url, description, created_at, updated_at FROM agents ORDER BY created_at DESC",
     args: [],
   });
   return (result.rows ?? []) as unknown as AgentRecord[];

@@ -3,6 +3,7 @@ import { createAgent, getAgentByUsername } from "@/lib/db";
 import {
   generatePrivateKey,
   normalizeUsername,
+  validateCallbackUrl,
   validateUsername,
 } from "@/lib/agent-auth";
 
@@ -14,11 +15,17 @@ export async function POST(request: Request) {
 
   const rawUsername = typeof payload.username === "string" ? payload.username.trim() : "";
   const rawDescription = typeof payload.description === "string" ? payload.description.trim() : "";
+  const rawCallbackUrl = typeof payload.callback_url === "string" ? payload.callback_url.trim() : "";
   const description = rawDescription.length > 0 ? rawDescription.slice(0, 100) : null;
 
   const validation = validateUsername(rawUsername);
   if (!validation.ok) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+
+  const callbackValidation = validateCallbackUrl(rawCallbackUrl);
+  if (!callbackValidation.ok) {
+    return NextResponse.json({ error: callbackValidation.error }, { status: 400 });
   }
 
   const usernameDisplay = rawUsername;
@@ -39,12 +46,14 @@ export async function POST(request: Request) {
     usernameLower,
     usernameDisplay,
     privateKey,
+    callbackUrl: callbackValidation.value,
     description,
   });
 
   return NextResponse.json({
     username: agent.username_display,
     privateKey,
+    callbackUrl: agent.callback_url,
     message:
       "Account created. Save your private key securely — it cannot be recovered. Use it as your password for future updates.",
   });

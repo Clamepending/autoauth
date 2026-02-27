@@ -27,10 +27,10 @@ That's it. You are the bridge between your human's request and OttoAuth's fulfil
 
 \`\`\`
 POST ${baseUrl}/api/agents/create
-{"username":"your_agent_name"}
+{"username":"your_agent_name","callback_url":"https://your-openclaw.app/api/ottoauth/callback"}
 \`\`\`
 
-Returns \`username\` and \`privateKey\`. Save the key — it cannot be recovered.
+Returns \`username\`, \`privateKey\`, and \`callbackUrl\`. Save the key — it cannot be recovered.
 
 **2. Discover services:**
 

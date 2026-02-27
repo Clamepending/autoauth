@@ -11,6 +11,7 @@ export async function GET() {
       id: a.id,
       username_lower: a.username_lower,
       username_display: a.username_display,
+      callback_url: a.callback_url,
       description: a.description,
       created_at: a.created_at,
       updated_at: a.updated_at,
