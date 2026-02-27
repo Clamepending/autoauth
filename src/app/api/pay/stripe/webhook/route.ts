@@ -2,8 +2,9 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getBaseUrl } from "@/lib/base-url";
-import { notifySlackAmazonFulfillment } from "@/lib/slack";
+import { notifySlackAmazonFulfillment, notifySlackSnackpassFulfillment } from "@/lib/slack";
 import { getOrderById, updateOrderStatus } from "@/services/amazon/orders";
+import { getSnackpassOrderById, updateSnackpassOrderStatus } from "@/services/snackpass/orders";
 
 function toUsd(cents: number | null): string | null {
   if (cents == null) return null;
@@ -16,6 +17,11 @@ function parseOrderId(session: Stripe.Checkout.Session): number | null {
   const value = fromMetadata || fromClientRef;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseOrderKind(session: Stripe.Checkout.Session): "amazon" | "snackpass" {
+  const kind = session.metadata?.order_kind?.trim().toLowerCase();
+  return kind === "snackpass" ? "snackpass" : "amazon";
 }
 
 export async function POST(request: Request) {
@@ -49,24 +55,52 @@ export async function POST(request: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = parseOrderId(session);
     if (orderId) {
-      const order = await getOrderById(orderId);
-      if (order && order.status !== "Fulfilled" && order.status !== "Failed") {
-        await updateOrderStatus(orderId, "Paid");
+      const kind = parseOrderKind(session);
+      if (kind === "snackpass") {
+        const order = await getSnackpassOrderById(orderId);
+        if (order && order.status !== "Fulfilled" && order.status !== "Failed") {
+          await updateSnackpassOrderStatus(orderId, "Paid");
 
-        const itemCents = order.estimated_price_cents;
-        const taxCents = order.estimated_tax_cents ?? 0;
-        const feeCents = order.processing_fee_cents ?? 0;
-        const totalCents = itemCents != null ? itemCents + taxCents + feeCents : null;
+          const taxCents = order.estimated_tax_cents ?? 0;
+          const feeCents = order.processing_fee_cents ?? 0;
+          const tipCents = order.tip_cents ?? 0;
+          const serviceFee = order.service_fee_cents ?? 0;
+          const deliveryFee = order.delivery_fee_cents ?? 0;
+          const subtotal = order.estimated_price_cents + serviceFee + deliveryFee;
+          const totalCents = subtotal + taxCents + feeCents + tipCents;
 
-        await notifySlackAmazonFulfillment({
-          orderId: order.id,
-          username: order.username_lower,
-          productTitle: order.product_title,
-          itemUrl: order.item_url,
-          shippingLocation: order.shipping_location,
-          estimatedTotal: toUsd(totalCents),
-          appUrl: getBaseUrl(),
-        });
+          await notifySlackSnackpassFulfillment({
+            orderId: order.id,
+            username: order.username_lower,
+            dishName: order.dish_name,
+            restaurantName: order.restaurant_name,
+            orderType: order.order_type,
+            shippingLocation: order.shipping_location,
+            tipDisplay: tipCents > 0 ? toUsd(tipCents) : null,
+            estimatedTotal: toUsd(totalCents),
+            appUrl: getBaseUrl(),
+          });
+        }
+      } else {
+        const order = await getOrderById(orderId);
+        if (order && order.status !== "Fulfilled" && order.status !== "Failed") {
+          await updateOrderStatus(orderId, "Paid");
+
+          const itemCents = order.estimated_price_cents;
+          const taxCents = order.estimated_tax_cents ?? 0;
+          const feeCents = order.processing_fee_cents ?? 0;
+          const totalCents = itemCents != null ? itemCents + taxCents + feeCents : null;
+
+          await notifySlackAmazonFulfillment({
+            orderId: order.id,
+            username: order.username_lower,
+            productTitle: order.product_title,
+            itemUrl: order.item_url,
+            shippingLocation: order.shipping_location,
+            estimatedTotal: toUsd(totalCents),
+            appUrl: getBaseUrl(),
+          });
+        }
       }
     }
   }

@@ -1,6 +1,7 @@
 import type { ServiceManifest } from "@/services/_shared/types";
 import { getManifest as getAmazonManifest } from "@/services/amazon/manifest";
 import { getManifest as getComputerUseManifest } from "@/services/computeruse/manifest";
+import { getManifest as getSnackpassManifest } from "@/services/snackpass/manifest";
 
 /**
  * Static stubs for services that are announced but not yet implemented.
@@ -35,15 +36,6 @@ const COMING_SOON: ServiceManifest[] = [
     docsMarkdown: "",
   },
   {
-    id: "snackpass",
-    name: "Snackpass",
-    description: "Order food on Snackpass",
-    category: "commerce",
-    status: "coming_soon",
-    endpoints: [],
-    docsMarkdown: "",
-  },
-  {
     id: "other",
     name: "Other",
     description: "Other integration",
@@ -55,7 +47,7 @@ const COMING_SOON: ServiceManifest[] = [
 ];
 
 export function getAllManifests(): ServiceManifest[] {
-  return [getAmazonManifest(), getComputerUseManifest(), ...COMING_SOON];
+  return [getAmazonManifest(), getComputerUseManifest(), getSnackpassManifest(), ...COMING_SOON];
 }
 
 export function getManifest(serviceId: string): ServiceManifest | null {

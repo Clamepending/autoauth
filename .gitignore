@@ -8,3 +8,7 @@ local.db-*
 .vercel
 .env*.local
 .demo-agent-creds.json
+
+# Abhay's AI dev files
+implementation_details.md
+snackpass_integration_plan.md

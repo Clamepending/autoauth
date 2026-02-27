@@ -139,3 +139,78 @@ export async function notifySlackAmazonFulfillment(params: {
     console.error("[slack] amazon webhook fetch error:", err);
   }
 }
+
+export async function notifySlackSnackpassFulfillment(params: {
+  orderId: number;
+  username: string;
+  dishName: string;
+  restaurantName: string;
+  orderType: string;
+  shippingLocation: string;
+  tipDisplay: string | null;
+  estimatedTotal: string | null;
+  appUrl: string;
+}): Promise<void> {
+  const url = process.env.SLACK_WEBHOOK_URL?.trim() || null;
+  const envLabel = getEnvLabel();
+  if (!url) {
+    console.warn(`[slack] No webhook configured — set SLACK_WEBHOOK_URL`);
+    return;
+  }
+
+  const orderLink = `${params.appUrl}/admindash/snackpass/orders/${params.orderId}`;
+  const totalText = params.estimatedTotal ?? "Unknown";
+
+  const payload = {
+    text: "Snackpass order ready for manual fulfillment",
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: `Snackpass paid order (${envLabel})`,
+          emoji: true,
+        },
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Order ID:*\n#${params.orderId}` },
+          { type: "mrkdwn", text: `*Agent:*\n${params.username}` },
+          { type: "mrkdwn", text: `*Total:*\n${totalText}` },
+          { type: "mrkdwn", text: `*Type:*\n${params.orderType}` },
+        ],
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Dish:*\n${params.dishName}` },
+          { type: "mrkdwn", text: `*Restaurant:*\n${params.restaurantName}` },
+          { type: "mrkdwn", text: `*Pickup/Delivery:*\n${params.shippingLocation}` },
+          { type: "mrkdwn", text: `*Tip:*\n${params.tipDisplay ?? "None"}` },
+        ],
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `<${orderLink}|Open fulfillment page>`,
+        },
+      },
+    ],
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("[slack] snackpass webhook failed:", res.status, body);
+    }
+  } catch (err) {
+    console.error("[slack] snackpass webhook fetch error:", err);
+  }
+}
