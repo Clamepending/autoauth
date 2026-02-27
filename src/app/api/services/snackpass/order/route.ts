@@ -47,6 +47,15 @@ function serializeMatch(item: SnackpassMenuItemRecord & { score?: number; exactD
   };
 }
 
+function tokenize(input: string): string[] {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+}
+
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => null);
   if (!payload) {
@@ -103,16 +112,25 @@ export async function POST(request: Request) {
   }
 
   const exactMatches = matches.filter((m) => (m as { exactDishMatch?: boolean }).exactDishMatch);
+  const dishTokens = tokenize(dishName);
+  const topMatch = matches[0];
+  const secondMatch = matches[1];
+  const scoreGap =
+    topMatch && secondMatch && typeof topMatch.score === "number" && typeof secondMatch.score === "number"
+      ? topMatch.score - secondMatch.score
+      : 0;
+  const ambiguousByScore = matches.length > 1 && scoreGap < 10;
+  const ambiguousByGenericQuery = dishTokens.length <= 1;
+  const shouldDisambiguate =
+    exactMatches.length !== 1 && matches.length > 1 && (ambiguousByScore || ambiguousByGenericQuery);
 
-  if (!restaurantName && exactMatches.length === 1) {
-    // Auto-select the unique exact match to avoid unnecessary disambiguation.
-  } else if (!restaurantName && matches.length > 1) {
+  if (shouldDisambiguate) {
     return NextResponse.json(
       {
         ok: false,
         status: "needs_disambiguation",
         matches: matches.map(serializeMatch),
-        message: "Multiple dishes match your request. Please provide restaurant_name and retry.",
+        message: "Multiple dishes match your request. Please specify the exact dish name from the list.",
       },
       { status: 200 }
     );
