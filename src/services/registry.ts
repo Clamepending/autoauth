@@ -29,7 +29,7 @@ const COMING_SOON: ServiceManifest[] = [
   {
     id: "doordash",
     name: "DoorDash",
-    description: "Order food via DoorDash",
+    description: "Search and buy food or drinks for delivery via DoorDash",
     category: "commerce",
     status: "coming_soon",
     endpoints: [],

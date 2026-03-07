@@ -31,3 +31,34 @@ Set `TURSO_DB_URL` and `TURSO_DB_AUTH_TOKEN` for Turso. Without them, the app us
 4. **Deploy.** Vercel will build and deploy. The app URL will be used automatically for `skill.md` and the homepage curl command.
 
 After deployment, open `https://your-app.vercel.app/skill.md` to confirm the instructions show your production URL.
+
+## OttoAuth MCP proxy server
+
+This repo now includes a stdio MCP server that:
+- discovers OttoAuth service tools from `GET /api/services` + `GET /api/services/<id>`
+- refreshes discovered tools every 24 hours
+- forwards MCP tool calls to OttoAuth HTTP endpoints and returns the response
+
+### Run
+
+```bash
+OTTOAUTH_BASE_URL=http://localhost:3000 npm run mcp:ottoauth
+```
+
+If `OTTOAUTH_BASE_URL` is not set, it defaults to `http://localhost:3000`.
+
+### Example MCP client config
+
+```json
+{
+  "mcpServers": {
+    "ottoauth": {
+      "command": "npm",
+      "args": ["run", "mcp:ottoauth"],
+      "env": {
+        "OTTOAUTH_BASE_URL": "https://your-ottoauth-domain.com"
+      }
+    }
+  }
+}
+```

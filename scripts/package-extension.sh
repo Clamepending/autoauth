@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/Users/mark/Desktop/projects/autoauth"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 EXT_DIR="$ROOT/chrome-extension/mock-open-link"
 OUT_ZIP="$ROOT/chrome-extension/ottoauth-browser-agent.zip"
 

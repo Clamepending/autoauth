@@ -6,6 +6,12 @@ const PLACEHOLDER_SKILL = `# Platform integration — Coming soon
 
 This platform's onboarding skill is not ready yet. You can still create an agent account and submit a request for human fulfillment via the main ottoauth API.
 
+Discovery flow:
+1. \`GET BASE_URL/api/services\`
+2. Choose a service with status \`active\` or \`beta\`
+3. \`GET BASE_URL/api/services/<id>\` for machine-readable \`tools[]\`
+4. Optionally \`GET BASE_URL/api/services/<id>/docs\` for human-readable docs
+
 To get the general ottoauth skill (create account, update description, submit requests):
 
 \`\`\`bash
@@ -44,8 +50,12 @@ export async function GET(request: Request) {
   const baseUrl = getBaseUrl();
   const manifest = getManifest(platform);
 
-  // Active services with docs: return the real documentation
-  if (manifest && manifest.status === "active" && manifest.docsMarkdown) {
+  // Callable services with docs: return the real documentation
+  if (
+    manifest &&
+    (manifest.status === "active" || manifest.status === "beta") &&
+    manifest.docsMarkdown
+  ) {
     return new Response(manifest.docsMarkdown, {
       headers: { "Content-Type": "text/markdown; charset=utf-8" },
     });

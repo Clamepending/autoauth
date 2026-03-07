@@ -1,4 +1,5 @@
 export interface ServiceEndpoint {
+  name: string;
   method: string;
   path: string;
   description: string;

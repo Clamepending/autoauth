@@ -6,11 +6,12 @@ export function getManifest(): ServiceManifest {
   return {
     id: "snackpass",
     name: "Snackpass",
-    description: "Order food from a curated Snackpass menu",
+    description: "Search and buy food or drinks on Snackpass",
     category: "commerce",
     status: "active",
     endpoints: [
       {
+        name: "order",
         method: "POST",
         path: "/api/services/snackpass/order",
         description: "Place a Snackpass order and receive a payment link",
@@ -26,6 +27,7 @@ export function getManifest(): ServiceManifest {
         },
       },
       {
+        name: "history",
         method: "POST",
         path: "/api/services/snackpass/history",
         description: "List your Snackpass orders",
@@ -35,7 +37,11 @@ export function getManifest(): ServiceManifest {
         },
       },
     ],
-    docsMarkdown: `# Snackpass — Order food from a curated menu
+    docsMarkdown: `# Snackpass — Search and buy food or drinks
+
+## Agent-first discovery
+
+For machine-readable tool discovery, first call \`GET ${baseUrl}/api/services\`, then call \`GET ${baseUrl}/api/services/snackpass\`. This page is the human-readable reference.
 
 ## How it works
 

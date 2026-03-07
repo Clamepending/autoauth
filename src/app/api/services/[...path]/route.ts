@@ -7,7 +7,7 @@ function notFoundResponse() {
     {
       error: "Service not found.",
       message:
-        "The requested service is not supported. Call GET /api/services to receive the list of valid service ids.",
+        "The requested service is not supported. Call GET /api/services to receive valid service ids, then GET /api/services/<id> for that service's tool list.",
       listServicesUrl: `${baseUrl}/api/services`,
       nextStep: `GET ${baseUrl}/api/services`,
     },

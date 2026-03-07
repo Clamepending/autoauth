@@ -7,7 +7,7 @@ This repo includes a release-packaging script and a privacy policy page so the r
 From the repo root:
 
 ```bash
-cd /Users/mark/Desktop/projects/autoauth
+cd /Users/mark/Desktop/projects/ottoauth
 node --check chrome-extension/mock-open-link/background.js
 node --check chrome-extension/mock-open-link/sidepanel.js
 npm run build
@@ -16,11 +16,11 @@ npm run build
 ## 2. Build the extension ZIP
 
 ```bash
-/Users/mark/Desktop/projects/autoauth/scripts/package-extension.sh
+/Users/mark/Desktop/projects/ottoauth/scripts/package-extension.sh
 ```
 
 Output:
-- `/Users/mark/Desktop/projects/autoauth/chrome-extension/ottoauth-browser-agent.zip`
+- `/Users/mark/Desktop/projects/ottoauth/chrome-extension/ottoauth-browser-agent.zip`
 
 ## 3. Upload to Chrome Web Store
 
@@ -28,7 +28,7 @@ Developer dashboard:
 - <https://chrome.google.com/webstore/devconsole>
 
 Upload:
-- `/Users/mark/Desktop/projects/autoauth/chrome-extension/ottoauth-browser-agent.zip`
+- `/Users/mark/Desktop/projects/ottoauth/chrome-extension/ottoauth-browser-agent.zip`
 
 ## 4. Fill required listing/compliance fields
 

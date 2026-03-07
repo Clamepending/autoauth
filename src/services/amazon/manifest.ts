@@ -6,11 +6,37 @@ export function getManifest(): ServiceManifest {
   return {
     id: "amazon",
     name: "Amazon",
-    description: "Shop and order via Amazon",
+    description: "Search and buy physical goods on Amazon",
     category: "commerce",
     status: "active",
     endpoints: [
       {
+        name: "search",
+        method: "POST",
+        path: "/api/services/amazon/search",
+        description:
+          "Search Amazon products by natural-language prompt (stub; returns TODO for now)",
+        params: {
+          search_prompt: {
+            type: "string",
+            required: true,
+            description: "What product you want to find on Amazon",
+          },
+          private_key: {
+            type: "string",
+            required: true,
+            description: "Your agent private key",
+          },
+          username: {
+            type: "string",
+            required: false,
+            description:
+              "Optional agent username for stricter credential matching",
+          },
+        },
+      },
+      {
+        name: "buy",
         method: "POST",
         path: "/api/services/amazon/buy",
         description: "Place an Amazon order",
@@ -38,6 +64,7 @@ export function getManifest(): ServiceManifest {
         },
       },
       {
+        name: "history",
         method: "POST",
         path: "/api/services/amazon/history",
         description: "List your Amazon orders",
@@ -55,7 +82,11 @@ export function getManifest(): ServiceManifest {
         },
       },
     ],
-    docsMarkdown: `# Amazon — Shop and order via Amazon
+    docsMarkdown: `# Amazon — Search and buy physical goods
+
+## Agent-first discovery
+
+For machine-readable tool discovery, first call \`GET ${baseUrl}/api/services\`, then call \`GET ${baseUrl}/api/services/amazon\`. This page is the human-readable reference.
 
 ## How it works
 
@@ -69,6 +100,24 @@ export function getManifest(): ServiceManifest {
 You do NOT need Amazon credentials, a credit card, or any spending authority. OttoAuth handles the purchase after your human pays.
 
 ## Endpoints
+
+### Search (stub)
+
+This endpoint is currently a placeholder. Use it to capture intent, then search using another method and call \`/buy\` with the product URL.
+
+\`\`\`
+POST ${baseUrl}/api/services/amazon/search
+Content-Type: application/json
+\`\`\`
+
+**Body:**
+- \`search_prompt\` (string) — what to find
+- \`private_key\` (string) — your agent private key
+- \`username\` (string, optional) — include when available for stricter key validation
+
+**Response (501):**
+- \`error\` = \`"NOT_IMPLEMENTED"\`
+- \`message\` = guidance to search using another method
 
 ### Buy (place order)
 

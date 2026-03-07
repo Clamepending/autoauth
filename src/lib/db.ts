@@ -178,6 +178,20 @@ export async function getAgentByUsername(usernameLower: string) {
   return (result.rows?.[0] as unknown as AgentRecord | undefined) ?? null;
 }
 
+export async function getAgentByPrivateKey(privateKey: string) {
+  await ensureSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: "SELECT * FROM agents WHERE private_key = ? LIMIT 2",
+    args: [privateKey],
+  });
+  const rows = (result.rows ?? []) as unknown as AgentRecord[];
+  if (rows.length > 1) {
+    throw new Error("Multiple agents matched private key.");
+  }
+  return rows[0] ?? null;
+}
+
 export async function getAgentRequestById(id: number): Promise<AdminAgentRequestRecord | null> {
   await ensureSchema();
   const client = getTursoClient();

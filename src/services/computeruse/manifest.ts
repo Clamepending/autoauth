@@ -11,6 +11,7 @@ export function getManifest(): ServiceManifest {
     status: "beta",
     endpoints: [
       {
+        name: "register_device",
         method: "POST",
         path: "/api/computeruse/register-device",
         description: "Register a browser token to an agent (one-time setup)",
@@ -25,6 +26,7 @@ export function getManifest(): ServiceManifest {
         },
       },
       {
+        name: "start_run",
         method: "POST",
         path: "/api/computeruse/runs",
         description: "Start an async computer-use run",
@@ -50,6 +52,7 @@ export function getManifest(): ServiceManifest {
         },
       },
       {
+        name: "get_run_status",
         method: "POST",
         path: "/api/computeruse/runs/:runId",
         description: "Fetch run status",
@@ -59,6 +62,7 @@ export function getManifest(): ServiceManifest {
         },
       },
       {
+        name: "get_run_events",
         method: "POST",
         path: "/api/computeruse/runs/:runId/events",
         description: "Fetch run event log",
@@ -70,6 +74,10 @@ export function getManifest(): ServiceManifest {
       },
     ],
     docsMarkdown: `# Computer Use — Control a paired browser extension
+
+## Agent-first discovery
+
+For machine-readable tool discovery, first call \`GET ${baseUrl}/api/services\`, then call \`GET ${baseUrl}/api/services/computeruse\`. This page is the human-readable reference.
 
 ## What this is
 
