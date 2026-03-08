@@ -1,7 +1,7 @@
-import type { AdminAgentRequestRecord } from "@/lib/db";
+import type { AgentRequestWithAgentRecord } from "@/lib/db";
 
 export async function notifyOpenClaw(params: {
-  request: AdminAgentRequestRecord;
+  request: AgentRequestWithAgentRecord;
   action: "resolved" | "rejected";
   notes: string | null;
 }) {

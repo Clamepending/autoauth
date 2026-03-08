@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminAgentRequests } from "@/lib/db";
+import { getAgentRequestsForAdmin } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
           .filter((part) => allowedStatuses.has(part))
       : undefined;
 
-  const requests = await getAdminAgentRequests(statuses);
+  const requests = await getAgentRequestsForAdmin(statuses);
   return NextResponse.json(requests, {
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

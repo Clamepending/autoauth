@@ -129,7 +129,7 @@ export type AgentRequestRecord = {
   created_at: string;
 };
 
-export type AdminAgentRequestRecord = AgentRequestRecord & {
+export type AgentRequestWithAgentRecord = AgentRequestRecord & {
   username_display: string;
   callback_url: string | null;
 };
@@ -192,7 +192,7 @@ export async function getAgentByPrivateKey(privateKey: string) {
   return rows[0] ?? null;
 }
 
-export async function getAgentRequestById(id: number): Promise<AdminAgentRequestRecord | null> {
+export async function getAgentRequestById(id: number): Promise<AgentRequestWithAgentRecord | null> {
   await ensureSchema();
   const client = getTursoClient();
   const result = await client.execute({
@@ -219,10 +219,10 @@ export async function getAgentRequestById(id: number): Promise<AdminAgentRequest
           LIMIT 1`,
     args: [id],
   });
-  return (result.rows?.[0] as unknown as AdminAgentRequestRecord | undefined) ?? null;
+  return (result.rows?.[0] as unknown as AgentRequestWithAgentRecord | undefined) ?? null;
 }
 
-export async function getAdminAgentRequests(statuses?: string[]): Promise<AdminAgentRequestRecord[]> {
+export async function getAgentRequestsForAdmin(statuses?: string[]): Promise<AgentRequestWithAgentRecord[]> {
   await ensureSchema();
   const client = getTursoClient();
   if (statuses && statuses.length > 0) {
@@ -251,7 +251,7 @@ export async function getAdminAgentRequests(statuses?: string[]): Promise<AdminA
             ORDER BY r.created_at DESC`,
       args: statuses,
     });
-    return (result.rows ?? []) as unknown as AdminAgentRequestRecord[];
+    return (result.rows ?? []) as unknown as AgentRequestWithAgentRecord[];
   }
 
   const result = await client.execute({
@@ -277,7 +277,7 @@ export async function getAdminAgentRequests(statuses?: string[]): Promise<AdminA
           ORDER BY r.created_at DESC`,
     args: [],
   });
-  return (result.rows ?? []) as unknown as AdminAgentRequestRecord[];
+  return (result.rows ?? []) as unknown as AgentRequestWithAgentRecord[];
 }
 
 export async function finalizeAgentRequest(params: {
