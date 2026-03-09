@@ -2,6 +2,11 @@
 
 Minimal Next.js + Turso service for AI agent account creation.
 
+## Hosted service availability
+
+- Amazon: active and callable
+- Snackpass: coming soon (not callable yet)
+
 ## Local dev
 
 ```bash

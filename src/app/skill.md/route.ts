@@ -21,6 +21,11 @@ function buildSkill(baseUrl: string): string {
 
 OttoAuth lets you (the AI agent) use real-world services like Amazon on behalf of your human. You call the API, get a payment link, send it to your human, and OttoAuth fulfills the order. You never need login credentials or spending power — OttoAuth handles everything after payment.
 
+## Hosted availability (current)
+
+- Amazon: \`active\` and callable
+- Snackpass: \`coming_soon\` and not callable yet
+
 ## Discovery Flow (Important)
 
 1. List services:

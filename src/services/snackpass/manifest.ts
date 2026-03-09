@@ -6,124 +6,32 @@ export function getManifest(): ServiceManifest {
   return {
     id: "snackpass",
     name: "Snackpass",
-    description: "Search and buy food or drinks on Snackpass",
+    description: "Snackpass ordering (coming soon)",
     category: "commerce",
-    status: "active",
-    endpoints: [
-      {
-        name: "order",
-        method: "POST",
-        path: "/api/services/snackpass/order",
-        description: "Place a Snackpass order and receive a payment link",
-        params: {
-          username: { type: "string", required: true, description: "Your agent username" },
-          private_key: { type: "string", required: true, description: "Your agent private key" },
-          dish_name: { type: "string", required: true, description: "Dish name (e.g., Pollo Asado Burrito)" },
-          restaurant_name: { type: "string", required: false, description: "Restaurant name (recommended if multiple matches)" },
-          shipping_location: { type: "string", required: false, description: "Pickup or delivery instructions/address (optional if restaurant address is on file)" },
-          order_type: { type: "string", required: false, description: "pickup (default) or delivery" },
-          tip_cents: { type: "number", required: false, description: "Optional tip in cents" },
-          delivery_instructions: { type: "string", required: false, description: "Optional delivery notes" },
-        },
-      },
-      {
-        name: "history",
-        method: "POST",
-        path: "/api/services/snackpass/history",
-        description: "List your Snackpass orders",
-        params: {
-          username: { type: "string", required: true, description: "Your agent username" },
-          private_key: { type: "string", required: true, description: "Your agent private key" },
-        },
-      },
-    ],
-    docsMarkdown: `# Snackpass — Search and buy food or drinks
+    status: "coming_soon",
+    endpoints: [],
+    docsMarkdown: `# Snackpass — Coming soon
 
-## Agent-first discovery
+Snackpass is not yet available on this hosted OttoAuth server.
 
-For machine-readable tool discovery, first call \`GET ${baseUrl}/api/services\`, then call \`GET ${baseUrl}/api/services/snackpass\`. This page is the human-readable reference.
+## Current status
 
-## How it works
+- Status: \`coming_soon\`
+- Callable tools: none
 
-1. Your human asks you to order a dish on Snackpass.
-2. You call \`POST ${baseUrl}/api/services/snackpass/order\` with the dish name and pickup/delivery info.
-3. OttoAuth matches the dish from a curated menu and returns a **payment_url**.
-4. **Send the payment_url to your human.** They review and pay.
-5. After payment, a human operator places the Snackpass order manually.
+## What to do now
 
-## Important behavior (dish matching)
+Use Amazon for live purchases:
 
-- If the dish name is **ambiguous**, the API responds with \`status: needs_disambiguation\` and a list of suggested matches.
-- If the dish is **not found**, the API will create a manual request and ask you to provide more detail or wait.
-
-## Endpoints
-
-### Order (place order)
-
-\`POST ${baseUrl}/api/services/snackpass/order\`
-
-**Body:**
-- \`username\` (string) — your agent username
-- \`private_key\` (string) — your agent private key
-- \`dish_name\` (string) — name of the dish
-- \`restaurant_name\` (string, optional) — restaurant to disambiguate
-- \`shipping_location\` (string, optional) — pickup or delivery instructions (optional if restaurant address is on file)
-- \`order_type\` (string, optional) — \`pickup\` (default) or \`delivery\`
-- \`tip_cents\` (number, optional) — tip in cents
-- \`delivery_instructions\` (string, optional)
-
-**Response (success):**
-- \`order_id\`
-- \`payment_url\` — send to your human
-- \`estimated_price\`
-- \`estimated_tax\`
-- \`service_fee\`
-- \`delivery_fee\`
-- \`processing_fee\`
-- \`estimated_total\`
-- \`dish_name\`, \`restaurant_name\`
-- \`restaurant_address\`
-- \`shipping_location\`
-- \`shipping_location_source\` (provided | restaurant_address)
-- \`menu_notes\` (if any)
-
-**Response (ambiguous):**
-- \`status\`: \`needs_disambiguation\`
-- \`matches\`: list of suggested dishes with ids and names
-- \`message\`: ask for clarification
-
-**Response (not found):**
-- \`request_id\`
-- \`message\`: request created; wait for manual update
-
-### History (list orders)
-
-\`POST ${baseUrl}/api/services/snackpass/history\`
-
-**Body:**
-- \`username\` (string)
-- \`private_key\` (string)
-
-**Response:** list of orders with status and totals.
-
-## Example
-
-\`\`\`
-POST ${baseUrl}/api/services/snackpass/order
-Content-Type: application/json
-
-{
-  "username":"my_agent",
-  "private_key":"MY_PRIVATE_KEY",
-  "dish_name":"Pollo Asado Burrito",
-  "restaurant_name":"La Burrita",
-  "shipping_location":"Pickup at 2524 Durant Ave, Berkeley",
-  "order_type":"pickup",
-  "tip_cents":200
-}
+\`\`\`bash
+GET ${baseUrl}/api/services
+GET ${baseUrl}/api/services/amazon
+POST ${baseUrl}/api/services/amazon/buy
 \`\`\`
 
-If you receive multiple matches, ask your human to pick one and retry with \`restaurant_name\` to disambiguate.
+## Keep watching for launch
+
+Run \`GET ${baseUrl}/api/services\` or \`GET ${baseUrl}/skill.md\` to detect when Snackpass moves to \`active\`.
 `,
   };
 }

@@ -43,9 +43,9 @@ export default function HomePage() {
     <main>
       <section className="hero">
         <div className="eyebrow">OTTOAUTH</div>
-        <h1>One platform. All the integrations.</h1>
+        <h1>Amazon is live. Snackpass is coming soon.</h1>
         <p className="lede">
-          No more manual setup of accounts for your AI agents. Just have them run one command and they can create all supported accounts themselves.
+          OttoAuth gives your AI agent one command for discovery. Amazon is currently callable on this hosted server, and Snackpass is announced as coming soon.
         </p>
         <div>
           <div style={{ marginBottom: 12 }}>Send this to your agent:</div>
@@ -56,7 +56,7 @@ export default function HomePage() {
         <div className="card steps">
           <strong>1.</strong> Send the above command to your agent.<br />
           <strong>2.</strong> Follow instructions from your agent.<br />
-          <strong>3.</strong> Done! Ask it to access any supported service!
+          <strong>3.</strong> Done! Ask it to access Amazon now.
         </div>
         <div className="supported-accounts">
           <div className="supported-accounts-title">Supported accounts</div>

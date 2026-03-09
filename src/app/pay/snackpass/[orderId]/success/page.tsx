@@ -4,9 +4,9 @@ export default function SnackpassPaySuccessPage() {
   return (
     <main className="pay-page">
       <div className="pay-card">
-        <h1>Payment received</h1>
+        <h1>Snackpass coming soon</h1>
         <p className="pay-lede">
-          Thank you. Your Snackpass order payment was successful. A human operator will place the order and update the status.
+          Snackpass is not live yet on this hosted OttoAuth server.
         </p>
         <Link href="/" className="pay-button">
           Back to ottoauth
