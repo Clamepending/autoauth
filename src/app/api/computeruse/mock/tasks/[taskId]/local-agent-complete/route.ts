@@ -10,6 +10,7 @@ import {
   getComputerUseTaskById,
   verifyComputerUseDeviceToken,
 } from "@/lib/computeruse-store";
+import { handleAmazonTaskCompletion } from "@/lib/amazon-fulfillment";
 
 type Context = {
   params: {
@@ -129,6 +130,15 @@ export async function POST(request: Request, context: Context) {
       },
     });
   }
+
+  handleAmazonTaskCompletion({
+    taskId: task.id,
+    status,
+    result,
+    error,
+  }).catch((e) => {
+    console.error("[local-agent-complete] Amazon fulfillment hook error:", e);
+  });
 
   return NextResponse.json(
     {

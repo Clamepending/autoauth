@@ -21,6 +21,12 @@ export async function ensureAmazonSchema() {
       stripe_session_id TEXT,
       tracking_number TEXT,
       fulfillment_note TEXT,
+      shipping_address TEXT,
+      amazon_total_cents INTEGER,
+      confirmation_number TEXT,
+      est_delivery TEXT,
+      phase1_task_id TEXT,
+      phase2_task_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
@@ -28,8 +34,13 @@ export async function ensureAmazonSchema() {
   await client.execute(
     "CREATE INDEX IF NOT EXISTS idx_amazon_orders_username ON amazon_orders(username_lower)",
   );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_amazon_orders_phase1 ON amazon_orders(phase1_task_id)",
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_amazon_orders_phase2 ON amazon_orders(phase2_task_id)",
+  );
 
-  // Migrate older tables that lack the new columns
   const tableInfo = await client.execute({
     sql: "PRAGMA table_info(amazon_orders)",
     args: [],
@@ -37,40 +48,28 @@ export async function ensureAmazonSchema() {
   const columns = (tableInfo.rows ?? []) as unknown as { name: string }[];
   const names = new Set(columns.map((c) => c.name));
 
-  if (!names.has("estimated_price_cents")) {
-    await client.execute(
-      "ALTER TABLE amazon_orders ADD COLUMN estimated_price_cents INTEGER",
-    );
-  }
-  if (!names.has("product_title")) {
-    await client.execute(
-      "ALTER TABLE amazon_orders ADD COLUMN product_title TEXT",
-    );
-  }
-  if (!names.has("estimated_tax_cents")) {
-    await client.execute(
-      "ALTER TABLE amazon_orders ADD COLUMN estimated_tax_cents INTEGER",
-    );
-  }
-  if (!names.has("tax_state")) {
-    await client.execute(
-      "ALTER TABLE amazon_orders ADD COLUMN tax_state TEXT",
-    );
-  }
-  if (!names.has("processing_fee_cents")) {
-    await client.execute(
-      "ALTER TABLE amazon_orders ADD COLUMN processing_fee_cents INTEGER",
-    );
-  }
-  if (!names.has("tracking_number")) {
-    await client.execute(
-      "ALTER TABLE amazon_orders ADD COLUMN tracking_number TEXT",
-    );
-  }
-  if (!names.has("fulfillment_note")) {
-    await client.execute(
-      "ALTER TABLE amazon_orders ADD COLUMN fulfillment_note TEXT",
-    );
+  const migrations: Record<string, string> = {
+    estimated_price_cents: "INTEGER",
+    product_title: "TEXT",
+    estimated_tax_cents: "INTEGER",
+    tax_state: "TEXT",
+    processing_fee_cents: "INTEGER",
+    tracking_number: "TEXT",
+    fulfillment_note: "TEXT",
+    shipping_address: "TEXT",
+    amazon_total_cents: "INTEGER",
+    confirmation_number: "TEXT",
+    est_delivery: "TEXT",
+    phase1_task_id: "TEXT",
+    phase2_task_id: "TEXT",
+  };
+
+  for (const [col, colType] of Object.entries(migrations)) {
+    if (!names.has(col)) {
+      await client.execute(
+        `ALTER TABLE amazon_orders ADD COLUMN ${col} ${colType}`,
+      );
+    }
   }
 
   schemaReady = true;

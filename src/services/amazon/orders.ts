@@ -1,6 +1,16 @@
 import { getTursoClient } from "@/lib/turso";
 import { ensureAmazonSchema } from "./schema";
 
+export type AmazonOrderStatus =
+  | "Submitted"
+  | "pending_price"
+  | "pending_payment"
+  | "Paid"
+  | "fulfilling"
+  | "Fulfilled"
+  | "price_changed"
+  | "Failed";
+
 export type AmazonOrderRecord = {
   id: number;
   username_lower: string;
@@ -15,6 +25,12 @@ export type AmazonOrderRecord = {
   stripe_session_id: string | null;
   tracking_number: string | null;
   fulfillment_note: string | null;
+  shipping_address: string | null;
+  amazon_total_cents: number | null;
+  confirmation_number: string | null;
+  est_delivery: string | null;
+  phase1_task_id: string | null;
+  phase2_task_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -23,31 +39,38 @@ export async function createOrder(params: {
   usernameLower: string;
   itemUrl: string;
   shippingLocation: string;
+  shippingAddress?: string | null;
+  status?: AmazonOrderStatus;
   estimatedPriceCents?: number | null;
   estimatedTaxCents?: number | null;
   processingFeeCents?: number | null;
   taxState?: string | null;
   productTitle?: string | null;
+  phase1TaskId?: string | null;
 }): Promise<AmazonOrderRecord> {
   await ensureAmazonSchema();
   const client = getTursoClient();
   const now = new Date().toISOString();
+  const status = params.status ?? "Submitted";
   const insertResult = await client.execute({
     sql: `INSERT INTO amazon_orders
-            (username_lower, item_url, shipping_location, status,
+            (username_lower, item_url, shipping_location, shipping_address, status,
              estimated_price_cents, estimated_tax_cents, processing_fee_cents,
-             tax_state, product_title, stripe_session_id,
+             tax_state, product_title, stripe_session_id, phase1_task_id,
              created_at, updated_at)
-          VALUES (?, ?, ?, 'Submitted', ?, ?, ?, ?, ?, NULL, ?, ?)`,
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
     args: [
       params.usernameLower,
       params.itemUrl,
       params.shippingLocation,
+      params.shippingAddress ?? null,
+      status,
       params.estimatedPriceCents ?? null,
       params.estimatedTaxCents ?? null,
       params.processingFeeCents ?? null,
       params.taxState ?? null,
       params.productTitle ?? null,
+      params.phase1TaskId ?? null,
       now,
       now,
     ],
@@ -139,6 +162,108 @@ export async function updateOrderFulfillment(params: {
       params.status,
       params.trackingNumber,
       params.fulfillmentNote,
+      now,
+      params.orderId,
+    ],
+  });
+}
+
+export async function getOrderByPhase1TaskId(
+  taskId: string,
+): Promise<AmazonOrderRecord | null> {
+  await ensureAmazonSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: "SELECT * FROM amazon_orders WHERE phase1_task_id = ? LIMIT 1",
+    args: [taskId],
+  });
+  return (
+    (result.rows?.[0] as unknown as AmazonOrderRecord | undefined) ?? null
+  );
+}
+
+export async function getOrderByPhase2TaskId(
+  taskId: string,
+): Promise<AmazonOrderRecord | null> {
+  await ensureAmazonSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: "SELECT * FROM amazon_orders WHERE phase2_task_id = ? LIMIT 1",
+    args: [taskId],
+  });
+  return (
+    (result.rows?.[0] as unknown as AmazonOrderRecord | undefined) ?? null
+  );
+}
+
+export async function updateOrderPriceFromAgent(params: {
+  orderId: number;
+  itemPriceCents: number;
+  shippingCents: number;
+  taxCents: number;
+  amazonTotalCents: number;
+  productTitle?: string | null;
+  processingFeeCents?: number;
+}): Promise<void> {
+  await ensureAmazonSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  await client.execute({
+    sql: `UPDATE amazon_orders
+          SET status = 'pending_payment',
+              estimated_price_cents = ?,
+              estimated_tax_cents = ?,
+              processing_fee_cents = ?,
+              amazon_total_cents = ?,
+              product_title = COALESCE(?, product_title),
+              updated_at = ?
+          WHERE id = ?`,
+    args: [
+      params.itemPriceCents + params.shippingCents,
+      params.taxCents,
+      params.processingFeeCents ?? 0,
+      params.amazonTotalCents,
+      params.productTitle ?? null,
+      now,
+      params.orderId,
+    ],
+  });
+}
+
+export async function updateOrderPhase2TaskId(
+  orderId: number,
+  taskId: string,
+): Promise<void> {
+  await ensureAmazonSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  await client.execute({
+    sql: "UPDATE amazon_orders SET phase2_task_id = ?, status = 'fulfilling', updated_at = ? WHERE id = ?",
+    args: [taskId, now, orderId],
+  });
+}
+
+export async function updateOrderConfirmation(params: {
+  orderId: number;
+  confirmationNumber: string;
+  estDelivery: string | null;
+  finalTotalCents: number | null;
+}): Promise<void> {
+  await ensureAmazonSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  await client.execute({
+    sql: `UPDATE amazon_orders
+          SET status = 'Fulfilled',
+              confirmation_number = ?,
+              est_delivery = ?,
+              amazon_total_cents = COALESCE(?, amazon_total_cents),
+              updated_at = ?
+          WHERE id = ?`,
+    args: [
+      params.confirmationNumber,
+      params.estDelivery,
+      params.finalTotalCents,
       now,
       params.orderId,
     ],

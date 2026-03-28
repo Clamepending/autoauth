@@ -4,6 +4,7 @@ import {
   updateOrderFulfillment,
   updateOrderStatus,
 } from "@/services/amazon/orders";
+import { enqueuePhase2ForOrder } from "@/lib/amazon-fulfillment";
 
 export async function POST(
   request: Request,
@@ -33,14 +34,22 @@ export async function POST(
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
-  if (action === "paid") {
+  if (action === "paid" || action === "skip_payment") {
     await updateOrderStatus(id, "Paid");
-    return NextResponse.json({ ok: true, status: "Paid" });
+    const taskId = await enqueuePhase2ForOrder(id);
+    return NextResponse.json({
+      ok: true,
+      status: "Paid",
+      phase2_task_id: taskId,
+      message: taskId
+        ? "Order marked as Paid. Phase 2 (place order) task enqueued."
+        : "Order marked as Paid. No Phase 2 task created (order may be missing data).",
+    });
   }
 
   if (action !== "fulfilled" && action !== "failed") {
     return NextResponse.json(
-      { error: "action must be one of: fulfilled, failed, paid." },
+      { error: "action must be one of: fulfilled, failed, paid, skip_payment." },
       { status: 400 },
     );
   }

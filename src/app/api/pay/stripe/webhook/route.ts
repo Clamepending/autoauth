@@ -5,6 +5,7 @@ import { getBaseUrl } from "@/lib/base-url";
 import { notifySlackAmazonFulfillment, notifySlackSnackpassFulfillment } from "@/lib/slack";
 import { getOrderById, updateOrderStatus } from "@/services/amazon/orders";
 import { getSnackpassOrderById, updateSnackpassOrderStatus } from "@/services/snackpass/orders";
+import { enqueuePhase2ForOrder } from "@/lib/amazon-fulfillment";
 
 function toUsd(cents: number | null): string | null {
   if (cents == null) return null;
@@ -96,9 +97,13 @@ export async function POST(request: Request) {
             username: order.username_lower,
             productTitle: order.product_title,
             itemUrl: order.item_url,
-            shippingLocation: order.shipping_location,
+            shippingLocation: order.shipping_address || order.shipping_location,
             estimatedTotal: toUsd(totalCents),
             appUrl: getBaseUrl(),
+          });
+
+          enqueuePhase2ForOrder(orderId).catch((e) => {
+            console.error("[stripe-webhook] Failed to enqueue Phase 2 for order", orderId, e);
           });
         }
       }
