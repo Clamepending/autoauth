@@ -14,7 +14,10 @@ export type BGMessage =
   | { type: 'enable-console-capture'; tabId: number }
   | { type: 'enable-network-capture'; tabId: number }
   | { type: 'file-upload'; tabId: number; ref: string; paths: string[] }
-  | { type: 'get-viewport-size'; tabId: number };
+  | { type: 'get-viewport-size'; tabId: number }
+  | { type: 'session-get-active' }
+  | { type: 'session-get-all' }
+  | { type: 'session-request-create' };
 
 export interface BGResponse {
   success: boolean;
@@ -27,6 +30,7 @@ export interface TabInfo {
   url: string;
   title: string;
   active: boolean;
+  groupId: number;
 }
 
 export type ToolResultContent =
@@ -85,3 +89,17 @@ export interface OttoAuthConfig {
   deviceId: string;
   authToken: string;
 }
+
+export interface SessionInfo {
+  id: string;
+  groupId: number;
+  name: string;
+  color: chrome.tabGroups.ColorEnum;
+  createdAt: number;
+}
+
+export type SidePanelNotification =
+  | { kind: 'session-switched'; sessionId: string | null }
+  | { kind: 'session-created'; session: SessionInfo }
+  | { kind: 'session-removed'; sessionId: string }
+  | { kind: 'panel-no-session' };

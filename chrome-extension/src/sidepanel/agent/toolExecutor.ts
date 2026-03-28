@@ -11,6 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const screenshotStore = new Map<string, string>();
 let screenshotCounter = 0;
+let _screenshotSessionId: string | undefined;
 
 function textResult(text: string): ToolResultContent[] {
   return [{ type: 'text', text }];
@@ -93,7 +94,7 @@ async function takeScreenshot(tabId: number): Promise<ToolResultContent[]> {
   const imgId = `screenshot_${screenshotCounter}`;
   screenshotStore.set(imgId, resized.data);
 
-  useStore.getState().appendToLastAssistant({ type: 'screenshot', data: resized.data });
+  useStore.getState().appendToLastAssistant({ type: 'screenshot', data: resized.data }, _screenshotSessionId);
   return imageResult(resized.data);
 }
 
@@ -469,9 +470,11 @@ export async function executeTool(
   name: string,
   input: Record<string, unknown>,
   apiKey: string,
+  sessionId?: string,
 ): Promise<ToolResultContent[]> {
   const store = useStore.getState();
-  store.setCurrentTool(name);
+  _screenshotSessionId = sessionId;
+  store.setCurrentTool(name, sessionId);
 
   const isMutating = MUTATING_TOOLS.has(name) &&
     (name !== 'computer' || MUTATING_ACTIONS.has(input.action as string));
@@ -528,10 +531,10 @@ export async function executeTool(
     if (isMutating && preDomain && targetTabId) {
       const domainErr = await verifyDomainUnchanged(targetTabId, preDomain);
       if (domainErr) {
-        store.setError(domainErr);
+        store.setError(domainErr, sessionId);
       }
     }
-    store.setCurrentTool(null);
+    store.setCurrentTool(null, sessionId);
   }
 }
 

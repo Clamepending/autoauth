@@ -1,6 +1,7 @@
 import { useStore } from '../store';
 import { runAgentLoop } from './loop';
-import type { OttoAuthTask } from '../../shared/types';
+import { sendToBackground } from '../../shared/messaging';
+import type { OttoAuthTask, SessionInfo } from '../../shared/types';
 import {
   STORAGE_KEY_OTTOAUTH_URL,
   STORAGE_KEY_OTTOAUTH_DEVICE_ID,
@@ -95,13 +96,14 @@ export function stopOttoAuthPolling(): void {
 async function pollForTask(): Promise<void> {
   if (!pollingActive) return;
 
-  const { ottoAuthUrl, ottoAuthToken, ottoAuthDeviceId, isRunning } = useStore.getState();
+  const { ottoAuthUrl, ottoAuthToken, ottoAuthDeviceId } = useStore.getState();
   if (!ottoAuthUrl || !ottoAuthToken || !ottoAuthDeviceId) {
     stopOttoAuthPolling();
     return;
   }
 
-  if (isRunning) {
+  const anyRunning = Object.values(useStore.getState().sessionStates).some((s) => s.isRunning);
+  if (anyRunning) {
     schedulePoll();
     return;
   }
@@ -150,12 +152,27 @@ function schedulePoll(): void {
   pollTimeoutId = setTimeout(pollForTask, OTTOAUTH_POLL_INTERVAL_MS);
 }
 
+async function ensureSessionForTask(): Promise<string | null> {
+  const resp = await sendToBackground({ type: 'session-request-create' });
+  if (!resp.success || !resp.data) return null;
+  const session = resp.data as SessionInfo;
+  useStore.getState().initSession(session);
+  return session.id;
+}
+
 async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
   const store = useStore.getState();
-  if (store.isRunning) return;
+  const anyRunning = Object.values(store.sessionStates).some((s) => s.isRunning);
+  if (anyRunning) return;
+
+  const sessionId = await ensureSessionForTask();
+  if (!sessionId) {
+    await reportTaskResult(task.id, 'failed', null, 'Failed to create session for task');
+    return;
+  }
 
   store.setOttoAuthCurrentTask(task);
-  store.clearMessages();
+  store.clearMessages(sessionId);
 
   const goal = task.goal || task.taskPrompt || task.url;
   if (!goal) {
@@ -165,8 +182,8 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
   }
 
   try {
-    await runAgentLoop(goal);
-    const result = extractResultFromMessages();
+    await runAgentLoop(goal, sessionId);
+    const result = extractResultFromMessages(sessionId);
     await reportTaskResult(task.id, 'completed', result, null);
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
@@ -176,8 +193,8 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
   }
 }
 
-function extractResultFromMessages(): Record<string, unknown> | null {
-  const messages = useStore.getState().messages;
+function extractResultFromMessages(sessionId: string): Record<string, unknown> | null {
+  const messages = useStore.getState().getMessages(sessionId);
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.role !== 'assistant') continue;

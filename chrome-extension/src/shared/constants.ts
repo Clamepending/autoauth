@@ -5,6 +5,8 @@ export const STORAGE_KEY_OTTOAUTH_URL = 'ottoauth_server_url';
 export const STORAGE_KEY_OTTOAUTH_DEVICE_ID = 'ottoauth_device_id';
 export const STORAGE_KEY_OTTOAUTH_AUTH_TOKEN = 'ottoauth_auth_token';
 
+export const STORAGE_KEY_SESSIONS = 'extension_sessions';
+
 export const OTTOAUTH_POLL_INTERVAL_MS = 2000;
 export const OTTOAUTH_POLL_TIMEOUT_MS = 25000;
 

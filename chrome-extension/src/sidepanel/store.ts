@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { PermissionMode, PlanData, OttoAuthTask } from '../shared/types';
+import type { PermissionMode, PlanData, OttoAuthTask, SessionInfo } from '../shared/types';
 
 export interface DisplayMessage {
   id: string;
@@ -28,25 +28,48 @@ export interface PlanRequest {
   resolve: (approved: boolean) => void;
 }
 
+export interface SessionState {
+  messages: DisplayMessage[];
+  isRunning: boolean;
+  currentTool: string | null;
+  error: string | null;
+  ottoAuthTask: OttoAuthTask | null;
+}
+
+function emptySessionState(): SessionState {
+  return { messages: [], isRunning: false, currentTool: null, error: null, ottoAuthTask: null };
+}
+
 interface AppStore {
   apiKey: string | null;
   setApiKey: (key: string | null) => void;
 
-  messages: DisplayMessage[];
-  addMessage: (msg: DisplayMessage) => void;
-  appendToLastAssistant: (block: DisplayBlock) => void;
-  updateStreamingText: (messageId: string, text: string) => void;
-  clearMessages: () => void;
+  // --- Session management ---
+  sessionInfos: Record<string, SessionInfo>;
+  sessionStates: Record<string, SessionState>;
+  activeSessionId: string | null;
 
-  isRunning: boolean;
-  setIsRunning: (running: boolean) => void;
+  initSession: (info: SessionInfo) => void;
+  switchSession: (id: string | null) => void;
+  removeSession: (id: string) => void;
 
-  currentTool: string | null;
-  setCurrentTool: (tool: string | null) => void;
+  // --- Per-session state (operates on a given session, or active if omitted) ---
+  getMessages: (sessionId?: string) => DisplayMessage[];
+  addMessage: (msg: DisplayMessage, sessionId?: string) => void;
+  appendToLastAssistant: (block: DisplayBlock, sessionId?: string) => void;
+  updateStreamingText: (messageId: string, text: string, sessionId?: string) => void;
+  clearMessages: (sessionId?: string) => void;
 
-  error: string | null;
-  setError: (error: string | null) => void;
+  getIsRunning: (sessionId?: string) => boolean;
+  setIsRunning: (running: boolean, sessionId?: string) => void;
 
+  getCurrentTool: (sessionId?: string) => string | null;
+  setCurrentTool: (tool: string | null, sessionId?: string) => void;
+
+  getError: (sessionId?: string) => string | null;
+  setError: (error: string | null, sessionId?: string) => void;
+
+  // --- Global state ---
   permissionMode: PermissionMode;
   setPermissionMode: (mode: PermissionMode) => void;
 
@@ -74,46 +97,138 @@ interface AppStore {
   setOttoAuthCurrentTask: (task: OttoAuthTask | null) => void;
 }
 
-export const useStore = create<AppStore>((set) => ({
+function resolveSessionId(state: AppStore, explicit?: string): string | null {
+  return explicit ?? state.activeSessionId;
+}
+
+function updateSession(
+  state: AppStore,
+  sessionId: string | null,
+  updater: (s: SessionState) => Partial<SessionState>,
+): Partial<AppStore> {
+  if (!sessionId) return {};
+  const existing = state.sessionStates[sessionId];
+  if (!existing) return {};
+  return {
+    sessionStates: {
+      ...state.sessionStates,
+      [sessionId]: { ...existing, ...updater(existing) },
+    },
+  };
+}
+
+export const useStore = create<AppStore>((set, get) => ({
   apiKey: null,
   setApiKey: (apiKey) => set({ apiKey }),
 
-  messages: [],
-  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
-  appendToLastAssistant: (block) =>
-    set((s) => {
-      const msgs = [...s.messages];
-      const last = msgs[msgs.length - 1];
-      if (last && last.role === 'assistant') {
-        msgs[msgs.length - 1] = { ...last, blocks: [...last.blocks, block] };
-      }
-      return { messages: msgs };
-    }),
-  updateStreamingText: (messageId, text) =>
+  // --- Session management ---
+  sessionInfos: {},
+  sessionStates: {},
+  activeSessionId: null,
+
+  initSession: (info) =>
     set((s) => ({
-      messages: s.messages.map((m) => {
-        if (m.id !== messageId) return m;
-        const blocks = [...m.blocks];
-        const lastBlock = blocks[blocks.length - 1];
-        if (lastBlock && lastBlock.type === 'text') {
-          blocks[blocks.length - 1] = { ...lastBlock, text };
-        } else {
-          blocks.push({ type: 'text', text });
-        }
-        return { ...m, blocks };
-      }),
+      sessionInfos: { ...s.sessionInfos, [info.id]: info },
+      sessionStates: { ...s.sessionStates, [info.id]: s.sessionStates[info.id] ?? emptySessionState() },
+      activeSessionId: info.id,
     })),
-  clearMessages: () => set({ messages: [] }),
 
-  isRunning: false,
-  setIsRunning: (isRunning) => set({ isRunning }),
+  switchSession: (id) => set({ activeSessionId: id }),
 
-  currentTool: null,
-  setCurrentTool: (currentTool) => set({ currentTool }),
+  removeSession: (id) =>
+    set((s) => {
+      const { [id]: _info, ...restInfos } = s.sessionInfos;
+      const { [id]: _state, ...restStates } = s.sessionStates;
+      return {
+        sessionInfos: restInfos,
+        sessionStates: restStates,
+        activeSessionId: s.activeSessionId === id ? null : s.activeSessionId,
+      };
+    }),
 
-  error: null,
-  setError: (error) => set({ error }),
+  // --- Per-session state ---
+  getMessages: (sessionId?) => {
+    const sid = sessionId ?? get().activeSessionId;
+    return sid ? get().sessionStates[sid]?.messages ?? [] : [];
+  },
 
+  addMessage: (msg, sessionId?) =>
+    set((s) => {
+      const sid = resolveSessionId(s, sessionId);
+      return updateSession(s, sid, (ss) => ({ messages: [...ss.messages, msg] }));
+    }),
+
+  appendToLastAssistant: (block, sessionId?) =>
+    set((s) => {
+      const sid = resolveSessionId(s, sessionId);
+      return updateSession(s, sid, (ss) => {
+        const msgs = [...ss.messages];
+        const last = msgs[msgs.length - 1];
+        if (last?.role === 'assistant') {
+          msgs[msgs.length - 1] = { ...last, blocks: [...last.blocks, block] };
+        }
+        return { messages: msgs };
+      });
+    }),
+
+  updateStreamingText: (messageId, text, sessionId?) =>
+    set((s) => {
+      const sid = resolveSessionId(s, sessionId);
+      return updateSession(s, sid, (ss) => ({
+        messages: ss.messages.map((m) => {
+          if (m.id !== messageId) return m;
+          const blocks = [...m.blocks];
+          const lastBlock = blocks[blocks.length - 1];
+          if (lastBlock?.type === 'text') {
+            blocks[blocks.length - 1] = { ...lastBlock, text };
+          } else {
+            blocks.push({ type: 'text', text });
+          }
+          return { ...m, blocks };
+        }),
+      }));
+    }),
+
+  clearMessages: (sessionId?) =>
+    set((s) => {
+      const sid = resolveSessionId(s, sessionId);
+      return updateSession(s, sid, () => ({ messages: [] }));
+    }),
+
+  getIsRunning: (sessionId?) => {
+    const sid = sessionId ?? get().activeSessionId;
+    return sid ? get().sessionStates[sid]?.isRunning ?? false : false;
+  },
+
+  setIsRunning: (running, sessionId?) =>
+    set((s) => {
+      const sid = resolveSessionId(s, sessionId);
+      return updateSession(s, sid, () => ({ isRunning: running }));
+    }),
+
+  getCurrentTool: (sessionId?) => {
+    const sid = sessionId ?? get().activeSessionId;
+    return sid ? get().sessionStates[sid]?.currentTool ?? null : null;
+  },
+
+  setCurrentTool: (tool, sessionId?) =>
+    set((s) => {
+      const sid = resolveSessionId(s, sessionId);
+      return updateSession(s, sid, () => ({ currentTool: tool }));
+    }),
+
+  getError: (sessionId?) => {
+    const sid = sessionId ?? get().activeSessionId;
+    return sid ? get().sessionStates[sid]?.error ?? null : null;
+  },
+
+  setError: (error, sessionId?) =>
+    set((s) => {
+      const sid = resolveSessionId(s, sessionId);
+      return updateSession(s, sid, () => ({ error }));
+    }),
+
+  // --- Global state ---
   permissionMode: 'allow_all',
   setPermissionMode: (permissionMode) => set({ permissionMode }),
 

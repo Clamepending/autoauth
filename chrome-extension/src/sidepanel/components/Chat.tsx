@@ -7,14 +7,18 @@ import { STORAGE_KEY_API_KEY } from '../../shared/constants';
 
 export default function Chat() {
   const [input, setInput] = useState('');
-  const messages = useStore((s) => s.messages);
-  const isRunning = useStore((s) => s.isRunning);
-  const error = useStore((s) => s.error);
-  const setIsRunning = useStore((s) => s.setIsRunning);
-  const clearMessages = useStore((s) => s.clearMessages);
-  const setApiKey = useStore((s) => s.setApiKey);
-  const currentTool = useStore((s) => s.currentTool);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const activeSessionId = useStore((s) => s.activeSessionId);
+  const sessionInfo = useStore((s) => (activeSessionId ? s.sessionInfos[activeSessionId] : null));
+  const messages = useStore((s) => (activeSessionId ? s.sessionStates[activeSessionId]?.messages ?? [] : []));
+  const isRunning = useStore((s) => (activeSessionId ? s.sessionStates[activeSessionId]?.isRunning ?? false : false));
+  const currentTool = useStore((s) => (activeSessionId ? s.sessionStates[activeSessionId]?.currentTool ?? null : null));
+  const error = useStore((s) => (activeSessionId ? s.sessionStates[activeSessionId]?.error ?? null : null));
+
+  const clearMessages = useStore((s) => s.clearMessages);
+  const setIsRunning = useStore((s) => s.setIsRunning);
+  const setApiKey = useStore((s) => s.setApiKey);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -25,28 +29,40 @@ export default function Chat() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isRunning) return;
+    if (!trimmed || isRunning || !activeSessionId) return;
     setInput('');
     try {
-      await runAgentLoop(trimmed);
+      await runAgentLoop(trimmed, activeSessionId);
     } catch (err) {
       console.error('Agent loop error:', err);
     }
   };
 
   const handleStop = () => {
-    setIsRunning(false);
+    if (activeSessionId) setIsRunning(false, activeSessionId);
   };
 
   const handleClear = () => {
-    clearMessages();
+    if (activeSessionId) clearMessages(activeSessionId);
   };
 
   const handleLogout = () => {
     chrome.storage.local.remove(STORAGE_KEY_API_KEY);
     setApiKey(null);
-    clearMessages();
+    if (activeSessionId) clearMessages(activeSessionId);
   };
+
+  const colorMap: Record<string, string> = {
+    blue: 'bg-blue-100 text-blue-700',
+    red: 'bg-red-100 text-red-700',
+    yellow: 'bg-yellow-100 text-yellow-700',
+    green: 'bg-green-100 text-green-700',
+    pink: 'bg-pink-100 text-pink-700',
+    purple: 'bg-purple-100 text-purple-700',
+    cyan: 'bg-cyan-100 text-cyan-700',
+    orange: 'bg-orange-100 text-orange-700',
+  };
+  const sessionColor = sessionInfo ? colorMap[sessionInfo.color] || 'bg-gray-100 text-gray-700' : '';
 
   return (
     <div className="flex flex-col h-full">
@@ -59,6 +75,11 @@ export default function Chat() {
             </svg>
           </div>
           <span className="text-sm font-medium text-gray-800">Claude Agent</span>
+          {sessionInfo && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sessionColor}`}>
+              {sessionInfo.name}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button

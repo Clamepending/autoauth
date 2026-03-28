@@ -86,13 +86,40 @@ function compactMessages(messages: ApiMessage[]): void {
   }
 }
 
-export async function runAgentLoop(userPrompt: string): Promise<void> {
+/**
+ * Session-scoped helpers that target a specific session for all store mutations,
+ * so the loop continues writing to its own session even if the user switches views.
+ */
+function sessionHelpers(sessionId: string) {
+  const s = () => useStore.getState();
+  return {
+    addMessage: (msg: { id: string; role: 'user' | 'assistant'; blocks: DisplayBlock[]; timestamp: number }) =>
+      s().addMessage(msg, sessionId),
+    appendToLastAssistant: (block: DisplayBlock) =>
+      s().appendToLastAssistant(block, sessionId),
+    setIsRunning: (running: boolean) =>
+      s().setIsRunning(running, sessionId),
+    setError: (error: string | null) =>
+      s().setError(error, sessionId),
+    setCurrentTool: (tool: string | null) =>
+      s().setCurrentTool(tool, sessionId),
+    getIsRunning: () => s().getIsRunning(sessionId),
+    getMessages: () => s().getMessages(sessionId),
+  };
+}
+
+export async function runAgentLoop(userPrompt: string, sessionId?: string): Promise<void> {
   const store = useStore.getState();
   const apiKey = store.apiKey;
   if (!apiKey) throw new Error('API key not set');
 
-  store.setIsRunning(true);
-  store.setError(null);
+  const sid = sessionId ?? store.activeSessionId;
+  if (!sid) throw new Error('No active session');
+
+  const h = sessionHelpers(sid);
+
+  h.setIsRunning(true);
+  h.setError(null);
   permissionManager.setMode(store.permissionMode);
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
@@ -121,8 +148,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
       { role: 'user', content: userPrompt },
     ];
 
-    const msgId = `msg_${Date.now()}`;
-    useStore.getState().addMessage({
+    h.addMessage({
       id: `user_${Date.now()}`,
       role: 'user',
       blocks: [{ type: 'text', text: userPrompt }],
@@ -135,7 +161,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
     while (loopCount < maxLoops) {
       loopCount++;
 
-      if (!useStore.getState().isRunning) {
+      if (!h.getIsRunning()) {
         break;
       }
 
@@ -143,7 +169,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
       const tools = getToolDefinitions(vp.width, vp.height);
 
       const assistantMsgId = `asst_${Date.now()}_${loopCount}`;
-      useStore.getState().addMessage({
+      h.addMessage({
         id: assistantMsgId,
         role: 'assistant',
         blocks: [],
@@ -167,7 +193,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
           5,
           (attempt, waitMs) => {
             const secs = Math.round(waitMs / 1000);
-            useStore.getState().appendToLastAssistant({
+            h.appendToLastAssistant({
               type: 'text',
               text: `Rate limited — retrying in ${secs}s (attempt ${attempt}/5)...`,
             });
@@ -175,8 +201,8 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
         );
       } catch (e: unknown) {
         const errMsg = e instanceof Error ? e.message : String(e);
-        useStore.getState().setError(`API error: ${errMsg}`);
-        useStore.getState().appendToLastAssistant({ type: 'text', text: `Error: ${errMsg}` });
+        h.setError(`API error: ${errMsg}`);
+        h.appendToLastAssistant({ type: 'text', text: `Error: ${errMsg}` });
         break;
       }
 
@@ -188,7 +214,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
         (b) => b.type === 'text',
       );
       for (const tb of textBlocks) {
-        useStore.getState().appendToLastAssistant({
+        h.appendToLastAssistant({
           type: 'text',
           text: tb.text || '',
         });
@@ -207,7 +233,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
       }> = [];
 
       for (const toolUse of toolUseBlocks) {
-        if (!useStore.getState().isRunning) {
+        if (!h.getIsRunning()) {
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolUse.id!,
@@ -218,7 +244,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
 
         const toolInput = toolUse.input || {};
 
-        useStore.getState().appendToLastAssistant({
+        h.appendToLastAssistant({
           type: 'tool_use',
           id: toolUse.id!,
           name: toolUse.name!,
@@ -253,7 +279,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
           result = [{ type: 'text', text: 'Permission denied by user.' }];
         } else {
           try {
-            result = await executeTool(toolUse.name!, toolInput, apiKey);
+            result = await executeTool(toolUse.name!, toolInput, apiKey, sid);
           } catch (e: unknown) {
             const errMsg = e instanceof Error ? e.message : String(e);
             result = [{ type: 'text', text: `Tool error: ${errMsg}` }];
@@ -274,7 +300,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
           text: resultTexts || undefined,
           imageData: resultImages.length > 0 ? resultImages[0].source?.data : undefined,
         };
-        useStore.getState().appendToLastAssistant(toolResultBlock);
+        h.appendToLastAssistant(toolResultBlock);
 
         toolResults.push({
           type: 'tool_result',
@@ -305,10 +331,10 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
     }
   } catch (e: unknown) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    useStore.getState().setError(errMsg);
+    h.setError(errMsg);
   } finally {
     await sendToBackground({ type: 'cdp-detach-all' }).catch(() => {});
-    useStore.getState().setIsRunning(false);
-    useStore.getState().setCurrentTool(null);
+    h.setIsRunning(false);
+    h.setCurrentTool(null);
   }
 }
