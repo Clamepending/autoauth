@@ -5,8 +5,8 @@ export type BGMessage =
   | { type: 'cdp-send'; tabId: number; method: string; params?: Record<string, unknown> }
   | { type: 'take-screenshot'; tabId: number }
   | { type: 'navigate'; tabId: number; url: string }
-  | { type: 'tabs-context' }
-  | { type: 'tabs-create' }
+  | { type: 'tabs-context'; sessionId?: string }
+  | { type: 'tabs-create'; sessionId?: string }
   | { type: 'tabs-activate'; tabId: number }
   | { type: 'resize-window'; tabId: number; width: number; height: number }
   | { type: 'get-console-messages'; tabId: number; onlyErrors?: boolean; clear?: boolean; pattern?: string; limit?: number }
@@ -17,7 +17,8 @@ export type BGMessage =
   | { type: 'get-viewport-size'; tabId: number }
   | { type: 'session-get-active' }
   | { type: 'session-get-all' }
-  | { type: 'session-request-create' };
+  | { type: 'session-request-create'; backgroundTab?: boolean; source?: 'manual' | 'ottoauth'; autoCloseOnIdle?: boolean }
+  | { type: 'session-close'; sessionId: string };
 
 export interface BGResponse {
   success: boolean;
@@ -96,6 +97,8 @@ export interface SessionInfo {
   name: string;
   color: chrome.tabGroups.ColorEnum;
   createdAt: number;
+  source?: 'manual' | 'ottoauth';
+  autoCloseOnIdle?: boolean;
 }
 
 export type SidePanelNotification =

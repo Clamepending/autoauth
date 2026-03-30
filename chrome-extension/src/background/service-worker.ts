@@ -11,6 +11,7 @@ const GROUP_COLORS: chrome.tabGroups.ColorEnum[] = [
 
 const sessions = new Map<string, SessionInfo>();
 const groupToSession = new Map<number, string>();
+const sessionActiveTabs = new Map<string, number>();
 let sessionCounter = 0;
 let sessionsLoaded = false;
 
@@ -48,15 +49,46 @@ async function persistSessions(): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEY_SESSIONS]: Array.from(sessions.values()) });
 }
 
+function notifyPanels(message: { kind: 'session-removed'; sessionId: string } | { kind: 'session-created'; session: SessionInfo }): void {
+  chrome.runtime.sendMessage(message).catch(() => {});
+}
+
+async function deleteSession(sessionId: string): Promise<void> {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+  sessions.delete(sessionId);
+  groupToSession.delete(session.groupId);
+  sessionActiveTabs.delete(sessionId);
+  await persistSessions();
+  notifyPanels({ kind: 'session-removed', sessionId });
+}
+
+async function closeSession(sessionId: string, closeTabs = true): Promise<boolean> {
+  const session = sessions.get(sessionId);
+  if (!session) return false;
+  const groupId = session.groupId;
+  await deleteSession(sessionId);
+  if (closeTabs) {
+    try {
+      const tabs = await chrome.tabs.query({ groupId });
+      const tabIds = tabs.map((tab) => tab.id).filter((tabId): tabId is number => typeof tabId === 'number');
+      if (tabIds.length > 0) {
+        await chrome.tabs.remove(tabIds);
+      }
+    } catch {
+      // Session state is already removed; stale tabs can be ignored.
+    }
+  }
+  return true;
+}
+
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 chrome.tabGroups.onRemoved.addListener(async (group) => {
   await ready();
   const sid = groupToSession.get(group.id);
   if (!sid) return;
-  sessions.delete(sid);
-  groupToSession.delete(group.id);
-  persistSessions();
+  await deleteSession(sid);
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -87,8 +119,8 @@ async function handleMessage(msg: BGMessage): Promise<BGResponse> {
       case 'cdp-send': return await sendCDP(msg.tabId, msg.method, msg.params);
       case 'take-screenshot': return await takeScreenshot(msg.tabId);
       case 'navigate': return await navigateTab(msg.tabId, msg.url);
-      case 'tabs-context': return await getTabsContext();
-      case 'tabs-create': return await createTabInSession();
+      case 'tabs-context': return await getTabsContext(msg.sessionId);
+      case 'tabs-create': return await createTabInSession(msg.sessionId);
       case 'tabs-activate': return await activateTab(msg.tabId);
       case 'resize-window': return await resizeWindow(msg.tabId, msg.width, msg.height);
       case 'get-console-messages': return getConsoleMsgs(msg.tabId, msg.onlyErrors, msg.clear, msg.pattern, msg.limit);
@@ -98,7 +130,12 @@ async function handleMessage(msg: BGMessage): Promise<BGResponse> {
       case 'get-viewport-size': return await getViewportSize(msg.tabId);
       case 'session-get-active': return await getActiveSession();
       case 'session-get-all': return { success: true, data: Array.from(sessions.values()) };
-      case 'session-request-create': return await createSessionForActiveTab();
+      case 'session-request-create':
+        return await createSession(msg.backgroundTab, msg.source, msg.autoCloseOnIdle);
+      case 'session-close': {
+        const closed = await closeSession(msg.sessionId);
+        return { success: closed, error: closed ? undefined : 'Session not found' };
+      }
       default: return { success: false, error: 'Unknown message type' };
     }
   } catch (e: unknown) {
@@ -120,14 +157,22 @@ async function getActiveSession(): Promise<BGResponse> {
   return { success: true, data: getSessionForTab(tab) };
 }
 
-async function createSessionForActiveTab(): Promise<BGResponse> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) return { success: false, error: 'No active tab' };
+async function createSession(
+  backgroundTab = false,
+  source: 'manual' | 'ottoauth' = 'manual',
+  autoCloseOnIdle = false,
+): Promise<BGResponse> {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const seedTab = backgroundTab
+    ? await chrome.tabs.create({ active: false, url: 'about:blank' })
+    : activeTab;
 
-  const existing = getSessionForTab(tab);
+  if (!seedTab?.id) return { success: false, error: 'No tab available to create session' };
+
+  const existing = getSessionForTab(seedTab);
   if (existing) return { success: true, data: existing };
 
-  const groupId = await chrome.tabs.group({ tabIds: [tab.id] });
+  const groupId = await chrome.tabs.group({ tabIds: [seedTab.id] });
   const id = `session_${++sessionCounter}`;
   const used = new Set(Array.from(sessions.values()).map((s) => s.color));
   const color = GROUP_COLORS.find((c) => !used.has(c)) || GROUP_COLORS[sessions.size % GROUP_COLORS.length];
@@ -135,10 +180,20 @@ async function createSessionForActiveTab(): Promise<BGResponse> {
 
   await chrome.tabGroups.update(groupId, { title: name, color, collapsed: false });
 
-  const session: SessionInfo = { id, groupId, name, color, createdAt: Date.now() };
+  const session: SessionInfo = {
+    id,
+    groupId,
+    name,
+    color,
+    createdAt: Date.now(),
+    source,
+    autoCloseOnIdle,
+  };
   sessions.set(id, session);
   groupToSession.set(groupId, id);
+  sessionActiveTabs.set(id, seedTab.id);
   await persistSessions();
+  notifyPanels({ kind: 'session-created', session });
   return { success: true, data: session };
 }
 
@@ -218,17 +273,42 @@ function waitForTabLoad(tabId: number, timeout = 15000): Promise<void> {
   });
 }
 
-async function getTabsContext(): Promise<BGResponse> {
-  const session = await getActiveSessionForCurrentTab();
+function getSessionActiveTabId(sessionId: string, tabs: chrome.tabs.Tab[]): number | null {
+  const remembered = sessionActiveTabs.get(sessionId);
+  if (remembered && tabs.some((t) => t.id === remembered)) return remembered;
+  const realActive = tabs.find((t) => t.active)?.id;
+  if (realActive) {
+    sessionActiveTabs.set(sessionId, realActive);
+    return realActive;
+  }
+  const fallback = tabs.find((t) => t.id !== undefined)?.id ?? null;
+  if (fallback) sessionActiveTabs.set(sessionId, fallback);
+  return fallback;
+}
+
+async function getTabsContext(sessionId?: string): Promise<BGResponse> {
+  const session = sessionId
+    ? sessions.get(sessionId) ?? null
+    : await getActiveSessionForCurrentTab();
   const allTabs = await chrome.tabs.query({ currentWindow: true });
-  const data = allTabs
-    .filter((t) => t.id !== undefined && (!session || t.groupId === session.groupId))
-    .map((t) => ({ id: t.id!, url: t.url || '', title: t.title || '', active: t.active, groupId: t.groupId ?? -1 }));
+  const scopedTabs = allTabs.filter(
+    (t) => t.id !== undefined && (!session || t.groupId === session.groupId),
+  );
+  const sessionActiveTabId = session ? getSessionActiveTabId(session.id, scopedTabs) : null;
+  const data = scopedTabs.map((t) => ({
+    id: t.id!,
+    url: t.url || '',
+    title: t.title || '',
+    active: session ? t.id === sessionActiveTabId : t.active,
+    groupId: t.groupId ?? -1,
+  }));
   return { success: true, data };
 }
 
-async function createTabInSession(): Promise<BGResponse> {
-  const session = await getActiveSessionForCurrentTab();
+async function createTabInSession(sessionId?: string): Promise<BGResponse> {
+  const session = sessionId
+    ? sessions.get(sessionId) ?? null
+    : await getActiveSessionForCurrentTab();
   const tab = await chrome.tabs.create({ active: false });
   if (session && tab.id) {
     try { await chrome.tabs.group({ tabIds: [tab.id], groupId: session.groupId }); } catch { /* */ }

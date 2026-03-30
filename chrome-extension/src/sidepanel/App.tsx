@@ -2,8 +2,9 @@ import { useEffect } from 'react';
 import { useStore } from './store';
 import { STORAGE_KEY_API_KEY } from '../shared/constants';
 import { loadOttoAuthConfig } from './agent/ottoAuthBridge';
+import { loadTraceRecordingConfig } from './agent/traceRecorder';
 import { sendToBackground } from '../shared/messaging';
-import type { SessionInfo } from '../shared/types';
+import type { SessionInfo, SidePanelNotification } from '../shared/types';
 import ApiKeySetup from './components/ApiKeySetup';
 import Chat from './components/Chat';
 import OttoAuthSettings from './components/OttoAuthSettings';
@@ -45,6 +46,7 @@ export default function App() {
       if (stored) setApiKey(stored as string);
     });
     loadOttoAuthConfig();
+    loadTraceRecordingConfig();
     syncActiveSession(true);
   }, [setApiKey]);
 
@@ -59,9 +61,34 @@ export default function App() {
     };
     chrome.tabs.onUpdated.addListener(onTabUpdated);
 
+    const onRuntimeMessage = (message: SidePanelNotification) => {
+      const store = useStore.getState();
+      if (!message || typeof message !== 'object' || !('kind' in message)) return;
+      if (message.kind === 'session-created') {
+        const existing = store.sessionInfos[message.session.id];
+        if (!existing) {
+          store.initSession(message.session);
+          // Keep background OttoAuth sessions from stealing the current view.
+          if (message.session.source === 'ottoauth') {
+            syncActiveSession();
+          }
+        }
+        return;
+      }
+      if (message.kind === 'session-removed') {
+        const wasActive = store.activeSessionId === message.sessionId;
+        store.removeSession(message.sessionId);
+        if (wasActive) {
+          syncActiveSession();
+        }
+      }
+    };
+    chrome.runtime.onMessage.addListener(onRuntimeMessage);
+
     return () => {
       chrome.tabs.onActivated.removeListener(onTabActivated);
       chrome.tabs.onUpdated.removeListener(onTabUpdated);
+      chrome.runtime.onMessage.removeListener(onRuntimeMessage);
     };
   }, []);
 
@@ -86,7 +113,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full min-h-0 flex flex-col bg-white">
       <OttoAuthSettings />
       <Chat />
       {permissionRequest && <PermissionDialog request={permissionRequest} />}

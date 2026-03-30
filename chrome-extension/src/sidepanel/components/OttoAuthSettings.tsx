@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import {
   pairWithOttoAuth,
@@ -6,6 +6,10 @@ import {
   startOttoAuthPolling,
   stopOttoAuthPolling,
 } from '../agent/ottoAuthBridge';
+import {
+  chooseTraceRecordingDirectory,
+  setTraceRecordingEnabled,
+} from '../agent/traceRecorder';
 
 export default function OttoAuthSettings() {
   const [serverUrl, setServerUrl] = useState('http://localhost:3000');
@@ -13,12 +17,16 @@ export default function OttoAuthSettings() {
   const [error, setError] = useState('');
   const [pairing, setPairing] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [recordingBusy, setRecordingBusy] = useState(false);
+  const [recordingError, setRecordingError] = useState('');
 
   const connected = useStore((s) => s.ottoAuthConnected);
   const polling = useStore((s) => s.ottoAuthPolling);
   const deviceId = useStore((s) => s.ottoAuthDeviceId);
   const currentTask = useStore((s) => s.ottoAuthCurrentTask);
   const url = useStore((s) => s.ottoAuthUrl);
+  const recordingEnabled = useStore((s) => s.ottoAuthTraceRecordingEnabled);
+  const recordingFolderName = useStore((s) => s.ottoAuthTraceRecordingFolderName);
 
   const handlePair = async () => {
     setError('');
@@ -42,6 +50,87 @@ export default function OttoAuthSettings() {
       startOttoAuthPolling();
     }
   };
+
+  const handleSelectFolder = async () => {
+    setRecordingBusy(true);
+    setRecordingError('');
+    const result = await chooseTraceRecordingDirectory();
+    if (!result.ok) {
+      setRecordingError(result.error || 'Failed to select a recording folder.');
+    }
+    setRecordingBusy(false);
+  };
+
+  const handleToggleRecording = async () => {
+    setRecordingError('');
+    if (recordingEnabled) {
+      const result = await setTraceRecordingEnabled(false);
+      if (!result.ok) {
+        setRecordingError(result.error || 'Failed to update recording state.');
+      }
+      return;
+    }
+    if (!recordingFolderName) {
+      setRecordingError('Select a recording folder before enabling trace capture.');
+      return;
+    }
+    setRecordingBusy(true);
+    const result = await setTraceRecordingEnabled(true);
+    if (!result.ok) {
+      setRecordingError(result.error || 'Failed to enable trace capture.');
+    }
+    setRecordingBusy(false);
+  };
+
+  useEffect(() => {
+    if (url) {
+      setServerUrl(url);
+    }
+  }, [url]);
+
+  const recordingPanel = (
+    <div className="rounded border border-gray-200 bg-white px-2 py-2 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="text-xs font-medium text-gray-700">Trace Recording</div>
+          <div className="text-[11px] text-gray-500">
+            Save task payloads and tool traces for later macro mining.
+          </div>
+        </div>
+        <button
+          onClick={handleToggleRecording}
+          disabled={recordingBusy}
+          className={`px-2 py-1 text-[11px] font-medium rounded transition-colors ${
+            recordingEnabled
+              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+              : 'bg-gray-900 text-white hover:bg-black'
+          } disabled:opacity-50`}
+        >
+          {recordingEnabled ? 'Stop Recording' : 'Start Recording'}
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 text-[11px]">
+        <div className="min-w-0 text-gray-500">
+          Folder:{' '}
+          <span className="text-gray-700 break-all">
+            {recordingFolderName || 'No folder selected'}
+          </span>
+        </div>
+        <button
+          onClick={handleSelectFolder}
+          disabled={recordingBusy}
+          className="shrink-0 px-2 py-1 rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          {recordingBusy ? 'Selecting...' : 'Select Folder'}
+        </button>
+      </div>
+
+      {recordingError && (
+        <div className="text-[11px] text-red-600">{recordingError}</div>
+      )}
+    </div>
+  );
 
   if (!expanded) {
     return (
@@ -93,6 +182,12 @@ export default function OttoAuthSettings() {
                 {polling ? (currentTask ? 'Executing task' : 'Polling') : 'Paused'}
               </span>
             </div>
+            <div className="flex items-center gap-1">
+              Trace capture:{' '}
+              <span className={`font-medium ${recordingEnabled ? 'text-green-600' : 'text-gray-500'}`}>
+                {recordingEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
           </div>
 
           {currentTask && (
@@ -100,6 +195,7 @@ export default function OttoAuthSettings() {
               Task: {currentTask.type} — {currentTask.id.slice(0, 16)}...
             </div>
           )}
+          {recordingPanel}
 
           <div className="flex gap-1.5">
             <button
@@ -144,6 +240,7 @@ export default function OttoAuthSettings() {
           >
             {pairing ? 'Pairing...' : 'Connect & Pair'}
           </button>
+          {recordingPanel}
         </div>
       )}
     </div>

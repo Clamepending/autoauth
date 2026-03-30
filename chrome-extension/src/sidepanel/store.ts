@@ -91,10 +91,14 @@ interface AppStore {
   ottoAuthConnected: boolean;
   ottoAuthPolling: boolean;
   ottoAuthCurrentTask: OttoAuthTask | null;
+  ottoAuthTraceRecordingEnabled: boolean;
+  ottoAuthTraceRecordingFolderName: string | null;
   setOttoAuthConfig: (config: { url: string; deviceId: string; token: string } | null) => void;
   setOttoAuthConnected: (connected: boolean) => void;
   setOttoAuthPolling: (polling: boolean) => void;
   setOttoAuthCurrentTask: (task: OttoAuthTask | null) => void;
+  setOttoAuthTraceRecordingEnabled: (enabled: boolean) => void;
+  setOttoAuthTraceRecordingFolderName: (folderName: string | null) => void;
 }
 
 function resolveSessionId(state: AppStore, explicit?: string): string | null {
@@ -250,6 +254,8 @@ export const useStore = create<AppStore>((set, get) => ({
   ottoAuthConnected: false,
   ottoAuthPolling: false,
   ottoAuthCurrentTask: null,
+  ottoAuthTraceRecordingEnabled: false,
+  ottoAuthTraceRecordingFolderName: null,
   setOttoAuthConfig: (config) =>
     set(
       config
@@ -259,4 +265,6 @@ export const useStore = create<AppStore>((set, get) => ({
   setOttoAuthConnected: (ottoAuthConnected) => set({ ottoAuthConnected }),
   setOttoAuthPolling: (ottoAuthPolling) => set({ ottoAuthPolling }),
   setOttoAuthCurrentTask: (ottoAuthCurrentTask) => set({ ottoAuthCurrentTask }),
+  setOttoAuthTraceRecordingEnabled: (ottoAuthTraceRecordingEnabled) => set({ ottoAuthTraceRecordingEnabled }),
+  setOttoAuthTraceRecordingFolderName: (ottoAuthTraceRecordingFolderName) => set({ ottoAuthTraceRecordingFolderName }),
 }));

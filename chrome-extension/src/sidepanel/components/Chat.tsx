@@ -65,7 +65,7 @@ export default function Chat() {
   const sessionColor = sessionInfo ? colorMap[sessionInfo.color] || 'bg-gray-100 text-gray-700' : '';
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-white flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export default function Chat() {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-3">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-4 py-3 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
@@ -132,7 +132,7 @@ export default function Chat() {
       )}
 
       {/* Input */}
-      <div className="px-3 pb-3 pt-1 border-t border-gray-100 bg-white flex-shrink-0">
+      <div className="px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-gray-100 bg-white flex-shrink-0">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             type="text"

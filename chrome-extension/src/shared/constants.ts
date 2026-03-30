@@ -4,6 +4,8 @@ export const STORAGE_KEY_PERMISSION_MODE = 'permission_mode';
 export const STORAGE_KEY_OTTOAUTH_URL = 'ottoauth_server_url';
 export const STORAGE_KEY_OTTOAUTH_DEVICE_ID = 'ottoauth_device_id';
 export const STORAGE_KEY_OTTOAUTH_AUTH_TOKEN = 'ottoauth_auth_token';
+export const STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED = 'ottoauth_trace_recording_enabled';
+export const STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME = 'ottoauth_trace_recording_folder_name';
 
 export const STORAGE_KEY_SESSIONS = 'extension_sessions';
 

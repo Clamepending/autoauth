@@ -1,5 +1,6 @@
 import { useStore } from '../store';
 import { runAgentLoop } from './loop';
+import { createTraceRecorder } from './traceRecorder';
 import { sendToBackground } from '../../shared/messaging';
 import type { OttoAuthTask, SessionInfo } from '../../shared/types';
 import {
@@ -153,7 +154,12 @@ function schedulePoll(): void {
 }
 
 async function ensureSessionForTask(): Promise<string | null> {
-  const resp = await sendToBackground({ type: 'session-request-create' });
+  const resp = await sendToBackground({
+    type: 'session-request-create',
+    backgroundTab: true,
+    source: 'ottoauth',
+    autoCloseOnIdle: true,
+  });
   if (!resp.success || !resp.data) return null;
   const session = resp.data as SessionInfo;
   useStore.getState().initSession(session);
@@ -181,15 +187,60 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
     return;
   }
 
+  const recorder = await createTraceRecorder({
+    task,
+    goal,
+    sessionId,
+    serverUrl: store.ottoAuthUrl,
+    deviceId: store.ottoAuthDeviceId,
+  });
+  const startPersist = await recorder?.persistStart();
+  if (startPersist && !startPersist.ok) {
+    console.error('[TraceRecorder] Failed to persist task start:', startPersist.error);
+  }
+  recorder?.note('session_initialized', { sessionId });
+
   try {
-    await runAgentLoop(goal, sessionId);
+    await runAgentLoop(goal, sessionId, {
+      onEvent: (event) => recorder?.note(event.type, event.payload),
+    });
+    const sessionError = useStore.getState().getError(sessionId);
+    if (sessionError) {
+      throw new Error(sessionError);
+    }
     const result = extractResultFromMessages(sessionId);
+    recorder?.note('task_completed', {
+      taskId: task.id,
+      hasResult: Boolean(result),
+    });
     await reportTaskResult(task.id, 'completed', result, null);
+    const persistResult = await recorder?.persist({
+      status: 'completed',
+      result,
+      error: null,
+      messages: useStore.getState().getMessages(sessionId),
+    });
+    if (persistResult && !persistResult.ok) {
+      console.error('[TraceRecorder] Failed to persist completed trace:', persistResult.error);
+    }
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
+    recorder?.note('task_failed', { taskId: task.id, error: errMsg });
     await reportTaskResult(task.id, 'failed', null, errMsg);
+    const persistResult = await recorder?.persist({
+      status: 'failed',
+      result: null,
+      error: errMsg,
+      messages: useStore.getState().getMessages(sessionId),
+    });
+    if (persistResult && !persistResult.ok) {
+      console.error('[TraceRecorder] Failed to persist failed trace:', persistResult.error);
+    }
   } finally {
     useStore.getState().setOttoAuthCurrentTask(null);
+    if (sessionId) {
+      await sendToBackground({ type: 'session-close', sessionId }).catch(() => {});
+    }
   }
 }
 

@@ -13,6 +13,19 @@ type ApiMessage = {
   content: unknown;
 };
 
+export interface AgentLoopEvent {
+  type: string;
+  payload: Record<string, unknown>;
+}
+
+export interface AgentLoopOptions {
+  onEvent?: (event: AgentLoopEvent) => void;
+}
+
+function emitAgentLoopEvent(options: AgentLoopOptions | undefined, type: string, payload: Record<string, unknown> = {}): void {
+  options?.onEvent?.({ type, payload });
+}
+
 async function callWithRetry(
   fn: () => Promise<Record<string, unknown>>,
   maxRetries = 5,
@@ -108,7 +121,7 @@ function sessionHelpers(sessionId: string) {
   };
 }
 
-export async function runAgentLoop(userPrompt: string, sessionId?: string): Promise<void> {
+export async function runAgentLoop(userPrompt: string, sessionId?: string, options?: AgentLoopOptions): Promise<void> {
   const store = useStore.getState();
   const apiKey = store.apiKey;
   if (!apiKey) throw new Error('API key not set');
@@ -125,7 +138,8 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
   try {
-    const tabsResp = await sendToBackground({ type: 'tabs-context' });
+    emitAgentLoopEvent(options, 'agent_loop_started', { sessionId: sid, userPrompt });
+    const tabsResp = await sendToBackground({ type: 'tabs-context', sessionId: sid });
     let tabs: TabInfo[] = (tabsResp.data as TabInfo[]) || [];
 
     const activeTab = tabs.find((t) => t.active);
@@ -147,6 +161,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
     const messages: ApiMessage[] = [
       { role: 'user', content: userPrompt },
     ];
+    emitAgentLoopEvent(options, 'user_prompt', { text: userPrompt });
 
     h.addMessage({
       id: `user_${Date.now()}`,
@@ -192,6 +207,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
             }),
           5,
           (attempt, waitMs) => {
+            emitAgentLoopEvent(options, 'model_retry', { attempt, waitMs });
             const secs = Math.round(waitMs / 1000);
             h.appendToLastAssistant({
               type: 'text',
@@ -201,6 +217,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
         );
       } catch (e: unknown) {
         const errMsg = e instanceof Error ? e.message : String(e);
+        emitAgentLoopEvent(options, 'model_error', { error: errMsg, loopCount });
         h.setError(`API error: ${errMsg}`);
         h.appendToLastAssistant({ type: 'text', text: `Error: ${errMsg}` });
         break;
@@ -214,6 +231,10 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
         (b) => b.type === 'text',
       );
       for (const tb of textBlocks) {
+        emitAgentLoopEvent(options, 'assistant_text', {
+          loopCount,
+          text: tb.text || '',
+        });
         h.appendToLastAssistant({
           type: 'text',
           text: tb.text || '',
@@ -243,6 +264,12 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
         }
 
         const toolInput = toolUse.input || {};
+        emitAgentLoopEvent(options, 'tool_use', {
+          loopCount,
+          toolUseId: toolUse.id!,
+          name: toolUse.name!,
+          input: toolInput,
+        });
 
         h.appendToLastAssistant({
           type: 'tool_use',
@@ -277,12 +304,36 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
         let result: unknown[];
         if (!allowed) {
           result = [{ type: 'text', text: 'Permission denied by user.' }];
+          emitAgentLoopEvent(options, 'tool_permission_denied', {
+            loopCount,
+            toolUseId: toolUse.id!,
+            name: toolUse.name!,
+            domain,
+          });
         } else {
+          const toolStart = Date.now();
           try {
             result = await executeTool(toolUse.name!, toolInput, apiKey, sid);
+            emitAgentLoopEvent(options, 'tool_result', {
+              loopCount,
+              toolUseId: toolUse.id!,
+              name: toolUse.name!,
+              durationMs: Date.now() - toolStart,
+              text: (result as Array<{ type: string; text?: string }>)
+                .filter((item) => item.type === 'text')
+                .map((item) => item.text || '')
+                .join('\n'),
+              imageCount: (result as Array<{ type: string }>).filter((item) => item.type === 'image').length,
+            });
           } catch (e: unknown) {
             const errMsg = e instanceof Error ? e.message : String(e);
             result = [{ type: 'text', text: `Tool error: ${errMsg}` }];
+            emitAgentLoopEvent(options, 'tool_error', {
+              loopCount,
+              toolUseId: toolUse.id!,
+              name: toolUse.name!,
+              error: errMsg,
+            });
           }
         }
 
@@ -309,7 +360,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
         });
       }
 
-      const newTabsResp = await sendToBackground({ type: 'tabs-context' });
+      const newTabsResp = await sendToBackground({ type: 'tabs-context', sessionId: sid });
       const newTabs = (newTabsResp.data as TabInfo[]) || [];
       const tabsChanged =
         JSON.stringify(newTabs.map((t) => t.id + t.url)) !==
@@ -319,6 +370,11 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
         tabs = newTabs;
         const newActive = newTabs.find((t) => t.active);
         if (newActive) store.setActiveTabId(newActive.id);
+        emitAgentLoopEvent(options, 'tabs_changed', {
+          loopCount,
+          activeTabId: newActive?.id ?? null,
+          tabCount: newTabs.length,
+        });
 
         const reminder = buildTabContextReminder(newTabs);
         const lastResult = toolResults[toolResults.length - 1];
@@ -331,10 +387,15 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string): Prom
     }
   } catch (e: unknown) {
     const errMsg = e instanceof Error ? e.message : String(e);
+    emitAgentLoopEvent(options, 'agent_loop_error', { error: errMsg });
     h.setError(errMsg);
   } finally {
     await sendToBackground({ type: 'cdp-detach-all' }).catch(() => {});
     h.setIsRunning(false);
     h.setCurrentTool(null);
+    emitAgentLoopEvent(options, 'agent_loop_finished', {
+      sessionId: sid,
+      error: useStore.getState().getError(sid),
+    });
   }
 }

@@ -31,6 +31,12 @@ function getViewport() {
   return useStore.getState().viewportSize;
 }
 
+function shouldBringTabToFront(sessionId?: string): boolean {
+  if (!sessionId) return true;
+  const session = useStore.getState().sessionInfos[sessionId];
+  return session?.source !== 'ottoauth';
+}
+
 function validateCoordinateInViewport(x: number, y: number): string | null {
   const vp = getViewport();
   if (x < 0 || y < 0 || x >= vp.width || y >= vp.height) {
@@ -454,10 +460,44 @@ const MUTATING_TOOLS = new Set(['computer', 'form_input', 'javascript_tool', 'fi
 const MUTATING_ACTIONS = new Set(['left_click', 'right_click', 'double_click', 'triple_click', 'type', 'key', 'left_click_drag']);
 
 async function verifyDomainUnchanged(tabId: number, originalDomain: string): Promise<string | null> {
+  const normalizeDomain = (value: string) => value.trim().toLowerCase().replace(/\.+$/, '');
+  const compoundSuffixes = new Set([
+    'co.uk',
+    'org.uk',
+    'ac.uk',
+    'gov.uk',
+    'com.au',
+    'net.au',
+    'org.au',
+    'co.nz',
+    'com.br',
+    'com.mx',
+    'co.jp',
+  ]);
+  const baseDomain = (value: string) => {
+    const normalized = normalizeDomain(value);
+    const parts = normalized.split('.').filter(Boolean);
+    if (parts.length <= 2) return normalized;
+    const suffix2 = parts.slice(-2).join('.');
+    const suffix3 = parts.slice(-3).join('.');
+    if (compoundSuffixes.has(suffix2) && parts.length >= 3) {
+      return parts.slice(-3).join('.');
+    }
+    if (compoundSuffixes.has(suffix3) && parts.length >= 4) {
+      return parts.slice(-4).join('.');
+    }
+    return parts.slice(-2).join('.');
+  };
+  const isSameSiteDomain = (left: string, right: string) => {
+    const a = normalizeDomain(left);
+    const b = normalizeDomain(right);
+    if (!a || !b) return false;
+    return a === b || baseDomain(a) === baseDomain(b);
+  };
   try {
     const tab = await chrome.tabs.get(tabId);
     const currentDomain = tab.url ? new URL(tab.url).hostname : '';
-    if (originalDomain && currentDomain && currentDomain !== originalDomain) {
+    if (originalDomain && currentDomain && !isSameSiteDomain(originalDomain, currentDomain)) {
       return `Security: tab domain changed from ${originalDomain} to ${currentDomain} during action. Aborting.`;
     }
   } catch {
@@ -491,7 +531,7 @@ export async function executeTool(
   try {
     switch (name) {
       case 'computer':
-        return await executeComputer(input);
+        return await executeComputer(input, sessionId);
       case 'navigate':
         return await executeNavigate(input);
       case 'read_page':
@@ -505,9 +545,9 @@ export async function executeTool(
       case 'javascript_tool':
         return await executeJavascript(input);
       case 'tabs_context':
-        return await executeTabsContext();
+        return await executeTabsContext(sessionId);
       case 'tabs_create':
-        return await executeTabsCreate();
+        return await executeTabsCreate(sessionId);
       case 'read_console_messages':
         return await executeReadConsole(input);
       case 'read_network_requests':
@@ -538,7 +578,7 @@ export async function executeTool(
   }
 }
 
-async function executeComputer(input: Record<string, unknown>): Promise<ToolResultContent[]> {
+async function executeComputer(input: Record<string, unknown>, sessionId?: string): Promise<ToolResultContent[]> {
   const action = input.action as string;
   const tabId = (input.tabId as number | undefined) || getActiveTabId();
 
@@ -548,7 +588,7 @@ async function executeComputer(input: Record<string, unknown>): Promise<ToolResu
   }
 
   // Keep the inspected tab focused so CDP input events apply reliably.
-  if (action !== 'screenshot' && action !== 'wait') {
+  if (action !== 'screenshot' && action !== 'wait' && shouldBringTabToFront(sessionId)) {
     await sendToBackground({
       type: 'cdp-send',
       tabId,
@@ -744,8 +784,8 @@ async function executeJavascript(input: Record<string, unknown>): Promise<ToolRe
   return textResult(result ?? 'undefined');
 }
 
-async function executeTabsContext(): Promise<ToolResultContent[]> {
-  const resp = await sendToBackground({ type: 'tabs-context' });
+async function executeTabsContext(sessionId?: string): Promise<ToolResultContent[]> {
+  const resp = await sendToBackground({ type: 'tabs-context', sessionId });
   if (!resp.success) return textResult(`Failed: ${resp.error}`);
   const tabs = resp.data as TabInfo[];
   const lines = tabs.map(
@@ -754,8 +794,8 @@ async function executeTabsContext(): Promise<ToolResultContent[]> {
   return textResult(lines.join('\n') || 'No tabs found.');
 }
 
-async function executeTabsCreate(): Promise<ToolResultContent[]> {
-  const resp = await sendToBackground({ type: 'tabs-create' });
+async function executeTabsCreate(sessionId?: string): Promise<ToolResultContent[]> {
+  const resp = await sendToBackground({ type: 'tabs-create', sessionId });
   if (!resp.success) return textResult(`Failed: ${resp.error}`);
   const data = resp.data as { id: number; url: string; title: string };
   await sendToBackground({ type: 'enable-console-capture', tabId: data.id }).catch(() => {});

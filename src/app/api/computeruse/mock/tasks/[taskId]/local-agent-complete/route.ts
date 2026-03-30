@@ -8,6 +8,7 @@ import { normalizeMockDeviceId } from "@/lib/computeruse-mock";
 import {
   getComputerUseDeviceById,
   getComputerUseTaskById,
+  updateComputerUseTaskResult,
   verifyComputerUseDeviceToken,
 } from "@/lib/computeruse-store";
 import { handleAmazonTaskCompletion } from "@/lib/amazon-fulfillment";
@@ -81,6 +82,13 @@ export async function POST(request: Request, context: Context) {
   const result = payload?.result && typeof payload.result === "object"
     ? (payload.result as Record<string, unknown>)
     : (summary ? { summary } : null);
+
+  await updateComputerUseTaskResult({
+    taskId: task.id,
+    status,
+    result,
+    error,
+  });
 
   if (task.runId) {
     const run = await markComputerUseRunFinalState({
