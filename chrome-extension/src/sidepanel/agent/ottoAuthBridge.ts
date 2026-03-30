@@ -1,6 +1,6 @@
 import { useStore } from '../store';
 import { runAgentLoop } from './loop';
-import { createTraceRecorder } from './traceRecorder';
+import { createTraceRecorder, ensureTraceRecordingReady } from './traceRecorder';
 import { sendToBackground } from '../../shared/messaging';
 import type { OttoAuthTask, SessionInfo } from '../../shared/types';
 import {
@@ -9,6 +9,8 @@ import {
   STORAGE_KEY_OTTOAUTH_AUTH_TOKEN,
   OTTOAUTH_POLL_INTERVAL_MS,
   OTTOAUTH_POLL_TIMEOUT_MS,
+  OTTOAUTH_TASK_HEARTBEAT_INTERVAL_MS,
+  OTTOAUTH_TASK_TIMEOUT_MS,
 } from '../../shared/constants';
 
 let pollingActive = false;
@@ -171,6 +173,16 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
   const anyRunning = Object.values(store.sessionStates).some((s) => s.isRunning);
   if (anyRunning) return;
 
+  const recordingReady = await ensureTraceRecordingReady(false);
+  if (!recordingReady.ok && recordingReady.required) {
+    const error = `Trace recording not ready: ${recordingReady.error || 'write permission is required for the selected folder.'}`;
+    await reportTaskResult(task.id, 'failed', null, error);
+    stopOttoAuthPolling();
+    useStore.getState().setError(error);
+    useStore.getState().setOttoAuthCurrentTask(null);
+    return;
+  }
+
   const sessionId = await ensureSessionForTask();
   if (!sessionId) {
     await reportTaskResult(task.id, 'failed', null, 'Failed to create session for task');
@@ -200,10 +212,52 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
   }
   recorder?.note('session_initialized', { sessionId });
 
+  let heartbeatId: ReturnType<typeof setInterval> | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
   try {
-    await runAgentLoop(goal, sessionId, {
+    heartbeatId = setInterval(() => {
+      const messages = useStore.getState().getMessages(sessionId);
+      recorder?.note('heartbeat', {
+        taskId: task.id,
+        sessionId,
+        messageCount: messages.length,
+        isRunning: useStore.getState().getIsRunning(sessionId),
+      });
+      if (recorder) {
+        recorder.persistProgress({ messages }).catch((persistError) => {
+          console.error('[TraceRecorder] Failed to persist running trace:', persistError);
+        });
+      }
+    }, OTTOAUTH_TASK_HEARTBEAT_INTERVAL_MS);
+
+    const loopPromise = runAgentLoop(goal, sessionId, {
       onEvent: (event) => recorder?.note(event.type, event.payload),
     });
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        useStore.getState().setIsRunning(false, sessionId);
+        useStore.getState().setError(`OttoAuth task timed out after ${Math.round(OTTOAUTH_TASK_TIMEOUT_MS / 1000)}s`, sessionId);
+        recorder?.note('task_timeout', {
+          taskId: task.id,
+          sessionId,
+          timeoutMs: OTTOAUTH_TASK_TIMEOUT_MS,
+        });
+        reject(new Error(`OttoAuth task timed out after ${Math.round(OTTOAUTH_TASK_TIMEOUT_MS / 1000)}s`));
+      }, OTTOAUTH_TASK_TIMEOUT_MS);
+    });
+
+    await Promise.race([loopPromise, timeoutPromise]);
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (heartbeatId) {
+      clearInterval(heartbeatId);
+      heartbeatId = null;
+    }
+
     const sessionError = useStore.getState().getError(sessionId);
     if (sessionError) {
       throw new Error(sessionError);
@@ -224,6 +278,14 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
       console.error('[TraceRecorder] Failed to persist completed trace:', persistResult.error);
     }
   } catch (e) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (heartbeatId) {
+      clearInterval(heartbeatId);
+      heartbeatId = null;
+    }
     const errMsg = e instanceof Error ? e.message : String(e);
     recorder?.note('task_failed', { taskId: task.id, error: errMsg });
     await reportTaskResult(task.id, 'failed', null, errMsg);
@@ -237,6 +299,12 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
       console.error('[TraceRecorder] Failed to persist failed trace:', persistResult.error);
     }
   } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (heartbeatId) {
+      clearInterval(heartbeatId);
+    }
     useStore.getState().setOttoAuthCurrentTask(null);
     if (sessionId) {
       await sendToBackground({ type: 'session-close', sessionId }).catch(() => {});

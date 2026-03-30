@@ -6,11 +6,15 @@ export const STORAGE_KEY_OTTOAUTH_DEVICE_ID = 'ottoauth_device_id';
 export const STORAGE_KEY_OTTOAUTH_AUTH_TOKEN = 'ottoauth_auth_token';
 export const STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED = 'ottoauth_trace_recording_enabled';
 export const STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME = 'ottoauth_trace_recording_folder_name';
+export const STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED = 'ottoauth_trace_recording_paused';
 
 export const STORAGE_KEY_SESSIONS = 'extension_sessions';
 
 export const OTTOAUTH_POLL_INTERVAL_MS = 2000;
 export const OTTOAUTH_POLL_TIMEOUT_MS = 25000;
+export const OTTOAUTH_TASK_HEARTBEAT_INTERVAL_MS = 5000;
+export const OTTOAUTH_TASK_TIMEOUT_MS = 8 * 60 * 1000;
+export const OTTOAUTH_TOOL_TIMEOUT_MS = 45000;
 
 export const MAX_TOKENS = 4096;
 export const MODEL = 'claude-sonnet-4-5-20250929';

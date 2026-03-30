@@ -1,6 +1,7 @@
 import {
   STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED,
   STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME,
+  STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED,
 } from '../../shared/constants';
 import type { OttoAuthTask } from '../../shared/types';
 import { useStore, type DisplayMessage } from '../store';
@@ -20,6 +21,9 @@ export interface TraceEvent {
 export interface TraceRecorder {
   note: (type: string, payload?: Record<string, unknown>) => void;
   persistStart: () => Promise<{ ok: boolean; error?: string; directoryName?: string }>;
+  persistProgress: (args: {
+    messages: DisplayMessage[];
+  }) => Promise<{ ok: boolean; error?: string; directoryName?: string }>;
   persist: (args: {
     status: 'completed' | 'failed';
     result: Record<string, unknown> | null;
@@ -85,6 +89,14 @@ async function loadDirectoryHandle(): Promise<FileSystemDirectoryHandle | null> 
   } catch {
     return null;
   }
+}
+
+function getStorageValues<T extends string>(keys: T[]): Promise<Record<T, unknown>> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(keys, (result) => {
+      resolve(result as Record<T, unknown>);
+    });
+  });
 }
 
 function normalizeFolderName(value: string | null | undefined): string | null {
@@ -204,16 +216,72 @@ async function ensureRunDirectory(
   return siteDir.getDirectoryHandle(baseDirName, { create: true });
 }
 
+function buildTaskPayload(context: {
+  task: OttoAuthTask;
+  goal: string;
+  sessionId: string;
+  serverUrl: string | null;
+  deviceId: string | null;
+}, recordedAt: string) {
+  return {
+    schemaVersion: TRACE_SCHEMA_VERSION,
+    recordedAt,
+    task: context.task,
+    goal: context.goal,
+    sessionId: context.sessionId,
+    serverUrl: context.serverUrl,
+    deviceId: context.deviceId,
+  };
+}
+
+function buildTracePayload(args: {
+  context: {
+    task: OttoAuthTask;
+    goal: string;
+    sessionId: string;
+    serverUrl: string | null;
+    deviceId: string | null;
+  };
+  startedAt: Date;
+  completedAt: string | null;
+  status: 'running' | 'completed' | 'failed';
+  result: Record<string, unknown> | null;
+  error: string | null;
+  baseDirName: string;
+  events: TraceEvent[];
+  messages: DisplayMessage[];
+}) {
+  const { context, startedAt, completedAt, status, result, error, baseDirName, events, messages } = args;
+  return {
+    schemaVersion: TRACE_SCHEMA_VERSION,
+    startedAt: startedAt.toISOString(),
+    completedAt,
+    status,
+    result,
+    error,
+    taskId: context.task.id,
+    taskType: context.task.type,
+    goal: context.goal,
+    url: context.task.url,
+    sessionId: context.sessionId,
+    serverUrl: context.serverUrl,
+    deviceId: context.deviceId,
+    traceFolder: baseDirName,
+    events,
+    messages: compactMessages(messages),
+  };
+}
+
 export async function loadTraceRecordingConfig(): Promise<void> {
   const handle = await loadDirectoryHandle();
-  const writable = handle ? await ensureDirectoryWritable(handle, false) : false;
   chrome.storage.local.get(
     [
       STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED,
       STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME,
+      STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED,
     ],
     async (result) => {
-      const enabled = Boolean(result[STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]);
+      const paused = Boolean(result[STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED]);
       let folderName = normalizeFolderName(result[STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME] as string | undefined);
       if (!folderName && handle) {
         folderName = handle.name;
@@ -222,13 +290,18 @@ export async function loadTraceRecordingConfig(): Promise<void> {
         chrome.storage.local.remove([STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME]);
         folderName = null;
       }
-      const effectiveEnabled = enabled && Boolean(folderName) && writable;
-      if (enabled && !effectiveEnabled) {
+      const desiredEnabled = Boolean(handle) && !paused;
+      if (handle && folderName) {
+        chrome.storage.local.set({
+          [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: desiredEnabled,
+          [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME]: folderName,
+        });
+      } else if (!desiredEnabled) {
         chrome.storage.local.set({
           [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: false,
         });
       }
-      useStore.getState().setOttoAuthTraceRecordingEnabled(effectiveEnabled);
+      useStore.getState().setOttoAuthTraceRecordingEnabled(desiredEnabled);
       useStore.getState().setOttoAuthTraceRecordingFolderName(folderName);
     },
   );
@@ -257,6 +330,7 @@ export async function setTraceRecordingEnabled(enabled: boolean): Promise<{
     chrome.storage.local.set(
       {
         [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: enabled,
+        [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED]: !enabled,
       },
       () => {
         useStore.getState().setOttoAuthTraceRecordingEnabled(enabled);
@@ -283,8 +357,11 @@ export async function chooseTraceRecordingDirectory(): Promise<{
     await saveDirectoryHandle(handle);
     const folderName = normalizeFolderName(handle.name) || 'selected-folder';
     chrome.storage.local.set({
+      [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: true,
+      [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED]: false,
       [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME]: folderName,
     });
+    useStore.getState().setOttoAuthTraceRecordingEnabled(true);
     useStore.getState().setOttoAuthTraceRecordingFolderName(folderName);
     return { ok: true, folderName };
   } catch (error) {
@@ -295,6 +372,53 @@ export async function chooseTraceRecordingDirectory(): Promise<{
   }
 }
 
+export async function ensureTraceRecordingReady(
+  requestPermission: boolean,
+): Promise<{ ok: boolean; required: boolean; folderName?: string; error?: string }> {
+  const persisted = await getStorageValues([
+    STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME,
+    STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED,
+  ]);
+  const paused = Boolean(persisted[STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED]);
+  const directoryHandle = await loadDirectoryHandle();
+  const folderName = normalizeFolderName(
+    (persisted[STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME] as string | undefined)
+      || directoryHandle?.name,
+  );
+
+  if (!directoryHandle || !folderName) {
+    useStore.getState().setOttoAuthTraceRecordingEnabled(false);
+    if (!folderName) {
+      useStore.getState().setOttoAuthTraceRecordingFolderName(null);
+    }
+    return { ok: false, required: false, error: 'Select a recording folder before starting collection.' };
+  }
+  if (paused) {
+    useStore.getState().setOttoAuthTraceRecordingEnabled(false);
+    useStore.getState().setOttoAuthTraceRecordingFolderName(folderName);
+    return { ok: false, required: false, folderName, error: 'Trace recording is paused. Click Start Recording to re-enable it.' };
+  }
+
+  const writable = await ensureDirectoryWritable(directoryHandle, requestPermission);
+  useStore.getState().setOttoAuthTraceRecordingFolderName(folderName);
+  useStore.getState().setOttoAuthTraceRecordingEnabled(true);
+  if (!writable) {
+    return {
+      ok: false,
+      required: true,
+      folderName,
+      error: 'Chrome still needs write permission for the selected recording folder.',
+    };
+  }
+
+  chrome.storage.local.set({
+    [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: true,
+    [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED]: false,
+    [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME]: folderName,
+  });
+  return { ok: true, required: true, folderName };
+}
+
 export async function createTraceRecorder(context: {
   task: OttoAuthTask;
   goal: string;
@@ -302,12 +426,25 @@ export async function createTraceRecorder(context: {
   serverUrl: string | null;
   deviceId: string | null;
 }): Promise<TraceRecorder | null> {
-  const store = useStore.getState();
-  if (!store.ottoAuthTraceRecordingEnabled) {
+  const persisted = await getStorageValues([
+    STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME,
+    STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED,
+  ]);
+  const directoryHandle = await loadDirectoryHandle();
+  const paused = Boolean(persisted[STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED]);
+  const persistedEnabled = Boolean(directoryHandle) && !paused;
+  const persistedFolderName = normalizeFolderName(
+    persisted[STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME] as string | undefined,
+  );
+
+  if (!persistedEnabled) {
+    useStore.getState().setOttoAuthTraceRecordingEnabled(false);
+    if (!persistedFolderName) {
+      useStore.getState().setOttoAuthTraceRecordingFolderName(null);
+    }
     return null;
   }
 
-  const directoryHandle = await loadDirectoryHandle();
   if (!directoryHandle) {
     chrome.storage.local.set({
       [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: false,
@@ -318,12 +455,21 @@ export async function createTraceRecorder(context: {
   const writable = await ensureDirectoryWritable(directoryHandle, false);
   if (!writable) {
     console.warn('[TraceRecorder] Recording enabled, but the selected folder is not writable.');
-    chrome.storage.local.set({
-      [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: false,
-    });
     useStore.getState().setOttoAuthTraceRecordingEnabled(false);
+    useStore.getState().setOttoAuthTraceRecordingFolderName(
+      persistedFolderName || normalizeFolderName(directoryHandle.name),
+    );
     return null;
   }
+
+  useStore.getState().setOttoAuthTraceRecordingEnabled(true);
+  useStore.getState().setOttoAuthTraceRecordingFolderName(
+    persistedFolderName || normalizeFolderName(directoryHandle.name),
+  );
+  chrome.storage.local.set({
+    [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: true,
+    [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED]: false,
+  });
 
   const startedAt = new Date();
   const site = inferSiteSlug(context.task, context.goal);
@@ -331,39 +477,46 @@ export async function createTraceRecorder(context: {
     `${isoStamp(startedAt)}_${site}_${context.task.type}_${context.task.id.slice(0, 12)}`,
   );
   const events: TraceEvent[] = [];
+  let lastPersistedEventCount = 0;
+  let lastPersistedMessageCount = 0;
 
-  const persistStart = async () => {
+  const persistSnapshot = async (args: {
+    status: 'running' | 'completed' | 'failed';
+    result: Record<string, unknown> | null;
+    error: string | null;
+    messages: DisplayMessage[];
+    force?: boolean;
+  }) => {
+    const messageCount = args.messages.length;
+    const shouldSkip = !args.force
+      && args.status === 'running'
+      && events.length === lastPersistedEventCount
+      && messageCount === lastPersistedMessageCount;
+    if (shouldSkip) {
+      return { ok: true, directoryName: baseDirName };
+    }
+
     try {
       const runDir = await ensureRunDirectory(directoryHandle, startedAt, site, baseDirName);
-      const taskPayload = {
-        schemaVersion: TRACE_SCHEMA_VERSION,
-        recordedAt: new Date().toISOString(),
-        task: context.task,
-        goal: context.goal,
-        sessionId: context.sessionId,
-        serverUrl: context.serverUrl,
-        deviceId: context.deviceId,
-      };
-      const partialTracePayload = {
-        schemaVersion: TRACE_SCHEMA_VERSION,
-        startedAt: startedAt.toISOString(),
-        completedAt: null,
-        status: 'running',
-        result: null,
-        error: null,
-        taskId: context.task.id,
-        taskType: context.task.type,
-        goal: context.goal,
-        url: context.task.url,
-        sessionId: context.sessionId,
-        serverUrl: context.serverUrl,
-        deviceId: context.deviceId,
-        traceFolder: baseDirName,
-        events,
-        messages: [],
-      };
-      await writeJsonFile(runDir, 'task.json', taskPayload);
-      await writeJsonFile(runDir, 'trace.json', partialTracePayload);
+      const recordedAt = new Date().toISOString();
+      await writeJsonFile(runDir, 'task.json', buildTaskPayload(context, recordedAt));
+      await writeJsonFile(
+        runDir,
+        'trace.json',
+        buildTracePayload({
+          context,
+          startedAt,
+          completedAt: args.status === 'running' ? null : recordedAt,
+          status: args.status,
+          result: args.result,
+          error: args.error,
+          baseDirName,
+          events,
+          messages: args.messages,
+        }),
+      );
+      lastPersistedEventCount = events.length;
+      lastPersistedMessageCount = messageCount;
       return { ok: true, directoryName: baseDirName };
     } catch (persistError) {
       return {
@@ -371,6 +524,16 @@ export async function createTraceRecorder(context: {
         error: persistError instanceof Error ? persistError.message : String(persistError),
       };
     }
+  };
+
+  const persistStart = async () => {
+    return persistSnapshot({
+      status: 'running',
+      result: null,
+      error: null,
+      messages: [],
+      force: true,
+    });
   };
 
   const note = (type: string, payload: Record<string, unknown> = {}) => {
@@ -392,48 +555,21 @@ export async function createTraceRecorder(context: {
   return {
     note,
     persistStart,
+    persistProgress: async ({ messages }) =>
+      persistSnapshot({
+        status: 'running',
+        result: null,
+        error: null,
+        messages,
+      }),
     persist: async ({ status, result, error, messages }) => {
-      try {
-        const runDir = await ensureRunDirectory(directoryHandle, startedAt, site, baseDirName);
-        const completedAt = new Date();
-
-        const taskPayload = {
-          schemaVersion: TRACE_SCHEMA_VERSION,
-          recordedAt: completedAt.toISOString(),
-          task: context.task,
-          goal: context.goal,
-          sessionId: context.sessionId,
-          serverUrl: context.serverUrl,
-          deviceId: context.deviceId,
-        };
-        const tracePayload = {
-          schemaVersion: TRACE_SCHEMA_VERSION,
-          startedAt: startedAt.toISOString(),
-          completedAt: completedAt.toISOString(),
-          status,
-          result,
-          error,
-          taskId: context.task.id,
-          taskType: context.task.type,
-          goal: context.goal,
-          url: context.task.url,
-          sessionId: context.sessionId,
-          serverUrl: context.serverUrl,
-          deviceId: context.deviceId,
-          traceFolder: baseDirName,
-          events,
-          messages: compactMessages(messages),
-        };
-
-        await writeJsonFile(runDir, 'task.json', taskPayload);
-        await writeJsonFile(runDir, 'trace.json', tracePayload);
-        return { ok: true, directoryName: baseDirName };
-      } catch (persistError) {
-        return {
-          ok: false,
-          error: persistError instanceof Error ? persistError.message : String(persistError),
-        };
-      }
+      return persistSnapshot({
+        status,
+        result,
+        error,
+        messages,
+        force: true,
+      });
     },
   };
 }

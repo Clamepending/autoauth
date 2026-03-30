@@ -1,5 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { MAX_TOKENS, MODEL, BETAS, MAX_TOOL_RESULT_CHARS_IN_HISTORY } from '../../shared/constants';
+import {
+  MAX_TOKENS,
+  MODEL,
+  BETAS,
+  MAX_TOOL_RESULT_CHARS_IN_HISTORY,
+  OTTOAUTH_TOOL_TIMEOUT_MS,
+} from '../../shared/constants';
 import { sendToBackground } from '../../shared/messaging';
 import type { TabInfo } from '../../shared/types';
 import { buildSystemPrompt, buildTabContextReminder } from './systemPrompt';
@@ -49,6 +55,15 @@ async function callWithRetry(
     }
   }
   throw new Error('Max retries exceeded');
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorFactory: () => Error): Promise<T> {
+  return await Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(errorFactory()), timeoutMs);
+    }),
+  ]);
 }
 
 function compactMessages(messages: ApiMessage[]): void {
@@ -313,7 +328,11 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
         } else {
           const toolStart = Date.now();
           try {
-            result = await executeTool(toolUse.name!, toolInput, apiKey, sid);
+            result = await withTimeout(
+              executeTool(toolUse.name!, toolInput, apiKey, sid),
+              OTTOAUTH_TOOL_TIMEOUT_MS,
+              () => new Error(`Tool timed out after ${Math.round(OTTOAUTH_TOOL_TIMEOUT_MS / 1000)}s`),
+            );
             emitAgentLoopEvent(options, 'tool_result', {
               loopCount,
               toolUseId: toolUse.id!,
@@ -334,6 +353,14 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
               name: toolUse.name!,
               error: errMsg,
             });
+            if (errMsg.includes('timed out')) {
+              emitAgentLoopEvent(options, 'tool_timeout', {
+                loopCount,
+                toolUseId: toolUse.id!,
+                name: toolUse.name!,
+                timeoutMs: OTTOAUTH_TOOL_TIMEOUT_MS,
+              });
+            }
           }
         }
 

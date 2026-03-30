@@ -8,6 +8,7 @@ import {
 } from '../agent/ottoAuthBridge';
 import {
   chooseTraceRecordingDirectory,
+  ensureTraceRecordingReady,
   setTraceRecordingEnabled,
 } from '../agent/traceRecorder';
 
@@ -43,10 +44,18 @@ export default function OttoAuthSettings() {
     setError('');
   };
 
-  const togglePolling = () => {
+  const togglePolling = async () => {
     if (polling) {
       stopOttoAuthPolling();
     } else {
+      setRecordingError('');
+      if (recordingFolderName) {
+        const ready = await ensureTraceRecordingReady(true);
+        if (!ready.ok) {
+          setRecordingError(ready.error || 'Trace recording is not ready.');
+          return;
+        }
+      }
       startOttoAuthPolling();
     }
   };
