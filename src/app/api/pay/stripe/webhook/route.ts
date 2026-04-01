@@ -5,7 +5,7 @@ import { getBaseUrl } from "@/lib/base-url";
 import { notifySlackAmazonFulfillment, notifySlackSnackpassFulfillment } from "@/lib/slack";
 import { getOrderById, updateOrderStatus } from "@/services/amazon/orders";
 import { getSnackpassOrderById, updateSnackpassOrderStatus } from "@/services/snackpass/orders";
-import { enqueuePhase2ForOrder } from "@/lib/amazon-fulfillment";
+import { markAmazonOrderPaidAndEnqueuePhase2 } from "@/lib/amazon-fulfillment";
 
 function toUsd(cents: number | null): string | null {
   if (cents == null) return null;
@@ -85,26 +85,33 @@ export async function POST(request: Request) {
       } else {
         const order = await getOrderById(orderId);
         if (order && order.status !== "Fulfilled" && order.status !== "Failed") {
-          await updateOrderStatus(orderId, "Paid");
+          const wasAlreadyPaid = order.status === "Paid" || order.status === "fulfilling";
+
+          if (!wasAlreadyPaid) {
+            await updateOrderStatus(orderId, "Paid");
+          }
 
           const itemCents = order.estimated_price_cents;
           const taxCents = order.estimated_tax_cents ?? 0;
           const feeCents = order.processing_fee_cents ?? 0;
           const totalCents = itemCents != null ? itemCents + taxCents + feeCents : null;
 
-          await notifySlackAmazonFulfillment({
-            orderId: order.id,
-            username: order.username_lower,
-            productTitle: order.product_title,
-            itemUrl: order.item_url,
-            shippingLocation: order.shipping_address || order.shipping_location,
-            estimatedTotal: toUsd(totalCents),
-            appUrl: getBaseUrl(),
-          });
+          if (!wasAlreadyPaid) {
+            await notifySlackAmazonFulfillment({
+              orderId: order.id,
+              username: order.username_lower,
+              productTitle: order.product_title,
+              itemUrl: order.item_url,
+              shippingLocation: order.shipping_address || order.shipping_location,
+              estimatedTotal: toUsd(totalCents),
+              appUrl: getBaseUrl(),
+            });
+          }
 
-          enqueuePhase2ForOrder(orderId).catch((e) => {
-            console.error("[stripe-webhook] Failed to enqueue Phase 2 for order", orderId, e);
-          });
+          const { phase2TaskId, orderStatus } = await markAmazonOrderPaidAndEnqueuePhase2(orderId);
+          if (!phase2TaskId && orderStatus !== "Fulfilled" && orderStatus !== "Failed") {
+            throw new Error(`Failed to enqueue Amazon Phase 2 for order ${orderId}.`);
+          }
         }
       }
     }

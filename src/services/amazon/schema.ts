@@ -31,15 +31,6 @@ export async function ensureAmazonSchema() {
       updated_at TEXT NOT NULL
     )`,
   );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_amazon_orders_username ON amazon_orders(username_lower)",
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_amazon_orders_phase1 ON amazon_orders(phase1_task_id)",
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_amazon_orders_phase2 ON amazon_orders(phase2_task_id)",
-  );
 
   const tableInfo = await client.execute({
     sql: "PRAGMA table_info(amazon_orders)",
@@ -71,6 +62,16 @@ export async function ensureAmazonSchema() {
       );
     }
   }
+
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_amazon_orders_username ON amazon_orders(username_lower)",
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_amazon_orders_phase1 ON amazon_orders(phase1_task_id)",
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_amazon_orders_phase2 ON amazon_orders(phase2_task_id)",
+  );
 
   schemaReady = true;
 }

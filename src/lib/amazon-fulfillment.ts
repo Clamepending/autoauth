@@ -7,7 +7,10 @@ import {
 } from "@/services/amazon/orders";
 import { getBaseUrl } from "@/lib/base-url";
 import { notifySlackAmazonFulfillment } from "@/lib/slack";
-import { enqueueComputerUseLocalAgentGoalTask } from "@/lib/computeruse-store";
+import {
+  enqueueComputerUseLocalAgentGoalTask,
+  getComputerUseTaskById,
+} from "@/lib/computeruse-store";
 import { updateOrderPhase2TaskId, getOrderById } from "@/services/amazon/orders";
 import { getAgentDefaultComputerUseDevice } from "@/lib/computeruse-registrations";
 
@@ -146,6 +149,15 @@ export async function enqueuePhase2ForOrder(orderId: number): Promise<string | n
   const order = await getOrderById(orderId);
   if (!order) return null;
 
+  const phase2TaskId = order.phase2_task_id?.trim() || buildPhase2TaskId(orderId);
+  const existingTask = await getComputerUseTaskById(phase2TaskId);
+  if (existingTask) {
+    if (order.phase2_task_id !== phase2TaskId || order.status !== "fulfilling") {
+      await updateOrderPhase2TaskId(orderId, phase2TaskId);
+    }
+    return phase2TaskId;
+  }
+
   const address = order.shipping_address || order.shipping_location;
   const expectedTotal = order.amazon_total_cents
     ? `$${(order.amazon_total_cents / 100).toFixed(2)}`
@@ -162,16 +174,52 @@ export async function enqueuePhase2ForOrder(orderId: number): Promise<string | n
   const reg = await getAgentDefaultComputerUseDevice(order.username_lower).catch(() => null);
   if (reg?.device_id) deviceId = reg.device_id;
 
-  const { task } = await enqueueComputerUseLocalAgentGoalTask({
-    goal,
-    deviceId,
-    agentUsername: order.username_lower,
-    taskPrompt: goal,
-    source: "computeruse_tasks",
-  });
+  try {
+    await enqueueComputerUseLocalAgentGoalTask({
+      goal,
+      deviceId,
+      id: phase2TaskId,
+      agentUsername: order.username_lower,
+      taskPrompt: goal,
+      source: "computeruse_tasks",
+    });
+  } catch (error) {
+    const queuedTask = await getComputerUseTaskById(phase2TaskId);
+    if (!queuedTask) throw error;
+  }
 
-  await updateOrderPhase2TaskId(orderId, task.id);
-  return task.id;
+  await updateOrderPhase2TaskId(orderId, phase2TaskId);
+  return phase2TaskId;
+}
+
+export async function markAmazonOrderPaidAndEnqueuePhase2(
+  orderId: number,
+): Promise<{ orderStatus: string | null; phase2TaskId: string | null }> {
+  const order = await getOrderById(orderId);
+  if (!order) {
+    return {
+      orderStatus: null,
+      phase2TaskId: null,
+    };
+  }
+
+  if (order.status === "Fulfilled" || order.status === "Failed") {
+    return {
+      orderStatus: order.status,
+      phase2TaskId: order.phase2_task_id,
+    };
+  }
+
+  if (order.status !== "Paid" && order.status !== "fulfilling") {
+    await updateOrderStatus(orderId, "Paid");
+  }
+
+  const phase2TaskId = await enqueuePhase2ForOrder(orderId);
+  const updatedOrder = await getOrderById(orderId);
+  return {
+    orderStatus: updatedOrder?.status ?? "Paid",
+    phase2TaskId,
+  };
 }
 
 function buildPhase2Prompt(params: {
@@ -221,4 +269,8 @@ function toInt(val: unknown): number | null {
   if (val == null) return null;
   const n = Number(val);
   return Number.isFinite(n) ? Math.round(n) : null;
+}
+
+function buildPhase2TaskId(orderId: number): string {
+  return `amazon_phase2_order_${orderId}`;
 }

@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import {
   getOrderById,
   updateOrderFulfillment,
-  updateOrderStatus,
 } from "@/services/amazon/orders";
-import { enqueuePhase2ForOrder } from "@/lib/amazon-fulfillment";
+import { markAmazonOrderPaidAndEnqueuePhase2 } from "@/lib/amazon-fulfillment";
 
 export async function POST(
   request: Request,
@@ -35,15 +34,14 @@ export async function POST(
   }
 
   if (action === "paid" || action === "skip_payment") {
-    await updateOrderStatus(id, "Paid");
-    const taskId = await enqueuePhase2ForOrder(id);
+    const { orderStatus, phase2TaskId } = await markAmazonOrderPaidAndEnqueuePhase2(id);
     return NextResponse.json({
       ok: true,
-      status: "Paid",
-      phase2_task_id: taskId,
-      message: taskId
-        ? "Order marked as Paid. Phase 2 (place order) task enqueued."
-        : "Order marked as Paid. No Phase 2 task created (order may be missing data).",
+      status: orderStatus ?? "Paid",
+      phase2_task_id: phase2TaskId,
+      message: phase2TaskId
+        ? "Order marked as Paid. Phase 2 (place order) task is queued or already assigned."
+        : "Order marked as Paid, but no Phase 2 task is available.",
     });
   }
 
