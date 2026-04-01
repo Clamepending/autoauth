@@ -31,9 +31,20 @@ type AgentRequest = {
   created_at: string;
 };
 
+type FulfillmentAgent = {
+  device_id: string;
+  browser_token_present: boolean;
+  paired_at: string;
+  device_updated_at: string;
+  agent_username_lower: string | null;
+  agent_username_display: string | null;
+  registration_updated_at: string | null;
+};
+
 export default function AdminDashPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [requests, setRequests] = useState<AgentRequest[]>([]);
+  const [fulfillmentAgents, setFulfillmentAgents] = useState<FulfillmentAgent[]>([]);
   const [notesByRequestId, setNotesByRequestId] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,18 +55,22 @@ export default function AdminDashPage() {
     setLoading(true);
     setError(null);
     try {
-      const [agentRes, requestRes] = await Promise.all([
+      const [agentRes, requestRes, fulfillmentAgentRes] = await Promise.all([
         fetch("/api/admin/agents", { cache: "no-store" }),
         fetch("/api/admin/requests", { cache: "no-store" }),
+        fetch("/api/admin/fulfillment-agents", { cache: "no-store" }),
       ]);
       if (!agentRes.ok) throw new Error("Failed to load agents");
       if (!requestRes.ok) throw new Error("Failed to load requests");
-      const [agentData, requestData] = await Promise.all([
+      if (!fulfillmentAgentRes.ok) throw new Error("Failed to load fulfillment agents");
+      const [agentData, requestData, fulfillmentAgentData] = await Promise.all([
         agentRes.json(),
         requestRes.json(),
+        fulfillmentAgentRes.json(),
       ]);
       setAgents(agentData);
       setRequests(requestData);
+      setFulfillmentAgents(fulfillmentAgentData);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -150,6 +165,67 @@ export default function AdminDashPage() {
         <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 0 }}>
           Manage human-required service requests and agent accounts.
         </p>
+      </section>
+
+      <section style={{ border: "1px solid var(--line)", background: "var(--paper)", padding: 20, marginBottom: 32 }}>
+        <h2 style={{ fontSize: 18, marginBottom: 8 }}>Current Fulfillment Agents</h2>
+        <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 16 }}>
+          Paired browser workers that can currently be assigned OttoAuth fulfillment tasks.
+        </p>
+
+        {fulfillmentAgents.length === 0 ? (
+          <p style={{ color: "var(--muted)" }}>No paired fulfillment agents found.</p>
+        ) : (
+          <div style={{ border: "1px solid var(--line)", background: "var(--paper)", overflowX: "auto" }}>
+            <table style={{ minWidth: 760, width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--line)", background: "var(--bg)" }}>
+                  <th style={{ textAlign: "left", padding: "12px 16px", fontWeight: 600 }}>Device</th>
+                  <th style={{ textAlign: "left", padding: "12px 16px", fontWeight: 600 }}>Linked Agent</th>
+                  <th style={{ textAlign: "left", padding: "12px 16px", fontWeight: 600 }}>Browser Token</th>
+                  <th style={{ textAlign: "left", padding: "12px 16px", fontWeight: 600 }}>Paired</th>
+                  <th style={{ textAlign: "left", padding: "12px 16px", fontWeight: 600 }}>Last Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fulfillmentAgents.map((agent) => (
+                  <tr key={agent.device_id} style={{ borderBottom: "1px solid var(--grid)" }}>
+                    <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>
+                      {agent.device_id}
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      {agent.agent_username_display || agent.agent_username_lower ? (
+                        <>
+                          <strong>{agent.agent_username_display || agent.agent_username_lower}</strong>
+                          {agent.agent_username_display &&
+                            agent.agent_username_lower &&
+                            agent.agent_username_display !== agent.agent_username_lower && (
+                              <span style={{ color: "var(--muted)", marginLeft: 6, fontSize: 12 }}>
+                                ({agent.agent_username_lower})
+                              </span>
+                            )}
+                        </>
+                      ) : (
+                        <span style={{ color: "var(--muted)" }}>Unassigned</span>
+                      )}
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{ color: agent.browser_token_present ? "#067647" : "#b42318" }}>
+                        {agent.browser_token_present ? "Saved" : "Missing"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      {new Date(agent.paired_at).toLocaleString()}
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      {new Date(agent.registration_updated_at || agent.device_updated_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section

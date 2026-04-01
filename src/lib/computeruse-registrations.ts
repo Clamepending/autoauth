@@ -11,7 +11,7 @@ export type ComputerUseAgentDeviceRegistration = {
 
 let schemaReady = false;
 
-async function ensureComputerUseRegistrationSchema() {
+export async function ensureComputerUseRegistrationSchema() {
   if (schemaReady) return;
   await ensureSchema();
   const client = getTursoClient();

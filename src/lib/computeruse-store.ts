@@ -1,4 +1,5 @@
 import { ensureSchema } from "@/lib/db";
+import { ensureComputerUseRegistrationSchema } from "@/lib/computeruse-registrations";
 import { getTursoClient } from "@/lib/turso";
 
 export type ComputerUseDeviceRecord = {
@@ -31,9 +32,19 @@ export type ComputerUseTaskRecord = {
   updatedAt: string;
 };
 
+export type FulfillmentAgentRecord = {
+  device_id: string;
+  browser_token_present: boolean;
+  paired_at: string;
+  device_updated_at: string;
+  agent_username_lower: string | null;
+  agent_username_display: string | null;
+  registration_updated_at: string | null;
+};
+
 let cuTransportSchemaReady = false;
 
-async function ensureComputerUseTransportSchema() {
+export async function ensureComputerUseTransportSchema() {
   if (cuTransportSchemaReady) return;
   await ensureSchema();
   const client = getTursoClient();
@@ -179,6 +190,42 @@ export async function getComputerUseDeviceByBrowserToken(browserToken: string) {
   });
   const row = result.rows?.[0] as unknown as Record<string, unknown> | undefined;
   return row ? mapDeviceRow(row) : null;
+}
+
+export async function listFulfillmentAgentsForAdmin(): Promise<FulfillmentAgentRecord[]> {
+  await ensureComputerUseTransportSchema();
+  await ensureComputerUseRegistrationSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: `SELECT
+            d.device_id,
+            d.browser_token,
+            d.paired_at,
+            d.updated_at AS device_updated_at,
+            r.agent_username_lower,
+            a.username_display AS agent_username_display,
+            r.updated_at AS registration_updated_at
+          FROM computeruse_devices d
+          LEFT JOIN computeruse_agent_device_registrations r
+            ON r.device_id = d.device_id
+          LEFT JOIN agents a
+            ON a.username_lower = r.agent_username_lower
+          ORDER BY COALESCE(r.updated_at, d.updated_at) DESC, d.device_id ASC`,
+    args: [],
+  });
+
+  return ((result.rows ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
+    device_id: String(row.device_id),
+    browser_token_present: Boolean(row.browser_token),
+    paired_at: String(row.paired_at),
+    device_updated_at: String(row.device_updated_at),
+    agent_username_lower:
+      row.agent_username_lower == null ? null : String(row.agent_username_lower),
+    agent_username_display:
+      row.agent_username_display == null ? null : String(row.agent_username_display),
+    registration_updated_at:
+      row.registration_updated_at == null ? null : String(row.registration_updated_at),
+  }));
 }
 
 export async function setComputerUseDeviceBrowserToken(params: {
