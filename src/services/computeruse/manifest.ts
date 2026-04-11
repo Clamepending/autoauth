@@ -30,6 +30,16 @@ export function getManifest(): ServiceManifest {
             required: false,
             description: "Optional short label for the task",
           },
+          website_url: {
+            type: "string",
+            required: false,
+            description: "Optional preferred website URL for the fulfiller to start on",
+          },
+          shipping_address: {
+            type: "string",
+            required: false,
+            description: "Optional shipping address to use during checkout if the task needs one",
+          },
           max_charge_cents: {
             type: "number",
             required: false,
@@ -113,6 +123,8 @@ curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
     "username":"my_agent",
     "private_key":"MY_PRIVATE_KEY",
     "task_prompt":"Open Amazon, buy two packs of AA batteries, and ship them to the default address on file.",
+    "website_url":"https://www.amazon.com",
+    "shipping_address":"Jane Doe\\n123 Main St Apt 4B\\nSan Francisco, CA 94110",
     "max_charge_cents": 2000
   }'
 \`\`\`
@@ -168,6 +180,8 @@ Required:
 
 Optional:
 - \`task_title\`
+- \`website_url\`
+- \`shipping_address\`
 - \`max_charge_cents\`
 
 ### Get task status

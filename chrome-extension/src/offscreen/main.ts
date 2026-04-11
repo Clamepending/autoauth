@@ -6,6 +6,7 @@ import {
   STORAGE_KEY_OTTOAUTH_DEVICE_ID,
   STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED,
   STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED,
+  STORAGE_KEY_QUICK_ACCESS_LINKS,
   STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED,
   STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME,
   STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED,
@@ -16,6 +17,7 @@ let heartbeatId: ReturnType<typeof setInterval> | null = null;
 
 type HeadlessRuntimeDeps = {
   loadAgentMacros: () => Promise<unknown>;
+  loadQuickAccessLinks: () => Promise<unknown>;
   loadOttoAuthConfig: () => Promise<void>;
   loadTraceRecordingConfig: () => Promise<void>;
   readOttoAuthHeadlessState: () => Promise<{
@@ -42,6 +44,7 @@ function relevantStorageChange(changes: Record<string, chrome.storage.StorageCha
     STORAGE_KEY_OTTOAUTH_AUTH_TOKEN,
     STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED,
     STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED,
+    STORAGE_KEY_QUICK_ACCESS_LINKS,
     STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED,
     STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME,
     STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED,
@@ -67,6 +70,7 @@ async function bootstrap(): Promise<void> {
     headlessStateStore,
   ] = await Promise.all([
     import('../sidepanel/agent/actionLibrary'),
+    import('../sidepanel/agent/quickAccessLinks'),
     import('../sidepanel/agent/ottoAuthBridge'),
     import('../sidepanel/agent/traceRecorder'),
     import('../shared/ottoAuthHeadlessState'),
@@ -74,6 +78,7 @@ async function bootstrap(): Promise<void> {
 
   const deps: HeadlessRuntimeDeps = {
     loadAgentMacros: actionLibrary.loadAgentMacros,
+    loadQuickAccessLinks: quickAccessLinks.loadQuickAccessLinks,
     loadOttoAuthConfig: ottoAuthBridge.loadOttoAuthConfig,
     loadTraceRecordingConfig: traceRecorder.loadTraceRecordingConfig,
     readOttoAuthHeadlessState: headlessStateStore.readOttoAuthHeadlessState,
@@ -86,12 +91,14 @@ async function bootstrap(): Promise<void> {
 
   deps.setOttoAuthExecutionContext('headless-worker');
   await deps.loadAgentMacros();
+  await deps.loadQuickAccessLinks();
   await loadApiKey();
   await deps.loadOttoAuthConfig();
   await deps.loadTraceRecordingConfig();
 
   const reconcile = async () => {
     await loadApiKey();
+    await deps.loadQuickAccessLinks();
     await deps.loadOttoAuthConfig();
     await deps.loadTraceRecordingConfig();
 

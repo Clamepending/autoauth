@@ -1,6 +1,10 @@
 import type { TabInfo } from '../../shared/types';
 
-export function buildSystemPrompt(tabs: TabInfo[], actionLibraryPrompt = ''): string {
+export function buildSystemPrompt(
+  tabs: TabInfo[],
+  actionLibraryPrompt = '',
+  quickAccessPrompt = '',
+): string {
   const platform = navigator.platform?.includes('Mac') ? 'macOS' : 'Windows/Linux';
 
   const tabLines = tabs.map(
@@ -20,6 +24,8 @@ ${tabSection}
 
 ${actionLibraryPrompt}
 
+${quickAccessPrompt}
+
 <guidelines>
 - ALWAYS start by taking a screenshot to see the current state of the page.
 - Use the computer tool with action "screenshot" frequently to stay aware of what's on screen.
@@ -28,6 +34,7 @@ ${actionLibraryPrompt}
 - After form_input, you usually need to submit the form: press Enter via computer key action, or click the submit button.
 - Use the find tool to locate elements by natural language description when the accessibility tree is too large.
 - Use navigate for direct URL navigation rather than trying to click links.
+- If the task mentions a business from the quick-access table, go straight to the mapped URL instead of searching for it first.
 - After clicking or scrolling, a screenshot is taken automatically so you can see the result.
 - Use keyboard shortcuts when efficient (e.g., Cmd+A, Cmd+C on Mac; Ctrl+A, Ctrl+C on other platforms).
 - If a page hasn't loaded yet, use the computer tool with action "wait".

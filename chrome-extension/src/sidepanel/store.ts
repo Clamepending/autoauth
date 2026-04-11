@@ -6,6 +6,7 @@ import type {
   OttoAuthTask,
   PermissionMode,
   PlanData,
+  QuickAccessLink,
   SessionInfo,
 } from '../shared/types';
 
@@ -128,6 +129,9 @@ interface AppStore {
   setActionMacros: (macros: AgentMacroAction[]) => void;
   upsertActionMacro: (macro: AgentMacroAction) => void;
   removeActionMacro: (id: string) => void;
+
+  quickAccessLinks: QuickAccessLink[];
+  setQuickAccessLinks: (links: QuickAccessLink[]) => void;
 }
 
 function sortLocalControlRequests(requests: LocalControlRequest[]): LocalControlRequest[] {
@@ -341,4 +345,7 @@ export const useStore = create<AppStore>((set, get) => ({
     set((state) => ({
       actionMacros: state.actionMacros.filter((entry) => entry.id !== id),
     })),
+
+  quickAccessLinks: [],
+  setQuickAccessLinks: (quickAccessLinks) => set({ quickAccessLinks }),
 }));

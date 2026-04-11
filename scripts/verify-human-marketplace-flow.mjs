@@ -129,6 +129,8 @@ async function main() {
     cookieJar: requesterJar,
     json: {
       task_title: 'Buy office supplies from the marketplace',
+      website_url: 'https://example.com/checkout',
+      shipping_address: 'Requester Human\n500 Howard St\nSan Francisco, CA 94105',
       task_prompt: 'Buy office supplies if they fit in budget.',
       max_charge_cents: 1800,
     },
@@ -182,6 +184,14 @@ async function main() {
   assert(
     detailBeforeComplete.data.latest_snapshot?.image_base64 === ONE_BY_ONE_PNG,
     'Latest snapshot missing from task detail response',
+  );
+  assert(
+    detailBeforeComplete.data.task.website_url === 'https://example.com/checkout',
+    `Expected website URL to round-trip, got ${detailBeforeComplete.data.task.website_url}`,
+  );
+  assert(
+    detailBeforeComplete.data.task.shipping_address === 'Requester Human\n500 Howard St\nSan Francisco, CA 94105',
+    `Expected shipping address to round-trip, got ${detailBeforeComplete.data.task.shipping_address}`,
   );
 
   const completeRes = await request(`/api/computeruse/device/tasks/${computerUseTaskId}/local-agent-complete`, {

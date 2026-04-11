@@ -1,4 +1,5 @@
 import { loadAgentMacros } from '../sidepanel/agent/actionLibrary';
+import { loadQuickAccessLinks } from '../sidepanel/agent/quickAccessLinks';
 import {
   loadOttoAuthConfig,
   resetOttoAuthHeadlessRuntimeState,
@@ -14,6 +15,7 @@ import {
   STORAGE_KEY_OTTOAUTH_DEVICE_ID,
   STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED,
   STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED,
+  STORAGE_KEY_QUICK_ACCESS_LINKS,
   STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED,
   STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME,
   STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED,
@@ -40,6 +42,7 @@ async function loadApiKey(): Promise<void> {
 
 async function initializeRuntime(): Promise<void> {
   await loadAgentMacros();
+  await loadQuickAccessLinks();
   await loadApiKey();
   await loadOttoAuthConfig();
   await loadTraceRecordingConfig();
@@ -47,6 +50,7 @@ async function initializeRuntime(): Promise<void> {
 
 async function reconcileHeadlessWorker(): Promise<void> {
   await loadApiKey();
+  await loadQuickAccessLinks();
   await loadOttoAuthConfig();
   await loadTraceRecordingConfig();
 
@@ -102,6 +106,7 @@ function relevantStorageChange(changes: Record<string, chrome.storage.StorageCha
     STORAGE_KEY_OTTOAUTH_AUTH_TOKEN,
     STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED,
     STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED,
+    STORAGE_KEY_QUICK_ACCESS_LINKS,
     STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED,
     STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME,
     STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED,

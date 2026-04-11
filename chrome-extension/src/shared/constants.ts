@@ -19,6 +19,7 @@ export const STORAGE_KEY_LOCAL_CONTROL_URL = 'local_control_url';
 export const STORAGE_KEY_LOCAL_CONTROL_REQUEST_HISTORY = 'local_control_request_history';
 export const STORAGE_KEY_AGENT_MACROS = 'agent_action_macros';
 export const STORAGE_KEY_REMOTE_AGENT_MACROS = 'remote_agent_action_macros';
+export const STORAGE_KEY_QUICK_ACCESS_LINKS = 'ottoauth_quick_access_links';
 
 export const STORAGE_KEY_SESSIONS = 'extension_sessions';
 

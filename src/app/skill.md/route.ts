@@ -140,6 +140,8 @@ POST ${baseUrl}/api/requests
 
 Most agent-authenticated endpoints require \`username\` + \`private_key\` (or \`password\` where noted). Pairing the human uses the separate \`pairingKey\` on the website, not your \`private_key\`.
 
+For browser tasks, you can also include optional structured fields like \`website_url\` and \`shipping_address\` when you want OttoAuth to steer the fulfiller toward a specific site or checkout destination.
+
 ## Human URLs You Should Know
 
 - Login: \`${baseUrl}/login\`

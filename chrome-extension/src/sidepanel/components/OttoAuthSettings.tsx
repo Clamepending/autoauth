@@ -13,7 +13,12 @@ import {
   setTraceRecordingEnabled,
 } from '../agent/traceRecorder';
 import { OTTOAUTH_HEADLESS_STORAGE_KEYS, readOttoAuthHeadlessState, writeOttoAuthHeadlessState } from '../../shared/ottoAuthHeadlessState';
-import type { OttoAuthHeadlessState } from '../../shared/types';
+import type { OttoAuthHeadlessState, QuickAccessLink } from '../../shared/types';
+import {
+  DEFAULT_QUICK_ACCESS_LINKS,
+  resetQuickAccessLinks,
+  saveQuickAccessLinks,
+} from '../agent/quickAccessLinks';
 
 const EMPTY_HEADLESS_STATE: OttoAuthHeadlessState = {
   modeEnabled: false,
@@ -37,6 +42,10 @@ export default function OttoAuthSettings() {
   const [recordingStatus, setRecordingStatus] = useState<Awaited<ReturnType<typeof ensureTraceRecordingReady>> | null>(null);
   const [headlessState, setHeadlessState] = useState<OttoAuthHeadlessState>(EMPTY_HEADLESS_STATE);
   const [headlessBusy, setHeadlessBusy] = useState(false);
+  const [quickAccessDraft, setQuickAccessDraft] = useState<QuickAccessLink[]>(DEFAULT_QUICK_ACCESS_LINKS);
+  const [quickAccessBusy, setQuickAccessBusy] = useState(false);
+  const [quickAccessError, setQuickAccessError] = useState('');
+  const [quickAccessMessage, setQuickAccessMessage] = useState('');
 
   const connected = useStore((s) => s.ottoAuthConnected);
   const polling = useStore((s) => s.ottoAuthPolling);
@@ -45,6 +54,7 @@ export default function OttoAuthSettings() {
   const url = useStore((s) => s.ottoAuthUrl);
   const recordingEnabled = useStore((s) => s.ottoAuthTraceRecordingEnabled);
   const recordingFolderName = useStore((s) => s.ottoAuthTraceRecordingFolderName);
+  const quickAccessLinks = useStore((s) => s.quickAccessLinks);
   const headlessModeEnabled = headlessState.modeEnabled;
   const effectivePolling = headlessModeEnabled
     ? headlessState.pollingActive || headlessState.pollingRequested
@@ -266,11 +276,74 @@ export default function OttoAuthSettings() {
     setRecordingBusy(false);
   };
 
+  const handleQuickAccessChange = (id: string, field: 'label' | 'url', value: string) => {
+    setQuickAccessDraft((current) =>
+      current.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry)),
+    );
+  };
+
+  const handleAddQuickAccess = () => {
+    setQuickAccessDraft((current) => [
+      ...current,
+      {
+        id: `quick-access-${Date.now()}-${current.length + 1}`,
+        label: '',
+        url: '',
+      },
+    ]);
+    setQuickAccessError('');
+    setQuickAccessMessage('');
+  };
+
+  const handleRemoveQuickAccess = (id: string) => {
+    setQuickAccessDraft((current) => current.filter((entry) => entry.id !== id));
+    setQuickAccessError('');
+    setQuickAccessMessage('');
+  };
+
+  const handleSaveQuickAccess = async () => {
+    setQuickAccessBusy(true);
+    setQuickAccessError('');
+    setQuickAccessMessage('');
+    try {
+      const next = await saveQuickAccessLinks(quickAccessDraft);
+      setQuickAccessDraft(next);
+      setQuickAccessMessage(`Saved ${next.length} quick-access link${next.length === 1 ? '' : 's'}.`);
+    } catch (error) {
+      setQuickAccessError(error instanceof Error ? error.message : 'Could not save quick-access links.');
+    } finally {
+      setQuickAccessBusy(false);
+    }
+  };
+
+  const handleResetQuickAccess = async () => {
+    setQuickAccessBusy(true);
+    setQuickAccessError('');
+    setQuickAccessMessage('');
+    try {
+      const next = await resetQuickAccessLinks();
+      setQuickAccessDraft(next);
+      setQuickAccessMessage('Restored the default quick-access links.');
+    } catch (error) {
+      setQuickAccessError(error instanceof Error ? error.message : 'Could not reset quick-access links.');
+    } finally {
+      setQuickAccessBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (url) {
       setServerUrl(url);
     }
   }, [url]);
+
+  useEffect(() => {
+    if (quickAccessLinks.length > 0) {
+      setQuickAccessDraft(quickAccessLinks);
+      return;
+    }
+    setQuickAccessDraft(DEFAULT_QUICK_ACCESS_LINKS);
+  }, [quickAccessLinks]);
 
   useEffect(() => {
     void refreshHeadlessState();
@@ -409,6 +482,76 @@ export default function OttoAuthSettings() {
     </div>
   );
 
+  const quickAccessPanel = (
+    <div className="rounded border border-gray-200 bg-white px-2 py-2 space-y-2">
+      <div>
+        <div className="text-xs font-medium text-gray-700">Quick Access Sites</div>
+        <div className="text-[11px] text-gray-500">
+          This table lives in the extension only. Browser agents include it in their prompt so they can jump directly to hard-to-find sites instead of relying on search results.
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {quickAccessDraft.map((entry) => (
+          <div key={entry.id} className="rounded border border-gray-200 bg-gray-50 px-2 py-2 space-y-1.5">
+            <input
+              type="text"
+              value={entry.label}
+              onChange={(event) => handleQuickAccessChange(entry.id, 'label', event.target.value)}
+              placeholder="Business name"
+              className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-500"
+            />
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={entry.url}
+                onChange={(event) => handleQuickAccessChange(entry.id, 'url', event.target.value)}
+                placeholder="https://example.com/order"
+                className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
+              <button
+                onClick={() => handleRemoveQuickAccess(entry.id)}
+                className="shrink-0 px-2 py-1.5 text-[11px] font-medium rounded border border-red-200 text-red-700 hover:bg-red-50"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {quickAccessError && (
+        <div className="text-[11px] text-red-600">{quickAccessError}</div>
+      )}
+      {quickAccessMessage && (
+        <div className="text-[11px] text-green-700">{quickAccessMessage}</div>
+      )}
+
+      <div className="flex gap-1.5">
+        <button
+          onClick={handleAddQuickAccess}
+          className="px-2 py-1.5 text-[11px] font-medium rounded border border-gray-200 text-gray-700 hover:bg-gray-50"
+        >
+          Add Site
+        </button>
+        <button
+          onClick={handleSaveQuickAccess}
+          disabled={quickAccessBusy}
+          className="px-2 py-1.5 text-[11px] font-medium rounded bg-gray-900 text-white hover:bg-black disabled:opacity-50"
+        >
+          {quickAccessBusy ? 'Saving...' : 'Save Sites'}
+        </button>
+        <button
+          onClick={handleResetQuickAccess}
+          disabled={quickAccessBusy}
+          className="px-2 py-1.5 text-[11px] font-medium rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          Reset Defaults
+        </button>
+      </div>
+    </div>
+  );
+
   if (!expanded) {
     return (
       <button
@@ -534,6 +677,7 @@ export default function OttoAuthSettings() {
           )}
           {headlessPanel}
           {recordingPanel}
+          {quickAccessPanel}
 
           <div className="flex gap-1.5">
             <button
@@ -591,6 +735,7 @@ export default function OttoAuthSettings() {
             Generate the claim code from the OttoAuth human dashboard, then paste it here to attach this device to that account.
           </p>
           {recordingPanel}
+          {quickAccessPanel}
         </div>
       )}
     </div>

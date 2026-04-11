@@ -277,6 +277,11 @@ footer {
   resize: vertical;
 }
 
+.shipping-textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
 .auth-error,
 .auth-success,
 .auth-disabled {
@@ -354,6 +359,10 @@ footer {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.dashboard-prewrap {
+  white-space: pre-wrap;
 }
 
 .dashboard-section-header {

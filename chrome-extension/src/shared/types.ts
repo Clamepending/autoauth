@@ -104,6 +104,12 @@ export interface OttoAuthModelUsage {
   source?: string | null;
 }
 
+export interface QuickAccessLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
 export interface OttoAuthHeadlessState {
   modeEnabled: boolean;
   pollingRequested: boolean;

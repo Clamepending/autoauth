@@ -13,7 +13,11 @@ import {
   createGenericBrowserTask,
   formatGenericTaskForApi,
 } from "@/lib/generic-browser-tasks";
-import { buildGenericTaskGoal } from "@/lib/computeruse-task-prompts";
+import {
+  buildGenericTaskGoal,
+  normalizeOptionalShippingAddress,
+  normalizeOptionalWebsiteUrl,
+} from "@/lib/computeruse-task-prompts";
 import {
   getHumanCreditBalance,
   getHumanLinkForAgentUsername,
@@ -43,6 +47,21 @@ export async function POST(request: Request) {
       : typeof payload.taskTitle === "string"
         ? payload.taskTitle.trim()
         : "";
+  let websiteUrl: string | null = null;
+  let shippingAddress: string | null = null;
+  try {
+    websiteUrl = normalizeOptionalWebsiteUrl(
+      payload.website_url ?? payload.websiteUrl,
+    );
+    shippingAddress = normalizeOptionalShippingAddress(
+      payload.shipping_address ?? payload.shippingAddress,
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Invalid task request." },
+      { status: 400 },
+    );
+  }
   const requestedMaxCharge =
     typeof payload.max_charge_cents === "number"
       ? payload.max_charge_cents
@@ -115,6 +134,8 @@ export async function POST(request: Request) {
   const wrappedPrompt = buildGenericTaskGoal({
     originalPrompt: taskPrompt,
     maxChargeCents: effectiveMaxCharge,
+    websiteUrl,
+    shippingAddress,
   });
 
   const run = await createComputerUseRun({
@@ -131,6 +152,8 @@ export async function POST(request: Request) {
       human_user_id: humanUser.id,
       credit_balance_cents: creditBalance,
       max_charge_cents: effectiveMaxCharge,
+      website_url: websiteUrl,
+      shipping_address_present: Boolean(shippingAddress),
     },
   });
 
@@ -167,6 +190,8 @@ export async function POST(request: Request) {
     fulfillerHumanUserId: device.human_user_id,
     taskPrompt,
     taskTitle: taskTitle || taskPrompt.slice(0, 80),
+    websiteUrl,
+    shippingAddress,
     maxChargeCents: effectiveMaxCharge,
     runId: run.id,
     computeruseTaskId: task.id,

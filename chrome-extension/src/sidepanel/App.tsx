@@ -3,6 +3,7 @@ import { useStore } from './store';
 import { STORAGE_KEY_API_KEY } from '../shared/constants';
 import { loadAgentMacros } from './agent/actionLibrary';
 import { loadOttoAuthConfig } from './agent/ottoAuthBridge';
+import { loadQuickAccessLinks } from './agent/quickAccessLinks';
 import { loadLocalControlConfig, loadLocalControlHistory } from './agent/localControlBridge';
 import { loadTraceRecordingConfig } from './agent/traceRecorder';
 import { sendToBackground } from '../shared/messaging';
@@ -52,6 +53,7 @@ export default function App() {
     void (async () => {
       await Promise.all([
         loadAgentMacros(),
+        loadQuickAccessLinks(),
         loadOttoAuthConfig(),
         loadLocalControlHistory(),
         loadTraceRecordingConfig(),

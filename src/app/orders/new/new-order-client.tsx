@@ -13,7 +13,8 @@ function parseUsdToCents(value: string) {
 }
 
 export function NewOrderClient() {
-  const [taskTitle, setTaskTitle] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [shippingAddress, setShippingAddress] = useState("");
   const [taskPrompt, setTaskPrompt] = useState("");
   const [maxChargeUsd, setMaxChargeUsd] = useState("");
   const [fulfillmentMode, setFulfillmentMode] = useState<"auto" | "own_device" | "marketplace">("auto");
@@ -31,7 +32,8 @@ export function NewOrderClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          task_title: taskTitle.trim() || undefined,
+          website_url: websiteUrl.trim() || undefined,
+          shipping_address: shippingAddress.trim() || undefined,
           task_prompt: taskPrompt.trim(),
           max_charge_cents: maxChargeCents ?? undefined,
           fulfillment_mode: fulfillmentMode,
@@ -74,16 +76,26 @@ export function NewOrderClient() {
             <form className="stack-form" onSubmit={handleSubmit}>
               <input
                 className="auth-input"
-                value={taskTitle}
-                onChange={(event) => setTaskTitle(event.target.value)}
-                placeholder="Short title, e.g. Buy a webcam from Amazon"
+                value={websiteUrl}
+                onChange={(event) => setWebsiteUrl(event.target.value)}
+                placeholder="Optional website URL, e.g. amazon.com or https://www.amazon.com"
+                inputMode="url"
+              />
+              <textarea
+                className="auth-input shipping-textarea"
+                value={shippingAddress}
+                onChange={(event) => setShippingAddress(event.target.value)}
+                placeholder={"Optional shipping address\nJane Doe\n123 Main St Apt 4B\nSan Francisco, CA 94110"}
               />
               <textarea
                 className="auth-input task-textarea"
                 value={taskPrompt}
                 onChange={(event) => setTaskPrompt(event.target.value)}
-                placeholder="Describe exactly what should be ordered or what browser task should be completed."
+                placeholder="Describe exactly what should be ordered or what browser task should be completed. Include size, flavor, quantity, options, substitutions, or any other details that matter."
               />
+              <div className="dashboard-muted">
+                This description is what the browser fulfiller follows. If it is vague or incomplete, OttoAuth may order the wrong item or hit errors during checkout.
+              </div>
               <input
                 className="auth-input"
                 value={maxChargeUsd}

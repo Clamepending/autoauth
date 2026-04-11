@@ -2,12 +2,14 @@ import { ensureSchema } from "@/lib/db";
 import {
   addCreditLedgerEntry,
   getHumanCreditBalance,
+  getHumanUserById,
   type HumanUserRecord,
 } from "@/lib/human-accounts";
 import {
   calculateInferenceCostCents,
   type ModelUsageRecord,
 } from "@/lib/model-pricing";
+import { sendOrderCompletionEmail } from "@/lib/order-completion-email";
 import { getTursoClient } from "@/lib/turso";
 
 export type GenericBrowserTaskStatus =
@@ -41,6 +43,8 @@ export type GenericBrowserTaskRecord = {
   fulfiller_human_user_id: number | null;
   task_title: string | null;
   task_prompt: string;
+  website_url: string | null;
+  shipping_address: string | null;
   max_charge_cents: number | null;
   status: GenericBrowserTaskStatus;
   billing_status: GenericBrowserTaskBillingStatus;
@@ -113,6 +117,9 @@ function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
         : Number(row.fulfiller_human_user_id),
     task_title: row.task_title == null ? null : String(row.task_title),
     task_prompt: String(row.task_prompt),
+    website_url: row.website_url == null ? null : String(row.website_url),
+    shipping_address:
+      row.shipping_address == null ? null : String(row.shipping_address),
     max_charge_cents:
       row.max_charge_cents == null || row.max_charge_cents === ""
         ? null
@@ -263,6 +270,8 @@ export async function ensureGenericBrowserTaskSchema() {
       fulfiller_human_user_id INTEGER,
       task_title TEXT,
       task_prompt TEXT NOT NULL,
+      website_url TEXT,
+      shipping_address TEXT,
       max_charge_cents INTEGER,
       status TEXT NOT NULL DEFAULT 'queued',
       billing_status TEXT NOT NULL DEFAULT 'pending',
@@ -333,6 +342,16 @@ export async function ensureGenericBrowserTaskSchema() {
       "ALTER TABLE generic_browser_tasks ADD COLUMN requester_rating_at TEXT"
     );
   }
+  if (!columns.some((c) => c.name === "website_url")) {
+    await client.execute(
+      "ALTER TABLE generic_browser_tasks ADD COLUMN website_url TEXT"
+    );
+  }
+  if (!columns.some((c) => c.name === "shipping_address")) {
+    await client.execute(
+      "ALTER TABLE generic_browser_tasks ADD COLUMN shipping_address TEXT"
+    );
+  }
   await client.execute(
     "CREATE INDEX IF NOT EXISTS idx_generic_browser_tasks_agent ON generic_browser_tasks(agent_username_lower, created_at)",
   );
@@ -387,6 +406,8 @@ export async function createGenericBrowserTask(params: {
   fulfillerHumanUserId?: number | null;
   taskPrompt: string;
   taskTitle?: string | null;
+  websiteUrl?: string | null;
+  shippingAddress?: string | null;
   maxChargeCents?: number | null;
   runId?: string | null;
   computeruseTaskId?: string | null;
@@ -397,9 +418,9 @@ export async function createGenericBrowserTask(params: {
   const insertResult = await client.execute({
     sql: `INSERT INTO generic_browser_tasks
           (agent_id, agent_username_lower, human_user_id, device_id, submission_source,
-           fulfiller_human_user_id, task_title, task_prompt, max_charge_cents, status,
+           fulfiller_human_user_id, task_title, task_prompt, website_url, shipping_address, max_charge_cents, status,
            billing_status, payout_cents, payout_status, run_id, computeruse_task_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', 'pending', 0, 'pending', ?, ?, ?, ?)`,
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', 'pending', 0, 'pending', ?, ?, ?, ?)`,
     args: [
       params.agentId,
       params.agentUsernameLower.trim().toLowerCase(),
@@ -409,6 +430,8 @@ export async function createGenericBrowserTask(params: {
       params.fulfillerHumanUserId ?? null,
       params.taskTitle?.trim() || null,
       params.taskPrompt.trim(),
+      params.websiteUrl?.trim() || null,
+      params.shippingAddress?.trim() || null,
       params.maxChargeCents ?? null,
       params.runId?.trim() || null,
       params.computeruseTaskId?.trim() || null,
@@ -807,6 +830,24 @@ export async function completeGenericBrowserTaskFromExtension(params: {
   const updated = await getGenericBrowserTaskById(existing.id);
   if (!updated) return null;
   const remainingCredits = await getHumanCreditBalance(existing.human_user_id);
+  if (updated.status === "completed") {
+    const requester = await getHumanUserById(existing.human_user_id);
+    if (requester?.email) {
+      void sendOrderCompletionEmail({
+        recipient: {
+          email: requester.email,
+          displayName: requester.display_name,
+        },
+        task: updated,
+        remainingCreditsCents: remainingCredits,
+      }).catch((error) => {
+        console.error(
+          `[generic-browser-tasks] Failed to send completion email for task ${updated.id}:`,
+          error,
+        );
+      });
+    }
+  }
   return {
     task: updated,
     remainingCreditsCents: remainingCredits,
@@ -873,6 +914,8 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
     payout_status: task.payout_status,
     task_title: task.task_title,
     task_prompt: task.task_prompt,
+    website_url: task.website_url,
+    shipping_address: task.shipping_address,
     summary: task.summary,
     error: task.error,
     requester_rating: task.requester_rating,

@@ -11,6 +11,8 @@ type TaskPayload = {
   payout_status: string;
   task_title: string | null;
   task_prompt: string;
+  website_url: string | null;
+  shipping_address: string | null;
   summary: string | null;
   error: string | null;
   requester_rating: number | null;
@@ -400,6 +402,28 @@ export function OrderDetailClient(props: {
                   <div className="dashboard-muted">{data.task.task_prompt}</div>
                 </div>
               </div>
+              {data.task.website_url && (
+                <div className="dashboard-row">
+                  <div>
+                    <strong>Website</strong>
+                    <div className="dashboard-muted">
+                      <a href={data.task.website_url} target="_blank" rel="noreferrer">
+                        {data.task.website_url}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {data.task.shipping_address && (
+                <div className="dashboard-row">
+                  <div>
+                    <strong>Shipping address</strong>
+                    <div className="dashboard-muted dashboard-prewrap">
+                      {data.task.shipping_address}
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="dashboard-row">
                 <div>
                   <strong>Summary</strong>

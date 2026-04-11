@@ -10,6 +10,7 @@ import { sendToBackground } from '../../shared/messaging';
 import type { OttoAuthModelUsage, TabInfo } from '../../shared/types';
 import { buildSystemPrompt, buildTabContextReminder } from './systemPrompt';
 import { buildActionLibraryPrompt, findMacroByToolName, getMacroPermissionType } from './actionLibrary';
+import { buildQuickAccessPrompt } from './quickAccessLinks';
 import { getToolDefinitions } from './toolDefinitions';
 import { executeTool } from './toolExecutor';
 import { permissionManager } from './permissions';
@@ -234,9 +235,11 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
       const activeUrl = activeTab?.url || '';
       const actionMacros = useStore.getState().actionMacros;
       const tools = getToolDefinitions(vp.width, vp.height, actionMacros, activeUrl);
+      const quickAccessPrompt = buildQuickAccessPrompt(useStore.getState().quickAccessLinks);
       const systemPrompt = buildSystemPrompt(
         tabs,
         buildActionLibraryPrompt(actionMacros, activeUrl),
+        quickAccessPrompt,
       );
 
       const assistantMsgId = `asst_${Date.now()}_${loopCount}`;
