@@ -20,24 +20,28 @@ npm install
 
 ## One-Command Raspberry Pi Onboarding
 
-If the repo is already on the Pi, this is the intended one-command setup:
+Fresh machine, no repo clone needed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Clamepending/autoauth/main/headless-worker/scripts/install-remote.sh | ANTHROPIC_API_KEY=sk-ant-... bash -s -- --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --claim-code XXXX-XXXX-XXXX
+```
+
+That downloads OttoAuth into `~/.local/share/ottoauth/autoauth`, installs the worker, pairs it, and starts the background service.
+
+If the repo is already on the Pi, this also works:
 
 ```bash
 cd /path/to/autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/bootstrap.sh --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --claim-code XXXX-XXXX-XXXX
 ```
 
-What that does:
+What the installer/bootstrap does:
 
 - installs `headless-worker` dependencies
 - pairs the device to your OttoAuth human account
 - writes the Anthropic/browser config into `~/.ottoauth-headless-worker/`
 - installs and starts a user `systemd` service so the worker keeps polling in the background
 
-If you want the full from-scratch one-liner on a new Pi:
-
-```bash
-git clone https://github.com/Clamepending/autoauth.git && cd autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/bootstrap.sh --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --claim-code XXXX-XXXX-XXXX
-```
+If you want to install from a different branch while testing, add `--repo-ref your-branch-name` to the remote installer command.
 
 ## Requirements
 

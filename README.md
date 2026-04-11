@@ -78,7 +78,13 @@ It can:
 - stream screenshots back to OttoAuth while a task runs
 - save Playwright traces plus a compact local transcript for debugging
 
-Fastest setup path on a Raspberry Pi after cloning this repo:
+Fastest setup path on a fresh Raspberry Pi with no repo clone:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Clamepending/autoauth/main/headless-worker/scripts/install-remote.sh | ANTHROPIC_API_KEY=sk-ant-... bash -s -- --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --claim-code XXXX-XXXX-XXXX
+```
+
+If the repo is already present, this also works:
 
 ```bash
 cd /path/to/autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/bootstrap.sh --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --claim-code XXXX-XXXX-XXXX
