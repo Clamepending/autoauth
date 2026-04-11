@@ -1,9 +1,23 @@
 export function generateAccessibilityTree(
-  filter = 'interactive',
+  filterOrOptions = 'interactive',
   maxDepth = 12,
   maxChars = 15000,
   scopeRefId = null,
 ) {
+  const options =
+    filterOrOptions && typeof filterOrOptions === 'object'
+      ? filterOrOptions
+      : {
+          filter: filterOrOptions,
+          maxDepth,
+          maxChars,
+          scopeRefId,
+        };
+  const filter = options.filter === 'all' ? 'all' : 'interactive';
+  maxDepth = Number(options.maxDepth) || 12;
+  maxChars = Number(options.maxChars) || 15000;
+  scopeRefId = options.scopeRefId ? String(options.scopeRefId) : null;
+
   const ROLE_MAP = {
     A: 'link',
     BUTTON: 'button',
@@ -263,7 +277,13 @@ export function generateAccessibilityTree(
   return output;
 }
 
-export function setFormValue(refId, value) {
+export function setFormValue(refOrOptions, value) {
+  const options =
+    refOrOptions && typeof refOrOptions === 'object'
+      ? refOrOptions
+      : { refId: refOrOptions, value };
+  const refId = String(options.refId || '');
+  value = options.value;
   const w = window;
   if (!w.__claudeElementMap || !w.__claudeElementMap[refId]) {
     return `Error: Element ${refId} not found. Run read_page first to get element references.`;
