@@ -40,6 +40,26 @@ require_cmd() {
   fi
 }
 
+detect_shell_path() {
+  local candidates=(
+    "${SHELL:-}"
+    "/bin/zsh"
+    "/usr/bin/zsh"
+    "/bin/bash"
+    "/usr/bin/bash"
+    "/bin/sh"
+    "/usr/bin/sh"
+  )
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 detect_browser_path() {
   local candidates=(
     "${BROWSER_PATH_OVERRIDE:-}"
@@ -138,11 +158,16 @@ require_cmd npm
 require_cmd node
 
 BROWSER_PATH="$(detect_browser_path || true)"
+WORKER_SHELL="$(detect_shell_path || true)"
 if [[ -n "$BROWSER_PATH_OVERRIDE" ]]; then
   BROWSER_PATH="$BROWSER_PATH_OVERRIDE"
 fi
 if [[ -z "$BROWSER_PATH" ]]; then
   echo "Could not find Chrome/Chromium. Install it first or pass --browser-path." >&2
+  exit 1
+fi
+if [[ -z "$WORKER_SHELL" ]]; then
+  echo "Could not find a usable shell for the OttoAuth worker service." >&2
   exit 1
 fi
 
@@ -213,7 +238,7 @@ fi
 if [[ "$SKIP_SERVICE" -eq 1 ]]; then
   echo "[bootstrap] Pairing complete. Service setup skipped."
   echo "Run manually with:"
-  echo "  cd $ROOT_DIR && PATH=/opt/homebrew/bin:\$PATH npm run run"
+  echo "  cd $ROOT_DIR && PATH=/opt/homebrew/bin:\$PATH $WORKER_SHELL -lc 'npm run run'"
   exit 0
 fi
 
@@ -227,7 +252,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=$ROOT_DIR
 EnvironmentFile=$SERVICE_ENV_PATH
-ExecStart=/bin/zsh -lc 'PATH=/opt/homebrew/bin:\$PATH npm run run'
+ExecStart=$WORKER_SHELL -lc 'PATH=/opt/homebrew/bin:\$PATH npm run run'
 Restart=always
 RestartSec=5
 
@@ -243,7 +268,7 @@ if command -v systemctl >/dev/null 2>&1; then
 else
   echo "[bootstrap] systemctl not found. The worker is paired, but the service was not started automatically." >&2
   echo "Run manually with:"
-  echo "  cd $ROOT_DIR && PATH=/opt/homebrew/bin:\$PATH npm run run"
+  echo "  cd $ROOT_DIR && PATH=/opt/homebrew/bin:\$PATH $WORKER_SHELL -lc 'npm run run'"
   exit 0
 fi
 
