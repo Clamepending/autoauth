@@ -7,6 +7,18 @@ export const STORAGE_KEY_OTTOAUTH_AUTH_TOKEN = 'ottoauth_auth_token';
 export const STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED = 'ottoauth_trace_recording_enabled';
 export const STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME = 'ottoauth_trace_recording_folder_name';
 export const STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED = 'ottoauth_trace_recording_paused';
+export const STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED = 'ottoauth_headless_mode_enabled';
+export const STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED = 'ottoauth_headless_polling_requested';
+export const STORAGE_KEY_OTTOAUTH_HEADLESS_RUNTIME_ACTIVE = 'ottoauth_headless_runtime_active';
+export const STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_ACTIVE = 'ottoauth_headless_polling_active';
+export const STORAGE_KEY_OTTOAUTH_HEADLESS_CURRENT_TASK = 'ottoauth_headless_current_task';
+export const STORAGE_KEY_OTTOAUTH_HEADLESS_LAST_ERROR = 'ottoauth_headless_last_error';
+export const STORAGE_KEY_OTTOAUTH_HEADLESS_LAST_SEEN_AT = 'ottoauth_headless_last_seen_at';
+export const STORAGE_KEY_LOCAL_CONTROL_ENABLED = 'local_control_enabled';
+export const STORAGE_KEY_LOCAL_CONTROL_URL = 'local_control_url';
+export const STORAGE_KEY_LOCAL_CONTROL_REQUEST_HISTORY = 'local_control_request_history';
+export const STORAGE_KEY_AGENT_MACROS = 'agent_action_macros';
+export const STORAGE_KEY_REMOTE_AGENT_MACROS = 'remote_agent_action_macros';
 
 export const STORAGE_KEY_SESSIONS = 'extension_sessions';
 
@@ -15,6 +27,10 @@ export const OTTOAUTH_POLL_TIMEOUT_MS = 25000;
 export const OTTOAUTH_TASK_HEARTBEAT_INTERVAL_MS = 5000;
 export const OTTOAUTH_TASK_TIMEOUT_MS = 8 * 60 * 1000;
 export const OTTOAUTH_TOOL_TIMEOUT_MS = 45000;
+export const LOCAL_CONTROL_DEFAULT_URL = 'http://127.0.0.1:8787';
+export const LOCAL_CONTROL_POLL_INTERVAL_MS = 2000;
+export const LOCAL_CONTROL_MACRO_SYNC_INTERVAL_MS = 5000;
+export const LOCAL_CONTROL_HISTORY_LIMIT = 100;
 
 export const MAX_TOKENS = 4096;
 export const MODEL = 'claude-sonnet-4-5-20250929';

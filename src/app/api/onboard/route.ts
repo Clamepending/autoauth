@@ -4,7 +4,7 @@ import { getManifest, isSupportedService } from "@/services/registry";
 
 const PLACEHOLDER_SKILL = `# Platform integration — Coming soon
 
-This platform's onboarding skill is not ready yet. You can still create an agent account and submit a request for human fulfillment via the main ottoauth API.
+This platform's onboarding skill is not ready yet. You can still onboard an OpenClaw-style agent through the main OttoAuth skill and use the active \`computeruse\` service for browser tasks.
 
 Discovery flow:
 1. \`GET BASE_URL/api/services\`
@@ -16,6 +16,12 @@ To get the general ottoauth skill (create account, update description, submit re
 
 \`\`\`bash
 curl -s BASE_URL/skill.md
+\`\`\`
+
+For the current recommended browser-task path:
+
+\`\`\`bash
+GET BASE_URL/api/onboard?platform=computeruse
 \`\`\`
 `;
 

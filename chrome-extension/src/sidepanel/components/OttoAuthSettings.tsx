@@ -9,17 +9,34 @@ import {
 import {
   chooseTraceRecordingDirectory,
   ensureTraceRecordingReady,
+  formatTraceRecordingFailureMessage,
   setTraceRecordingEnabled,
 } from '../agent/traceRecorder';
+import { OTTOAUTH_HEADLESS_STORAGE_KEYS, readOttoAuthHeadlessState, writeOttoAuthHeadlessState } from '../../shared/ottoAuthHeadlessState';
+import type { OttoAuthHeadlessState } from '../../shared/types';
+
+const EMPTY_HEADLESS_STATE: OttoAuthHeadlessState = {
+  modeEnabled: false,
+  pollingRequested: false,
+  runtimeActive: false,
+  pollingActive: false,
+  currentTask: null,
+  lastError: null,
+  lastSeenAt: null,
+};
 
 export default function OttoAuthSettings() {
   const [serverUrl, setServerUrl] = useState('http://localhost:3000');
   const [deviceName, setDeviceName] = useState('browser-agent-1');
+  const [pairingCode, setPairingCode] = useState('');
   const [error, setError] = useState('');
   const [pairing, setPairing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [recordingBusy, setRecordingBusy] = useState(false);
   const [recordingError, setRecordingError] = useState('');
+  const [recordingStatus, setRecordingStatus] = useState<Awaited<ReturnType<typeof ensureTraceRecordingReady>> | null>(null);
+  const [headlessState, setHeadlessState] = useState<OttoAuthHeadlessState>(EMPTY_HEADLESS_STATE);
+  const [headlessBusy, setHeadlessBusy] = useState(false);
 
   const connected = useStore((s) => s.ottoAuthConnected);
   const polling = useStore((s) => s.ottoAuthPolling);
@@ -28,31 +45,140 @@ export default function OttoAuthSettings() {
   const url = useStore((s) => s.ottoAuthUrl);
   const recordingEnabled = useStore((s) => s.ottoAuthTraceRecordingEnabled);
   const recordingFolderName = useStore((s) => s.ottoAuthTraceRecordingFolderName);
+  const headlessModeEnabled = headlessState.modeEnabled;
+  const effectivePolling = headlessModeEnabled
+    ? headlessState.pollingActive || headlessState.pollingRequested
+    : polling;
+  const effectiveCurrentTask = headlessModeEnabled ? headlessState.currentTask : currentTask;
+  const headlessStarting = headlessModeEnabled
+    && headlessState.pollingRequested
+    && !headlessState.pollingActive
+    && !headlessState.currentTask
+    && !headlessState.lastError;
+  const headlessStatusLabel = !headlessModeEnabled
+    ? 'Disabled'
+    : headlessState.currentTask
+      ? 'Executing in background worker'
+      : headlessState.pollingActive
+        ? 'Polling in background worker'
+        : headlessStarting
+          ? 'Starting background worker'
+          : headlessState.runtimeActive
+            ? 'Worker idle'
+            : 'Worker stopped';
+
+  const traceNeedsAttention = connected && Boolean(recordingStatus) && !recordingStatus.ok && recordingStatus.required;
+  const traceBlockingMessage = traceNeedsAttention
+    ? formatTraceRecordingFailureMessage(recordingStatus?.error)
+    : null;
+  const effectiveAttentionMessage = traceBlockingMessage || (headlessModeEnabled ? headlessState.lastError : null);
+  const attentionSummaryLabel = traceBlockingMessage
+    ? 'Action needed: Fix trace folder'
+    : effectiveAttentionMessage
+      ? 'Action needed: Check OttoAuth'
+      : null;
+  const blockedStatusLabel = traceBlockingMessage
+    ? 'Blocked by trace folder access'
+    : effectiveAttentionMessage
+      ? 'Blocked by headless worker error'
+      : null;
+  const pollingButtonLabel = effectivePolling ? 'Pause' : 'Start Polling';
+  const folderButtonLabel = traceNeedsAttention
+    ? 'Fix Folder Access'
+    : recordingFolderName
+      ? 'Re-select Folder'
+      : 'Select Folder';
+
+  const refreshHeadlessState = async () => {
+    const nextState = await readOttoAuthHeadlessState();
+    setHeadlessState(nextState);
+    return nextState;
+  };
+
+  const refreshRecordingStatus = async () => {
+    if (!recordingFolderName && !recordingEnabled) {
+      setRecordingStatus(null);
+      return null;
+    }
+    const status = await ensureTraceRecordingReady(false);
+    setRecordingStatus(status);
+    return status;
+  };
 
   const handlePair = async () => {
     setError('');
     setPairing(true);
-    const result = await pairWithOttoAuth(serverUrl, deviceName);
+    const result = await pairWithOttoAuth(serverUrl, deviceName, pairingCode);
     setPairing(false);
     if (!result.ok) {
       setError(result.error || 'Pairing failed');
+    } else {
+      setPairingCode('');
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
+    if (headlessModeEnabled || headlessState.pollingRequested || headlessState.runtimeActive) {
+      await writeOttoAuthHeadlessState({
+        modeEnabled: false,
+        pollingRequested: false,
+        runtimeActive: false,
+        pollingActive: false,
+        currentTask: null,
+        lastError: null,
+        lastSeenAt: null,
+      });
+      await refreshHeadlessState();
+    }
     disconnectOttoAuth();
     setError('');
+    setRecordingError('');
   };
 
   const togglePolling = async () => {
+    if (headlessModeEnabled) {
+      if (headlessState.pollingRequested || headlessState.pollingActive) {
+        await writeOttoAuthHeadlessState({
+          pollingRequested: false,
+          currentTask: null,
+          lastError: null,
+        });
+      } else {
+        setRecordingError('');
+        if (recordingFolderName) {
+          const ready = await ensureTraceRecordingReady(true);
+          setRecordingStatus(ready);
+          if (!ready.ok) {
+            setRecordingError(
+              ready.required
+                ? `${ready.error || 'Trace recording is not ready.'} Re-select the folder below to fix it.`
+                : ready.error || 'Trace recording is not ready.',
+            );
+            return;
+          }
+        }
+        await writeOttoAuthHeadlessState({
+          pollingRequested: true,
+          lastError: null,
+        });
+      }
+      await refreshHeadlessState();
+      return;
+    }
+
     if (polling) {
       stopOttoAuthPolling();
     } else {
       setRecordingError('');
       if (recordingFolderName) {
         const ready = await ensureTraceRecordingReady(true);
+        setRecordingStatus(ready);
         if (!ready.ok) {
-          setRecordingError(ready.error || 'Trace recording is not ready.');
+          setRecordingError(
+            ready.required
+              ? `${ready.error || 'Trace recording is not ready.'} Re-select the folder below to fix it.`
+              : ready.error || 'Trace recording is not ready.',
+          );
           return;
         }
       }
@@ -61,13 +187,58 @@ export default function OttoAuthSettings() {
   };
 
   const handleSelectFolder = async () => {
+    const shouldResumePolling = connected && !headlessModeEnabled && !polling && traceNeedsAttention;
     setRecordingBusy(true);
     setRecordingError('');
     const result = await chooseTraceRecordingDirectory();
     if (!result.ok) {
       setRecordingError(result.error || 'Failed to select a recording folder.');
+    } else {
+      const status = await refreshRecordingStatus();
+      if (status && !status.ok) {
+        setRecordingError(status.error || 'Trace recording is not ready.');
+      } else if (shouldResumePolling) {
+        startOttoAuthPolling();
+      }
     }
     setRecordingBusy(false);
+  };
+
+  const handleToggleHeadlessMode = async () => {
+    setHeadlessBusy(true);
+    setRecordingError('');
+    setError('');
+    if (effectiveCurrentTask) {
+      setError('Wait for the current OttoAuth task to finish before switching headless mode.');
+      setHeadlessBusy(false);
+      return;
+    }
+    if (!headlessModeEnabled) {
+      const shouldTransferPolling = polling;
+      if (shouldTransferPolling) {
+        stopOttoAuthPolling();
+      }
+      await writeOttoAuthHeadlessState({
+        modeEnabled: true,
+        pollingRequested: shouldTransferPolling,
+        runtimeActive: false,
+        pollingActive: false,
+        currentTask: null,
+        lastError: null,
+      });
+    } else {
+      await writeOttoAuthHeadlessState({
+        modeEnabled: false,
+        pollingRequested: false,
+        runtimeActive: false,
+        pollingActive: false,
+        currentTask: null,
+        lastError: null,
+        lastSeenAt: null,
+      });
+    }
+    await refreshHeadlessState();
+    setHeadlessBusy(false);
   };
 
   const handleToggleRecording = async () => {
@@ -76,6 +247,8 @@ export default function OttoAuthSettings() {
       const result = await setTraceRecordingEnabled(false);
       if (!result.ok) {
         setRecordingError(result.error || 'Failed to update recording state.');
+      } else {
+        await refreshRecordingStatus();
       }
       return;
     }
@@ -87,6 +260,8 @@ export default function OttoAuthSettings() {
     const result = await setTraceRecordingEnabled(true);
     if (!result.ok) {
       setRecordingError(result.error || 'Failed to enable trace capture.');
+    } else {
+      await refreshRecordingStatus();
     }
     setRecordingBusy(false);
   };
@@ -97,13 +272,50 @@ export default function OttoAuthSettings() {
     }
   }, [url]);
 
+  useEffect(() => {
+    void refreshHeadlessState();
+    const onStorageChange = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: string,
+    ) => {
+      if (areaName !== 'local') return;
+      if (OTTOAUTH_HEADLESS_STORAGE_KEYS.some((key) => key in changes)) {
+        void refreshHeadlessState();
+      }
+    };
+    chrome.storage.onChanged.addListener(onStorageChange);
+    return () => {
+      chrome.storage.onChanged.removeListener(onStorageChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!recordingFolderName && !recordingEnabled) {
+        if (!cancelled) {
+          setRecordingStatus(null);
+        }
+        return;
+      }
+      const status = await ensureTraceRecordingReady(false);
+      if (!cancelled) {
+        setRecordingStatus(status);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, polling, recordingEnabled, recordingFolderName]);
+
   const recordingPanel = (
     <div className="rounded border border-gray-200 bg-white px-2 py-2 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div>
           <div className="text-xs font-medium text-gray-700">Trace Recording</div>
           <div className="text-[11px] text-gray-500">
-            Save task payloads and tool traces for later macro mining.
+            Save task payloads and tool traces for later macro mining. If Chrome loses write access,
+            OttoAuth runs will fail until you re-select the folder here.
           </div>
         </div>
         <button
@@ -131,13 +343,69 @@ export default function OttoAuthSettings() {
           disabled={recordingBusy}
           className="shrink-0 px-2 py-1 rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
-          {recordingBusy ? 'Selecting...' : 'Select Folder'}
+          {recordingBusy ? 'Selecting...' : folderButtonLabel}
         </button>
       </div>
+
+      {traceBlockingMessage && (
+        <div className="rounded border border-red-200 bg-red-50 px-2 py-2 text-[11px] text-red-700">
+          {traceBlockingMessage}
+        </div>
+      )}
 
       {recordingError && (
         <div className="text-[11px] text-red-600">{recordingError}</div>
       )}
+    </div>
+  );
+
+  const headlessPanel = (
+    <div className="rounded border border-gray-200 bg-white px-2 py-2 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="text-xs font-medium text-gray-700">Headless Mode</div>
+          <div className="text-[11px] text-gray-500">
+            Default off. When enabled, OttoAuth keeps polling from a hidden background document
+            even after you close the sidepanel.
+          </div>
+        </div>
+        <button
+          onClick={handleToggleHeadlessMode}
+          disabled={headlessBusy}
+          className={`px-2 py-1 text-[11px] font-medium rounded transition-colors ${
+            headlessModeEnabled
+              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              : 'bg-gray-900 text-white hover:bg-black'
+          } disabled:opacity-50`}
+        >
+          {headlessBusy ? 'Saving...' : headlessModeEnabled ? 'Disable Headless' : 'Enable Headless'}
+        </button>
+      </div>
+      <div className="text-[11px] text-gray-500 space-y-0.5">
+        <div>
+          Mode:{' '}
+          <span className={`font-medium ${headlessModeEnabled ? 'text-blue-700' : 'text-gray-700'}`}>
+            {headlessModeEnabled ? 'Enabled' : 'Disabled'}
+          </span>
+        </div>
+        <div>
+          Worker:{' '}
+          <span className={`font-medium ${
+            headlessState.currentTask
+              ? 'text-blue-700'
+              : headlessState.pollingActive
+                ? 'text-green-700'
+                : headlessStarting
+                  ? 'text-yellow-700'
+                  : 'text-gray-700'
+          }`}>
+            {headlessStatusLabel}
+          </span>
+        </div>
+        {headlessState.lastSeenAt && (
+          <div>Last heartbeat: <span className="text-gray-700">{new Date(headlessState.lastSeenAt).toLocaleString()}</span></div>
+        )}
+      </div>
     </div>
   );
 
@@ -148,14 +416,29 @@ export default function OttoAuthSettings() {
         className="w-full flex items-center justify-between px-3 py-2 text-xs border-b border-gray-100 bg-gray-50 hover:bg-gray-100 transition-colors"
       >
         <span className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${connected ? (polling ? 'bg-green-400 animate-pulse' : 'bg-yellow-400') : 'bg-gray-300'}`} />
+          <span className={`w-2 h-2 rounded-full ${
+            connected
+              ? effectiveAttentionMessage
+                ? 'bg-red-400'
+                : effectiveCurrentTask
+                  ? 'bg-blue-500 animate-pulse'
+                  : effectivePolling
+                  ? 'bg-green-400 animate-pulse'
+                  : 'bg-yellow-400'
+              : 'bg-gray-300'
+          }`}
+          />
           <span className="text-gray-600">
             {connected
-              ? polling
-                ? currentTask
-                  ? `Working: ${currentTask.id.slice(0, 12)}...`
-                  : 'Listening for tasks...'
-                : `Paired: ${deviceId}`
+              ? effectiveAttentionMessage
+                ? attentionSummaryLabel
+                : effectivePolling
+                  ? effectiveCurrentTask
+                    ? `Working: ${effectiveCurrentTask.id.slice(0, 12)}...`
+                    : headlessModeEnabled
+                      ? 'Listening headlessly...'
+                      : 'Listening for tasks...'
+                  : `Claimed: ${deviceId}`
               : 'OttoAuth: Not connected'}
           </span>
         </span>
@@ -182,40 +465,88 @@ export default function OttoAuthSettings() {
 
       {connected ? (
         <div className="space-y-2">
+          {error && (
+            <div className="rounded border border-red-200 bg-red-50 px-2 py-2 text-[11px] text-red-700">
+              {error}
+            </div>
+          )}
+          {effectiveAttentionMessage && (
+            <div className="rounded border border-red-200 bg-red-50 px-2 py-2 text-[11px] text-red-700">
+              {effectiveAttentionMessage}
+            </div>
+          )}
+
           <div className="text-xs text-gray-500 space-y-0.5">
             <div>Server: <span className="text-gray-700">{url}</span></div>
-            <div>Device: <span className="text-gray-700">{deviceId}</span></div>
+            <div>Claimed device: <span className="text-gray-700">{deviceId}</span></div>
             <div className="flex items-center gap-1">
               Status:{' '}
-              <span className={`font-medium ${polling ? 'text-green-600' : 'text-yellow-600'}`}>
-                {polling ? (currentTask ? 'Executing task' : 'Polling') : 'Paused'}
+              <span className={`font-medium ${
+                effectiveAttentionMessage
+                  ? 'text-red-600'
+                  : effectiveCurrentTask
+                    ? 'text-blue-700'
+                    : effectivePolling
+                      ? 'text-green-600'
+                      : 'text-yellow-600'
+              }`}>
+                {effectiveAttentionMessage
+                  ? blockedStatusLabel
+                  : effectiveCurrentTask
+                    ? headlessModeEnabled ? 'Executing in headless worker' : 'Executing task'
+                    : effectivePolling
+                      ? headlessModeEnabled ? 'Polling in headless worker' : 'Polling'
+                      : 'Paused'}
               </span>
             </div>
             <div className="flex items-center gap-1">
               Trace capture:{' '}
-              <span className={`font-medium ${recordingEnabled ? 'text-green-600' : 'text-gray-500'}`}>
-                {recordingEnabled ? 'Enabled' : 'Disabled'}
+              <span className={`font-medium ${
+                traceNeedsAttention
+                  ? 'text-red-600'
+                  : recordingStatus?.ok
+                    ? 'text-green-600'
+                    : recordingEnabled
+                      ? 'text-yellow-600'
+                      : 'text-gray-500'
+              }`}>
+                {traceNeedsAttention
+                  ? 'Needs folder access'
+                  : recordingStatus?.ok
+                    ? 'Ready'
+                    : recordingEnabled
+                      ? 'Enabled'
+                      : 'Disabled'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              Execution mode:{' '}
+              <span className={`font-medium ${headlessModeEnabled ? 'text-blue-700' : 'text-gray-700'}`}>
+                {headlessModeEnabled ? 'Headless worker' : 'Sidepanel only'}
               </span>
             </div>
           </div>
 
-          {currentTask && (
+          {effectiveCurrentTask && (
             <div className="text-xs bg-blue-50 rounded px-2 py-1.5 text-blue-700">
-              Task: {currentTask.type} — {currentTask.id.slice(0, 16)}...
+              Task: {effectiveCurrentTask.type} — {effectiveCurrentTask.id.slice(0, 16)}...
             </div>
           )}
+          {headlessPanel}
           {recordingPanel}
 
           <div className="flex gap-1.5">
             <button
               onClick={togglePolling}
               className={`flex-1 px-2 py-1.5 text-xs font-medium rounded transition-colors ${
-                polling
+                effectiveAttentionMessage
+                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                  : effectivePolling
                   ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
                   : 'bg-green-100 text-green-700 hover:bg-green-200'
               }`}
             >
-              {polling ? 'Pause' : 'Start Polling'}
+              {pollingButtonLabel}
             </button>
             <button
               onClick={handleDisconnect}
@@ -241,14 +572,24 @@ export default function OttoAuthSettings() {
             placeholder="browser-agent-1"
             className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
+          <input
+            type="text"
+            value={pairingCode}
+            onChange={(e) => setPairingCode(e.target.value)}
+            placeholder="Dashboard claim code"
+            className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-500"
+          />
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button
             onClick={handlePair}
-            disabled={pairing || !serverUrl}
+            disabled={pairing || !serverUrl || !pairingCode.trim()}
             className="w-full px-2 py-1.5 text-xs font-medium rounded bg-orange-600 text-white hover:bg-orange-700 transition-colors disabled:opacity-50"
           >
-            {pairing ? 'Pairing...' : 'Connect & Pair'}
+            {pairing ? 'Claiming...' : 'Connect & Claim Device'}
           </button>
+          <p className="text-[11px] text-gray-500">
+            Generate the claim code from the OttoAuth human dashboard, then paste it here to attach this device to that account.
+          </p>
           {recordingPanel}
         </div>
       )}

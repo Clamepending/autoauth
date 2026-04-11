@@ -1,4 +1,12 @@
-export function getToolDefinitions(viewportWidth: number, viewportHeight: number) {
+import type { AgentMacroAction } from '../../shared/types';
+import { getMacroToolDefinitions } from './actionLibrary';
+
+export function getToolDefinitions(
+  viewportWidth: number,
+  viewportHeight: number,
+  macros: AgentMacroAction[] = [],
+  activeUrl = '',
+) {
   return [
     {
       name: 'computer',
@@ -205,5 +213,6 @@ export function getToolDefinitions(viewportWidth: number, viewportHeight: number
         required: [],
       },
     },
+    ...getMacroToolDefinitions(macros, activeUrl),
   ];
 }

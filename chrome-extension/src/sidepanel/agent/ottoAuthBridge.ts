@@ -1,8 +1,22 @@
 import { useStore } from '../store';
 import { runAgentLoop } from './loop';
-import { createTraceRecorder, ensureTraceRecordingReady } from './traceRecorder';
+import {
+  anySessionRunning,
+  ensureBackgroundSession,
+  extractResultFromMessages,
+} from './executionHelpers';
+import {
+  createTraceRecorder,
+  ensureTraceRecordingReady,
+  formatTraceRecordingFailureMessage,
+} from './traceRecorder';
 import { sendToBackground } from '../../shared/messaging';
-import type { OttoAuthTask, SessionInfo } from '../../shared/types';
+import type { OttoAuthModelUsage, OttoAuthTask } from '../../shared/types';
+import { resizeScreenshotForModel } from '../../shared/imageUtils';
+import {
+  clearOttoAuthHeadlessRuntimeState,
+  writeOttoAuthHeadlessState,
+} from '../../shared/ottoAuthHeadlessState';
 import {
   STORAGE_KEY_OTTOAUTH_URL,
   STORAGE_KEY_OTTOAUTH_DEVICE_ID,
@@ -13,10 +27,36 @@ import {
   OTTOAUTH_TASK_TIMEOUT_MS,
 } from '../../shared/constants';
 
+type OttoAuthExecutionContext = 'sidepanel' | 'headless-worker';
+
 let pollingActive = false;
 let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let pollAbortController: AbortController | null = null;
+const OTTOAUTH_LIVE_SNAPSHOT_INTERVAL_MS = 4000;
+let executionContext: OttoAuthExecutionContext = 'sidepanel';
 
-export async function pairWithOttoAuth(serverUrl: string, deviceName: string): Promise<{
+function isHeadlessWorkerContext() {
+  return executionContext === 'headless-worker';
+}
+
+async function persistHeadlessRuntimeState(values: {
+  runtimeActive?: boolean;
+  pollingActive?: boolean;
+  currentTask?: OttoAuthTask | null;
+  lastError?: string | null;
+  lastSeenAt?: number | null;
+}): Promise<void> {
+  if (!isHeadlessWorkerContext()) return;
+  await writeOttoAuthHeadlessState(values).catch((error) => {
+    console.error('[OttoAuth Headless] Failed to persist runtime state:', error);
+  });
+}
+
+export function setOttoAuthExecutionContext(context: OttoAuthExecutionContext): void {
+  executionContext = context;
+}
+
+export async function pairWithOttoAuth(serverUrl: string, deviceName: string, pairingCode: string): Promise<{
   ok: boolean;
   deviceId?: string;
   authToken?: string;
@@ -27,7 +67,11 @@ export async function pairWithOttoAuth(serverUrl: string, deviceName: string): P
     const res = await fetch(`${url}/api/computeruse/device/pair`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: deviceName || 'browser-agent-1' }),
+      body: JSON.stringify({
+        device_id: deviceName || 'browser-agent-1',
+        device_label: deviceName || 'browser-agent-1',
+        pairing_code: pairingCode || '',
+      }),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) {
@@ -84,16 +128,31 @@ export function startOttoAuthPolling(): void {
   if (!ottoAuthUrl || !ottoAuthToken || !ottoAuthDeviceId) return;
   pollingActive = true;
   useStore.getState().setOttoAuthPolling(true);
+  void persistHeadlessRuntimeState({
+    runtimeActive: true,
+    pollingActive: true,
+    lastError: null,
+    lastSeenAt: Date.now(),
+  });
   pollForTask();
 }
 
 export function stopOttoAuthPolling(): void {
   pollingActive = false;
   useStore.getState().setOttoAuthPolling(false);
+  if (pollAbortController) {
+    pollAbortController.abort();
+    pollAbortController = null;
+  }
   if (pollTimeoutId) {
     clearTimeout(pollTimeoutId);
     pollTimeoutId = null;
   }
+  void persistHeadlessRuntimeState({
+    pollingActive: false,
+    currentTask: null,
+    lastSeenAt: Date.now(),
+  });
 }
 
 async function pollForTask(): Promise<void> {
@@ -105,13 +164,15 @@ async function pollForTask(): Promise<void> {
     return;
   }
 
-  const anyRunning = Object.values(useStore.getState().sessionStates).some((s) => s.isRunning);
-  if (anyRunning) {
+  if (anySessionRunning()) {
     schedulePoll();
     return;
   }
 
+  let controller: AbortController | null = null;
   try {
+    controller = new AbortController();
+    pollAbortController = controller;
     const res = await fetch(
       `${ottoAuthUrl}/api/computeruse/device/wait-task?waitMs=${OTTOAUTH_POLL_TIMEOUT_MS}`,
       {
@@ -120,8 +181,16 @@ async function pollForTask(): Promise<void> {
           Authorization: `Bearer ${ottoAuthToken}`,
           'X-OttoAuth-Mock-Device': ottoAuthDeviceId,
         },
+        signal: controller.signal,
       },
     );
+    if (pollAbortController === controller) {
+      pollAbortController = null;
+    }
+
+    if (!pollingActive) {
+      return;
+    }
 
     if (res.status === 204) {
       schedulePoll();
@@ -131,6 +200,12 @@ async function pollForTask(): Promise<void> {
     if (res.status === 401) {
       console.error('[OttoAuth] Auth failed — device token may be invalid');
       useStore.getState().setOttoAuthConnected(false);
+      void persistHeadlessRuntimeState({
+        pollingActive: false,
+        currentTask: null,
+        lastError: 'OttoAuth authentication failed for the claimed device.',
+        lastSeenAt: Date.now(),
+      });
       stopOttoAuthPolling();
       return;
     }
@@ -142,9 +217,25 @@ async function pollForTask(): Promise<void> {
     }
 
     const task: OttoAuthTask = await res.json();
+    if (!pollingActive) {
+      return;
+    }
     await executeOttoAuthTask(task);
   } catch (e) {
+    if (controller?.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
+      if (pollAbortController === controller) {
+        pollAbortController = null;
+      }
+      return;
+    }
+    if (pollAbortController === controller) {
+      pollAbortController = null;
+    }
     console.error('[OttoAuth] poll error:', e);
+    void persistHeadlessRuntimeState({
+      lastError: e instanceof Error ? e.message : String(e),
+      lastSeenAt: Date.now(),
+    });
   }
 
   schedulePoll();
@@ -155,47 +246,56 @@ function schedulePoll(): void {
   pollTimeoutId = setTimeout(pollForTask, OTTOAUTH_POLL_INTERVAL_MS);
 }
 
-async function ensureSessionForTask(): Promise<string | null> {
-  const resp = await sendToBackground({
-    type: 'session-request-create',
-    backgroundTab: true,
-    source: 'ottoauth',
-    autoCloseOnIdle: true,
-  });
-  if (!resp.success || !resp.data) return null;
-  const session = resp.data as SessionInfo;
-  useStore.getState().initSession(session);
-  return session.id;
-}
-
 async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
   const store = useStore.getState();
-  const anyRunning = Object.values(store.sessionStates).some((s) => s.isRunning);
-  if (anyRunning) return;
+  if (anySessionRunning()) return;
 
   const recordingReady = await ensureTraceRecordingReady(false);
   if (!recordingReady.ok && recordingReady.required) {
-    const error = `Trace recording not ready: ${recordingReady.error || 'write permission is required for the selected folder.'}`;
-    await reportTaskResult(task.id, 'failed', null, error);
+    const error = formatTraceRecordingFailureMessage(recordingReady.error);
+    await reportTaskResult(task.id, 'failed', null, error, []);
     stopOttoAuthPolling();
     useStore.getState().setError(error);
     useStore.getState().setOttoAuthCurrentTask(null);
+    await persistHeadlessRuntimeState({
+      pollingActive: false,
+      currentTask: null,
+      lastError: error,
+      lastSeenAt: Date.now(),
+    });
     return;
   }
 
-  const sessionId = await ensureSessionForTask();
+  const sessionId = await ensureBackgroundSession('ottoauth');
   if (!sessionId) {
-    await reportTaskResult(task.id, 'failed', null, 'Failed to create session for task');
+    const error = 'Failed to create session for task';
+    await reportTaskResult(task.id, 'failed', null, error, []);
+    await persistHeadlessRuntimeState({
+      currentTask: null,
+      lastError: error,
+      lastSeenAt: Date.now(),
+    });
     return;
   }
 
   store.setOttoAuthCurrentTask(task);
   store.clearMessages(sessionId);
+  await persistHeadlessRuntimeState({
+    currentTask: task,
+    lastError: null,
+    lastSeenAt: Date.now(),
+  });
 
   const goal = task.goal || task.taskPrompt || task.url;
   if (!goal) {
-    await reportTaskResult(task.id, 'failed', null, 'No goal or URL provided in task');
+    const error = 'No goal or URL provided in task';
+    await reportTaskResult(task.id, 'failed', null, error, []);
     store.setOttoAuthCurrentTask(null);
+    await persistHeadlessRuntimeState({
+      currentTask: null,
+      lastError: error,
+      lastSeenAt: Date.now(),
+    });
     return;
   }
 
@@ -208,12 +308,29 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
   });
   const startPersist = await recorder?.persistStart();
   if (startPersist && !startPersist.ok) {
+    const error = `Trace recording failed to initialize: ${startPersist.error || 'Unable to write the task trace.'}`;
     console.error('[TraceRecorder] Failed to persist task start:', startPersist.error);
+    await reportTaskResult(task.id, 'failed', null, error, []);
+    useStore.getState().setError(error);
+    useStore.getState().setOttoAuthCurrentTask(null);
+    await persistHeadlessRuntimeState({
+      pollingActive: false,
+      currentTask: null,
+      lastError: error,
+      lastSeenAt: Date.now(),
+    });
+    stopOttoAuthPolling();
+    if (sessionId) {
+      await sendToBackground({ type: 'session-close', sessionId }).catch(() => {});
+    }
+    return;
   }
   recorder?.note('session_initialized', { sessionId });
 
   let heartbeatId: ReturnType<typeof setInterval> | null = null;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
+  const modelUsages: OttoAuthModelUsage[] = [];
 
   try {
     heartbeatId = setInterval(() => {
@@ -230,9 +347,21 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
         });
       }
     }, OTTOAUTH_TASK_HEARTBEAT_INTERVAL_MS);
+    await pushTaskSnapshot(task, sessionId).catch((snapshotError) => {
+      console.error('[OttoAuth] Failed to push initial task snapshot:', snapshotError);
+    });
+    snapshotIntervalId = setInterval(() => {
+      pushTaskSnapshot(task, sessionId).catch((snapshotError) => {
+        console.error('[OttoAuth] Failed to push running task snapshot:', snapshotError);
+      });
+    }, OTTOAUTH_LIVE_SNAPSHOT_INTERVAL_MS);
 
     const loopPromise = runAgentLoop(goal, sessionId, {
       onEvent: (event) => recorder?.note(event.type, event.payload),
+      onModelUsage: (usage) => {
+        modelUsages.push(usage);
+        recorder?.note('model_usage', usage as Record<string, unknown>);
+      },
     });
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
@@ -257,17 +386,29 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
       clearInterval(heartbeatId);
       heartbeatId = null;
     }
+    if (snapshotIntervalId) {
+      clearInterval(snapshotIntervalId);
+      snapshotIntervalId = null;
+    }
 
     const sessionError = useStore.getState().getError(sessionId);
     if (sessionError) {
       throw new Error(sessionError);
     }
     const result = extractResultFromMessages(sessionId);
+    await pushTaskSnapshot(task, sessionId).catch((snapshotError) => {
+      console.error('[OttoAuth] Failed to push completion snapshot:', snapshotError);
+    });
     recorder?.note('task_completed', {
       taskId: task.id,
       hasResult: Boolean(result),
     });
-    await reportTaskResult(task.id, 'completed', result, null);
+    await reportTaskResult(task.id, 'completed', result, null, modelUsages);
+    await persistHeadlessRuntimeState({
+      currentTask: null,
+      lastError: null,
+      lastSeenAt: Date.now(),
+    });
     const persistResult = await recorder?.persist({
       status: 'completed',
       result,
@@ -286,9 +427,21 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
       clearInterval(heartbeatId);
       heartbeatId = null;
     }
+    if (snapshotIntervalId) {
+      clearInterval(snapshotIntervalId);
+      snapshotIntervalId = null;
+    }
     const errMsg = e instanceof Error ? e.message : String(e);
     recorder?.note('task_failed', { taskId: task.id, error: errMsg });
-    await reportTaskResult(task.id, 'failed', null, errMsg);
+    await pushTaskSnapshot(task, sessionId).catch((snapshotError) => {
+      console.error('[OttoAuth] Failed to push failure snapshot:', snapshotError);
+    });
+    await reportTaskResult(task.id, 'failed', null, errMsg, modelUsages);
+    await persistHeadlessRuntimeState({
+      currentTask: null,
+      lastError: errMsg,
+      lastSeenAt: Date.now(),
+    });
     const persistResult = await recorder?.persist({
       status: 'failed',
       result: null,
@@ -305,54 +458,69 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
     if (heartbeatId) {
       clearInterval(heartbeatId);
     }
+    if (snapshotIntervalId) {
+      clearInterval(snapshotIntervalId);
+    }
     useStore.getState().setOttoAuthCurrentTask(null);
+    await persistHeadlessRuntimeState({
+      currentTask: null,
+      lastSeenAt: Date.now(),
+    });
     if (sessionId) {
       await sendToBackground({ type: 'session-close', sessionId }).catch(() => {});
     }
   }
 }
 
-function extractResultFromMessages(sessionId: string): Record<string, unknown> | null {
-  const messages = useStore.getState().getMessages(sessionId);
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role !== 'assistant') continue;
-    for (let j = msg.blocks.length - 1; j >= 0; j--) {
-      const block = msg.blocks[j];
-      if (block.type !== 'text') continue;
-      const json = extractJson(block.text);
-      if (json) return json;
-    }
-  }
-  const lastAssistant = messages.filter((m) => m.role === 'assistant').pop();
-  if (lastAssistant) {
-    const textParts = lastAssistant.blocks
-      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n');
-    if (textParts) {
-      return { summary: textParts.slice(0, 2000) };
-    }
-  }
-  return null;
+export async function resetOttoAuthHeadlessRuntimeState(): Promise<void> {
+  if (!isHeadlessWorkerContext()) return;
+  await clearOttoAuthHeadlessRuntimeState();
 }
 
-function extractJson(text: string): Record<string, unknown> | null {
-  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (fenceMatch) {
-    try {
-      const parsed = JSON.parse(fenceMatch[1]);
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch { /* not valid json */ }
-  }
-  const braceMatch = text.match(/\{[\s\S]*"status"\s*:\s*"[^"]+[\s\S]*\}/);
-  if (braceMatch) {
-    try {
-      const parsed = JSON.parse(braceMatch[0]);
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch { /* not valid json */ }
-  }
-  return null;
+async function pushTaskSnapshot(task: OttoAuthTask, sessionId: string): Promise<void> {
+  const { ottoAuthUrl, ottoAuthToken } = useStore.getState();
+  if (!ottoAuthUrl || !ottoAuthToken) return;
+
+  const tabsResp = await sendToBackground({ type: 'tabs-context', sessionId });
+  if (!tabsResp.success || !Array.isArray(tabsResp.data)) return;
+  const tabs = tabsResp.data as Array<{ id: number; active: boolean; title?: string; url?: string }>;
+  const activeTab = tabs.find((tab) => tab.active);
+  if (!activeTab) return;
+
+  const screenshotResp = await sendToBackground({ type: 'take-screenshot', tabId: activeTab.id });
+  if (!screenshotResp.success) return;
+  const raw = (screenshotResp.data as { screenshot: string }).screenshot;
+  if (!raw) return;
+
+  const viewportResp = await sendToBackground({ type: 'get-viewport-size', tabId: activeTab.id });
+  const viewport = viewportResp.success
+    ? (viewportResp.data as { width: number; height: number })
+    : useStore.getState().viewportSize;
+  const width = Math.max(320, Math.min(viewport.width || 1280, 1280));
+  const height = Math.max(240, Math.min(viewport.height || 800, 900));
+  const resized = await resizeScreenshotForModel(raw, width, height, window.devicePixelRatio || 1);
+
+  await fetch(`${ottoAuthUrl}/api/computeruse/device/tasks/${task.id}/snapshot`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${ottoAuthToken}`,
+      'X-OttoAuth-Mock-Device': useStore.getState().ottoAuthDeviceId || '',
+    },
+    body: JSON.stringify({
+      image_base64: resized.data,
+      width: resized.width,
+      height: resized.height,
+      tabs: tabs.map((tab) => ({
+        id: tab.id,
+        active: Boolean(tab.active),
+        title: typeof tab.title === 'string' ? tab.title : '',
+        url: typeof tab.url === 'string' ? tab.url : '',
+      })),
+    }),
+  }).catch((error) => {
+    throw error;
+  });
 }
 
 async function reportTaskResult(
@@ -360,6 +528,7 @@ async function reportTaskResult(
   status: 'completed' | 'failed',
   result: Record<string, unknown> | null,
   error: string | null,
+  usages: OttoAuthModelUsage[],
 ): Promise<void> {
   const { ottoAuthUrl, ottoAuthToken, ottoAuthDeviceId } = useStore.getState();
   if (!ottoAuthUrl || !ottoAuthToken) return;
@@ -372,7 +541,7 @@ async function reportTaskResult(
         Authorization: `Bearer ${ottoAuthToken}`,
         'X-OttoAuth-Mock-Device': ottoAuthDeviceId || '',
       },
-      body: JSON.stringify({ status, result, error }),
+      body: JSON.stringify({ status, result, error, usages }),
     });
   } catch (e) {
     console.error('[OttoAuth] Failed to report task result:', e);

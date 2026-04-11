@@ -7,12 +7,14 @@ import {
   claimNextComputerUseTaskForDevice,
   enqueueComputerUseOpenUrlTask,
   getComputerUseDeviceById,
+  touchComputerUseDeviceSeen,
   verifyComputerUseDeviceToken,
 } from "@/lib/computeruse-store";
 import {
   appendComputerUseRunEvent,
   markComputerUseRunRunning,
 } from "@/lib/computeruse-runs";
+import { markGenericBrowserTaskRunningByComputerUseTaskId } from "@/lib/generic-browser-tasks";
 
 function corsHeaders() {
   return {
@@ -42,7 +44,7 @@ export async function GET(request: Request) {
 
   if (!(await getComputerUseDeviceById(deviceId))) {
     return NextResponse.json(
-      { error: "Device is not paired (mock). Pair first via POST /api/computeruse/mock/pair." },
+      { error: "Device is not paired. Pair first via POST /api/computeruse/device/pair." },
       { status: 401, headers: corsHeaders() }
     );
   }
@@ -62,6 +64,7 @@ export async function GET(request: Request) {
       { status: 401, headers: corsHeaders() }
     );
   }
+  await touchComputerUseDeviceSeen(deviceId).catch(() => null);
 
   const dequeued = await claimNextComputerUseTaskForDevice(deviceId);
   if (!dequeued) {
@@ -80,6 +83,7 @@ export async function GET(request: Request) {
       },
     });
   }
+  await markGenericBrowserTaskRunningByComputerUseTaskId(task.id).catch(() => null);
   return NextResponse.json(
     {
       id: task.id,

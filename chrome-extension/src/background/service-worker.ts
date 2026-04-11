@@ -1,11 +1,20 @@
-import type { BGMessage, BGResponse, SessionInfo } from '../shared/types';
-import { STORAGE_KEY_SESSIONS } from '../shared/constants';
+import type { BGMessage, BGResponse, SessionInfo, SessionSource } from '../shared/types';
+import {
+  STORAGE_KEY_OTTOAUTH_AUTH_TOKEN,
+  STORAGE_KEY_OTTOAUTH_DEVICE_ID,
+  STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED,
+  STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED,
+  STORAGE_KEY_OTTOAUTH_URL,
+  STORAGE_KEY_SESSIONS,
+} from '../shared/constants';
 
 const attachedTabs = new Set<number>();
 const consoleMessages = new Map<number, Array<{ type: string; text: string; timestamp: number }>>();
 const networkRequests = new Map<number, Array<Record<string, unknown>>>();
+const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
+let headlessWorkerReconcilePromise: Promise<void> | null = null;
 
-const GROUP_COLORS: chrome.tabGroups.ColorEnum[] = [
+const GROUP_COLORS: Array<chrome.tabGroups.TabGroup['color']> = [
   'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange',
 ];
 
@@ -67,8 +76,18 @@ async function closeSession(sessionId: string, closeTabs = true): Promise<boolea
   const session = sessions.get(sessionId);
   if (!session) return false;
   const groupId = session.groupId;
+  const sessionWindowId = session.windowId;
+  const sessionSource = session.source;
   await deleteSession(sessionId);
   if (closeTabs) {
+    if (sessionSource && sessionSource !== 'manual' && typeof sessionWindowId === 'number') {
+      try {
+        await chrome.windows.remove(sessionWindowId);
+        return true;
+      } catch {
+        // Fall back to closing tabs if the window is already gone.
+      }
+    }
     try {
       const tabs = await chrome.tabs.query({ groupId });
       const tabIds = tabs.map((tab) => tab.id).filter((tabId): tabId is number => typeof tabId === 'number');
@@ -83,6 +102,39 @@ async function closeSession(sessionId: string, closeTabs = true): Promise<boolea
 }
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+chrome.runtime.onStartup.addListener(() => {
+  void queueHeadlessWorkerReconcile();
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  void queueHeadlessWorkerReconcile();
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local') return;
+  chrome.runtime.sendMessage({
+    kind: 'storage-changed',
+    areaName,
+    changes,
+  }).catch(() => {});
+  const relevantKeys = [
+    STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED,
+    STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED,
+    STORAGE_KEY_OTTOAUTH_URL,
+    STORAGE_KEY_OTTOAUTH_DEVICE_ID,
+    STORAGE_KEY_OTTOAUTH_AUTH_TOKEN,
+  ];
+  if (relevantKeys.some((key) => key in changes)) {
+    void queueHeadlessWorkerReconcile();
+  }
+});
+
+chrome.windows.onRemoved.addListener(() => {
+  void queueHeadlessWorkerReconcile();
+});
+
+void queueHeadlessWorkerReconcile();
 
 chrome.tabGroups.onRemoved.addListener(async (group) => {
   await ready();
@@ -128,6 +180,10 @@ async function handleMessage(msg: BGMessage): Promise<BGResponse> {
       case 'enable-console-capture': return await enableConsole(msg.tabId);
       case 'enable-network-capture': return await enableNetwork(msg.tabId);
       case 'get-viewport-size': return await getViewportSize(msg.tabId);
+      case 'storage-get': return await readStorage(msg.keys);
+      case 'storage-set': return await writeStorage(msg.items);
+      case 'storage-remove': return await removeStorageKeys(msg.keys);
+      case 'storage-clear': return await clearStorage();
       case 'session-get-active': return await getActiveSession();
       case 'session-get-all': return { success: true, data: Array.from(sessions.values()) };
       case 'session-request-create':
@@ -159,13 +215,32 @@ async function getActiveSession(): Promise<BGResponse> {
 
 async function createSession(
   backgroundTab = false,
-  source: 'manual' | 'ottoauth' = 'manual',
+  source: SessionSource = 'manual',
   autoCloseOnIdle = false,
 ): Promise<BGResponse> {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const seedTab = backgroundTab
-    ? await chrome.tabs.create({ active: false, url: 'about:blank' })
-    : activeTab;
+  let seedTab: chrome.tabs.Tab | undefined;
+  let backgroundWindowId: number | null = null;
+
+  if (backgroundTab) {
+    const createdWindow = await chrome.windows.create({
+      url: 'about:blank',
+      focused: false,
+      state: 'minimized',
+      type: 'normal',
+    });
+    const createdTab = createdWindow.tabs?.find((tab) => typeof tab.id === 'number');
+    seedTab = createdTab;
+    backgroundWindowId = createdWindow.id ?? null;
+    if (createdWindow.id != null) {
+      await chrome.windows.update(createdWindow.id, {
+        focused: false,
+        state: 'minimized',
+      }).catch(() => {});
+    }
+  } else {
+    seedTab = activeTab;
+  }
 
   if (!seedTab?.id) return { success: false, error: 'No tab available to create session' };
 
@@ -186,6 +261,7 @@ async function createSession(
     name,
     color,
     createdAt: Date.now(),
+    ...(backgroundWindowId != null ? { windowId: backgroundWindowId } : {}),
     source,
     autoCloseOnIdle,
   };
@@ -200,6 +276,91 @@ async function createSession(
 async function getActiveSessionForCurrentTab(): Promise<SessionInfo | null> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab ? getSessionForTab(tab) : null;
+}
+
+async function shouldRunHeadlessWorker(): Promise<boolean> {
+  const values = await chrome.storage.local.get([
+    STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED,
+    STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED,
+    STORAGE_KEY_OTTOAUTH_URL,
+    STORAGE_KEY_OTTOAUTH_DEVICE_ID,
+    STORAGE_KEY_OTTOAUTH_AUTH_TOKEN,
+  ]);
+  return Boolean(
+    values[STORAGE_KEY_OTTOAUTH_HEADLESS_MODE_ENABLED]
+    && values[STORAGE_KEY_OTTOAUTH_HEADLESS_POLLING_REQUESTED]
+    && values[STORAGE_KEY_OTTOAUTH_URL]
+    && values[STORAGE_KEY_OTTOAUTH_DEVICE_ID]
+    && values[STORAGE_KEY_OTTOAUTH_AUTH_TOKEN],
+  );
+}
+
+async function hasOffscreenDocument(): Promise<boolean> {
+  const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
+  if ('getContexts' in chrome.runtime) {
+    const contexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+      documentUrls: [offscreenUrl],
+    });
+    return contexts.length > 0;
+  }
+  const matchedClients = await clients.matchAll();
+  return matchedClients.some((client) => client.url === offscreenUrl);
+}
+
+async function ensureHeadlessWorkerDocument(): Promise<void> {
+  if (await hasOffscreenDocument()) return;
+  await chrome.offscreen.createDocument({
+    url: OFFSCREEN_DOCUMENT_PATH,
+    reasons: ['BLOBS', 'WORKERS'],
+    justification: 'Run OttoAuth headless polling and screenshot processing without showing a visible browser window.',
+  });
+}
+
+async function closeHeadlessWorkerDocument(): Promise<void> {
+  if (!(await hasOffscreenDocument())) return;
+  await chrome.offscreen.closeDocument().catch(() => {});
+}
+
+async function reconcileHeadlessWorker(): Promise<void> {
+  if (await shouldRunHeadlessWorker()) {
+    await ensureHeadlessWorkerDocument();
+  } else {
+    await closeHeadlessWorkerDocument();
+  }
+}
+
+async function queueHeadlessWorkerReconcile(): Promise<void> {
+  if (headlessWorkerReconcilePromise) {
+    await headlessWorkerReconcilePromise;
+    return;
+  }
+  headlessWorkerReconcilePromise = reconcileHeadlessWorker().finally(() => {
+    headlessWorkerReconcilePromise = null;
+  });
+  await headlessWorkerReconcilePromise;
+}
+
+async function readStorage(
+  keys?: string | string[] | Record<string, unknown> | null,
+): Promise<BGResponse> {
+  const data = await chrome.storage.local.get(keys ?? null);
+  return { success: true, data };
+}
+
+async function writeStorage(items: Record<string, unknown>): Promise<BGResponse> {
+  await chrome.storage.local.set(items);
+  return { success: true };
+}
+
+async function removeStorageKeys(keys: string[]): Promise<BGResponse> {
+  await chrome.storage.local.remove(keys);
+  return { success: true };
+}
+
+async function clearStorage(): Promise<BGResponse> {
+  await chrome.storage.local.clear();
+  return { success: true };
 }
 
 // --- Debugger ---
@@ -290,10 +451,16 @@ async function getTabsContext(sessionId?: string): Promise<BGResponse> {
   const session = sessionId
     ? sessions.get(sessionId) ?? null
     : await getActiveSessionForCurrentTab();
-  const allTabs = await chrome.tabs.query({ currentWindow: true });
-  const scopedTabs = allTabs.filter(
-    (t) => t.id !== undefined && (!session || t.groupId === session.groupId),
-  );
+  const allTabs = session?.windowId != null
+    ? await chrome.tabs.query({ windowId: session.windowId })
+    : session
+      ? await chrome.tabs.query({})
+      : await chrome.tabs.query({ currentWindow: true });
+  const scopedTabs = allTabs.filter((tab) => {
+    if (tab.id === undefined) return false;
+    if (!session) return true;
+    return tab.groupId === session.groupId;
+  });
   const sessionActiveTabId = session ? getSessionActiveTabId(session.id, scopedTabs) : null;
   const data = scopedTabs.map((t) => ({
     id: t.id!,
@@ -309,7 +476,10 @@ async function createTabInSession(sessionId?: string): Promise<BGResponse> {
   const session = sessionId
     ? sessions.get(sessionId) ?? null
     : await getActiveSessionForCurrentTab();
-  const tab = await chrome.tabs.create({ active: false });
+  const tab = await chrome.tabs.create({
+    active: false,
+    ...(session?.windowId != null ? { windowId: session.windowId } : {}),
+  });
   if (session && tab.id) {
     try { await chrome.tabs.group({ tabIds: [tab.id], groupId: session.groupId }); } catch { /* */ }
   }

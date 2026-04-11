@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "local-control-server": "node ./scripts/local-control-server.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

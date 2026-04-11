@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import type { PermissionMode, PlanData, OttoAuthTask, SessionInfo } from '../shared/types';
+import { LOCAL_CONTROL_DEFAULT_URL } from '../shared/constants';
+import type {
+  AgentMacroAction,
+  LocalControlRequest,
+  OttoAuthTask,
+  PermissionMode,
+  PlanData,
+  SessionInfo,
+} from '../shared/types';
 
 export interface DisplayMessage {
   id: string;
@@ -35,6 +43,8 @@ export interface SessionState {
   error: string | null;
   ottoAuthTask: OttoAuthTask | null;
 }
+
+export type LocalControlStatus = 'paused' | 'listening' | 'processing' | 'offline';
 
 function emptySessionState(): SessionState {
   return { messages: [], isRunning: false, currentTool: null, error: null, ottoAuthTask: null };
@@ -99,6 +109,33 @@ interface AppStore {
   setOttoAuthCurrentTask: (task: OttoAuthTask | null) => void;
   setOttoAuthTraceRecordingEnabled: (enabled: boolean) => void;
   setOttoAuthTraceRecordingFolderName: (folderName: string | null) => void;
+
+  localControlUrl: string;
+  localControlEnabled: boolean;
+  localControlStatus: LocalControlStatus;
+  localControlCurrentRequest: LocalControlRequest | null;
+  localControlLastError: string | null;
+  localControlRequestHistory: LocalControlRequest[];
+  setLocalControlUrl: (url: string) => void;
+  setLocalControlEnabled: (enabled: boolean) => void;
+  setLocalControlStatus: (status: LocalControlStatus) => void;
+  setLocalControlCurrentRequest: (request: LocalControlRequest | null) => void;
+  setLocalControlLastError: (error: string | null) => void;
+  setLocalControlRequestHistory: (requests: LocalControlRequest[]) => void;
+  upsertLocalControlRequest: (request: LocalControlRequest) => void;
+
+  actionMacros: AgentMacroAction[];
+  setActionMacros: (macros: AgentMacroAction[]) => void;
+  upsertActionMacro: (macro: AgentMacroAction) => void;
+  removeActionMacro: (id: string) => void;
+}
+
+function sortLocalControlRequests(requests: LocalControlRequest[]): LocalControlRequest[] {
+  return [...requests].sort((a, b) => {
+    const updatedDiff = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    if (updatedDiff !== 0) return updatedDiff;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 }
 
 function resolveSessionId(state: AppStore, explicit?: string): string | null {
@@ -267,4 +304,41 @@ export const useStore = create<AppStore>((set, get) => ({
   setOttoAuthCurrentTask: (ottoAuthCurrentTask) => set({ ottoAuthCurrentTask }),
   setOttoAuthTraceRecordingEnabled: (ottoAuthTraceRecordingEnabled) => set({ ottoAuthTraceRecordingEnabled }),
   setOttoAuthTraceRecordingFolderName: (ottoAuthTraceRecordingFolderName) => set({ ottoAuthTraceRecordingFolderName }),
+
+  localControlUrl: LOCAL_CONTROL_DEFAULT_URL,
+  localControlEnabled: true,
+  localControlStatus: 'paused',
+  localControlCurrentRequest: null,
+  localControlLastError: null,
+  localControlRequestHistory: [],
+  setLocalControlUrl: (localControlUrl) => set({ localControlUrl }),
+  setLocalControlEnabled: (localControlEnabled) => set({ localControlEnabled }),
+  setLocalControlStatus: (localControlStatus) => set({ localControlStatus }),
+  setLocalControlCurrentRequest: (localControlCurrentRequest) => set({ localControlCurrentRequest }),
+  setLocalControlLastError: (localControlLastError) => set({ localControlLastError }),
+  setLocalControlRequestHistory: (localControlRequestHistory) =>
+    set({ localControlRequestHistory: sortLocalControlRequests(localControlRequestHistory) }),
+  upsertLocalControlRequest: (request) =>
+    set((state) => ({
+      localControlCurrentRequest: request.status === 'running' ? request : (
+        state.localControlCurrentRequest?.id === request.id ? null : state.localControlCurrentRequest
+      ),
+      localControlRequestHistory: sortLocalControlRequests([
+        request,
+        ...state.localControlRequestHistory.filter((entry) => entry.id !== request.id),
+      ]),
+    })),
+
+  actionMacros: [],
+  setActionMacros: (actionMacros) => set({ actionMacros }),
+  upsertActionMacro: (macro) =>
+    set((state) => ({
+      actionMacros: [...state.actionMacros.filter((entry) => entry.id !== macro.id), macro].sort((a, b) =>
+        a.scope.label.localeCompare(b.scope.label) || a.name.localeCompare(b.name),
+      ),
+    })),
+  removeActionMacro: (id) =>
+    set((state) => ({
+      actionMacros: state.actionMacros.filter((entry) => entry.id !== id),
+    })),
 }));

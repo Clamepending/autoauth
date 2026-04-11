@@ -1,3 +1,5 @@
+export type SessionSource = 'manual' | 'ottoauth' | 'local_control';
+
 export type BGMessage =
   | { type: 'cdp-attach'; tabId: number }
   | { type: 'cdp-detach'; tabId: number }
@@ -15,9 +17,13 @@ export type BGMessage =
   | { type: 'enable-network-capture'; tabId: number }
   | { type: 'file-upload'; tabId: number; ref: string; paths: string[] }
   | { type: 'get-viewport-size'; tabId: number }
+  | { type: 'storage-get'; keys?: string | string[] | Record<string, unknown> | null }
+  | { type: 'storage-set'; items: Record<string, unknown> }
+  | { type: 'storage-remove'; keys: string[] }
+  | { type: 'storage-clear' }
   | { type: 'session-get-active' }
   | { type: 'session-get-all' }
-  | { type: 'session-request-create'; backgroundTab?: boolean; source?: 'manual' | 'ottoauth'; autoCloseOnIdle?: boolean }
+  | { type: 'session-request-create'; backgroundTab?: boolean; source?: SessionSource; autoCloseOnIdle?: boolean }
   | { type: 'session-close'; sessionId: string };
 
 export interface BGResponse {
@@ -91,13 +97,95 @@ export interface OttoAuthConfig {
   authToken: string;
 }
 
+export interface OttoAuthModelUsage {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  source?: string | null;
+}
+
+export interface OttoAuthHeadlessState {
+  modeEnabled: boolean;
+  pollingRequested: boolean;
+  runtimeActive: boolean;
+  pollingActive: boolean;
+  currentTask: OttoAuthTask | null;
+  lastError: string | null;
+  lastSeenAt: number | null;
+}
+
+export type LocalControlRequestStatus =
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'stopped';
+
+export interface LocalControlRequest {
+  id: string;
+  taskDescription: string;
+  model: string;
+  source: 'local_control';
+  status: LocalControlRequestStatus;
+  createdAt: string;
+  updatedAt: string;
+  claimedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  executionDurationMs?: number | null;
+  stopRequested?: boolean;
+  sessionId?: string | null;
+  summary?: string | null;
+  error?: string | null;
+  result?: Record<string, unknown> | null;
+  traceDirectoryName?: string | null;
+  recordingFolderName?: string | null;
+  workerId?: string | null;
+}
+
+export type AgentMacroParameterType = 'string' | 'number' | 'boolean';
+
+export interface AgentMacroParameter {
+  id: string;
+  name: string;
+  description: string;
+  type: AgentMacroParameterType;
+  required: boolean;
+  defaultValue?: string;
+}
+
+export interface AgentMacroStep {
+  id: string;
+  primitiveId: string;
+  input: Record<string, unknown>;
+}
+
+export interface AgentMacroScope {
+  type: 'global' | 'domain';
+  label: string;
+  domainPattern?: string;
+}
+
+export interface AgentMacroAction {
+  id: string;
+  name: string;
+  description: string;
+  scope: AgentMacroScope;
+  parameters: AgentMacroParameter[];
+  steps: AgentMacroStep[];
+  createdAt: string;
+  updatedAt: string;
+  origin?: 'user' | 'builtin' | 'remote';
+}
+
 export interface SessionInfo {
   id: string;
   groupId: number;
   name: string;
-  color: chrome.tabGroups.ColorEnum;
+  color: chrome.tabGroups.TabGroup['color'];
   createdAt: number;
-  source?: 'manual' | 'ottoauth';
+  windowId?: number | null;
+  source?: SessionSource;
   autoCloseOnIdle?: boolean;
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAgent, getAgentByUsername } from "@/lib/db";
 import {
+  generatePairingKey,
   generatePrivateKey,
   normalizeUsername,
   validateCallbackUrl,
@@ -41,11 +42,13 @@ export async function POST(request: Request) {
   }
 
   const privateKey = generatePrivateKey();
+  const pairingKey = generatePairingKey();
 
   const agent = await createAgent({
     usernameLower,
     usernameDisplay,
     privateKey,
+    pairingKey: pairingKey.replace(/-/g, ""),
     callbackUrl: callbackValidation.value,
     description,
   });
@@ -53,8 +56,9 @@ export async function POST(request: Request) {
   return NextResponse.json({
     username: agent.username_display,
     privateKey,
+    pairingKey,
     callbackUrl: agent.callback_url,
     message:
-      "Account created. Save your private key securely — it cannot be recovered. Use it as your password for future updates.",
+      "Account created. Save your private key securely — it cannot be recovered. Share the pairing key with your human so they can link this agent to their OttoAuth account, submit self-serve orders from the OttoAuth website, and optionally enable marketplace fulfillment on a claimed device.",
   });
 }

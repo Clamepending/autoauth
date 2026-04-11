@@ -7,6 +7,7 @@ import {
 } from "@/lib/computeruse-mock";
 import {
   getComputerUseDeviceById,
+  touchComputerUseDeviceSeen,
   verifyComputerUseDeviceToken,
   waitForComputerUseTaskForDevice,
 } from "@/lib/computeruse-store";
@@ -14,6 +15,7 @@ import {
   appendComputerUseRunEvent,
   markComputerUseRunRunning,
 } from "@/lib/computeruse-runs";
+import { markGenericBrowserTaskRunningByComputerUseTaskId } from "@/lib/generic-browser-tasks";
 
 function corsHeaders() {
   return {
@@ -48,7 +50,7 @@ export async function GET(request: Request) {
   }
 
   if (!(await getComputerUseDeviceById(deviceId))) {
-    return unauthorized("Device is not paired (mock). Pair first via POST /api/computeruse/mock/pair.");
+    return unauthorized("Device is not paired. Pair first via POST /api/computeruse/device/pair.");
   }
 
   const tokenCheck = await verifyComputerUseDeviceToken({
@@ -62,6 +64,7 @@ export async function GET(request: Request) {
         : "Invalid bearer token for paired device."
     );
   }
+  await touchComputerUseDeviceSeen(deviceId).catch(() => null);
 
   const waitMsRaw = Number(url.searchParams.get("waitMs") ?? "");
   const waitMs = Number.isFinite(waitMsRaw) ? waitMsRaw : 25000;
@@ -89,6 +92,7 @@ export async function GET(request: Request) {
       },
     });
   }
+  await markGenericBrowserTaskRunningByComputerUseTaskId(task.id).catch(() => null);
   return NextResponse.json(
     {
       id: task.id,

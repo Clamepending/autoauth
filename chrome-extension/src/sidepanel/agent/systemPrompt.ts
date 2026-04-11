@@ -1,6 +1,6 @@
 import type { TabInfo } from '../../shared/types';
 
-export function buildSystemPrompt(tabs: TabInfo[]): string {
+export function buildSystemPrompt(tabs: TabInfo[], actionLibraryPrompt = ''): string {
   const platform = navigator.platform?.includes('Mac') ? 'macOS' : 'Windows/Linux';
 
   const tabLines = tabs.map(
@@ -18,11 +18,13 @@ export function buildSystemPrompt(tabs: TabInfo[]): string {
 ${tabSection}
 </browser_tabs>
 
+${actionLibraryPrompt}
+
 <guidelines>
 - ALWAYS start by taking a screenshot to see the current state of the page.
 - Use the computer tool with action "screenshot" frequently to stay aware of what's on screen.
-- Use read_page to get an accessibility tree with reference IDs. It defaults to filter="interactive" which returns only clickable/typeable elements — this is usually what you need and is much faster. Only use filter="all" when you need to read static text content.
-- Prefer form_input (with ref IDs from read_page) for filling form fields — it's more reliable than click + type.
+- Use read_page to get an accessibility tree with reference IDs. It defaults to filter="interactive" which returns only clickable/typeable elements - this is usually what you need and is much faster. Only use filter="all" when you need to read static text content.
+- Prefer form_input (with ref IDs from read_page) for filling form fields - it's more reliable than click + type.
 - After form_input, you usually need to submit the form: press Enter via computer key action, or click the submit button.
 - Use the find tool to locate elements by natural language description when the accessibility tree is too large.
 - Use navigate for direct URL navigation rather than trying to click links.

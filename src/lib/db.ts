@@ -5,6 +5,9 @@ export type AgentRecord = {
   username_lower: string;
   username_display: string;
   private_key: string;
+  pairing_key: string | null;
+  pairing_key_created_at: string | null;
+  pairing_key_consumed_at: string | null;
   callback_url: string | null;
   description: string | null;
   created_at: string;
@@ -23,6 +26,9 @@ export async function ensureSchema() {
       username_lower TEXT NOT NULL UNIQUE,
       username_display TEXT NOT NULL,
       private_key TEXT NOT NULL,
+      pairing_key TEXT,
+      pairing_key_created_at TEXT,
+      pairing_key_consumed_at TEXT,
       callback_url TEXT,
       description TEXT,
       created_at TEXT NOT NULL,
@@ -44,6 +50,9 @@ export async function ensureSchema() {
         username_lower TEXT NOT NULL UNIQUE,
         username_display TEXT NOT NULL,
         private_key TEXT NOT NULL,
+        pairing_key TEXT,
+        pairing_key_created_at TEXT,
+        pairing_key_consumed_at TEXT,
         callback_url TEXT,
         description TEXT,
         created_at TEXT NOT NULL,
@@ -56,8 +65,18 @@ export async function ensureSchema() {
   if (!hasOldSchema && !hasCallbackUrl) {
     await client.execute("ALTER TABLE agents ADD COLUMN callback_url TEXT");
   }
+  if (!columns.some((c) => c.name === "pairing_key")) {
+    await client.execute("ALTER TABLE agents ADD COLUMN pairing_key TEXT");
+  }
+  if (!columns.some((c) => c.name === "pairing_key_created_at")) {
+    await client.execute("ALTER TABLE agents ADD COLUMN pairing_key_created_at TEXT");
+  }
+  if (!columns.some((c) => c.name === "pairing_key_consumed_at")) {
+    await client.execute("ALTER TABLE agents ADD COLUMN pairing_key_consumed_at TEXT");
+  }
 
   await client.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_username_lower ON agents(username_lower)");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_agents_pairing_key ON agents(pairing_key)");
 
   await client.execute(
     `CREATE TABLE IF NOT EXISTS agent_requests (
@@ -192,6 +211,20 @@ export async function getAgentByPrivateKey(privateKey: string) {
   return rows[0] ?? null;
 }
 
+export async function getAgentByPairingKey(pairingKey: string) {
+  await ensureSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: "SELECT * FROM agents WHERE pairing_key = ? LIMIT 2",
+    args: [pairingKey],
+  });
+  const rows = (result.rows ?? []) as unknown as AgentRecord[];
+  if (rows.length > 1) {
+    throw new Error("Multiple agents matched pairing key.");
+  }
+  return rows[0] ?? null;
+}
+
 export async function getAgentRequestById(id: number): Promise<AgentRequestWithAgentRecord | null> {
   await ensureSchema();
   const client = getTursoClient();
@@ -322,6 +355,7 @@ export async function createAgent(params: {
   usernameLower: string;
   usernameDisplay: string;
   privateKey: string;
+  pairingKey?: string | null;
   callbackUrl: string;
   description?: string | null;
 }) {
@@ -330,12 +364,15 @@ export async function createAgent(params: {
   const now = new Date().toISOString();
   await client.execute({
     sql: `INSERT INTO agents (
-      username_lower, username_display, private_key, callback_url, description, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)` ,
+      username_lower, username_display, private_key, pairing_key, pairing_key_created_at, pairing_key_consumed_at, callback_url, description, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
     args: [
       params.usernameLower,
       params.usernameDisplay,
       params.privateKey,
+      params.pairingKey ?? null,
+      params.pairingKey ? now : null,
+      null,
       params.callbackUrl,
       params.description ?? null,
       now,
@@ -365,7 +402,7 @@ export async function getAllAgents(): Promise<AgentRecord[]> {
   await ensureSchema();
   const client = getTursoClient();
   const result = await client.execute({
-    sql: "SELECT id, username_lower, username_display, private_key, callback_url, description, created_at, updated_at FROM agents ORDER BY created_at DESC",
+    sql: "SELECT id, username_lower, username_display, private_key, pairing_key, pairing_key_created_at, pairing_key_consumed_at, callback_url, description, created_at, updated_at FROM agents ORDER BY created_at DESC",
     args: [],
   });
   return (result.rows ?? []) as unknown as AgentRecord[];
@@ -387,6 +424,14 @@ export async function deleteAgent(id: number): Promise<void> {
   const agent = await getAgentById(id);
   if (!agent) return;
   await client.execute({
+    sql: "DELETE FROM human_agent_links WHERE agent_id = ?",
+    args: [id],
+  }).catch(() => {});
+  await client.execute({
+    sql: "DELETE FROM generic_browser_tasks WHERE agent_id = ?",
+    args: [id],
+  }).catch(() => {});
+  await client.execute({
     sql: "DELETE FROM agent_requests WHERE username_lower = ?",
     args: [agent.username_lower],
   });
@@ -394,6 +439,33 @@ export async function deleteAgent(id: number): Promise<void> {
     sql: "DELETE FROM agents WHERE id = ?",
     args: [id],
   });
+}
+
+export async function markAgentPairingKeyConsumed(agentId: number) {
+  await ensureSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  await client.execute({
+    sql: "UPDATE agents SET pairing_key_consumed_at = ?, updated_at = ? WHERE id = ?",
+    args: [now, now, agentId],
+  });
+  return getAgentById(agentId);
+}
+
+export async function rotateAgentPairingKey(params: {
+  agentId: number;
+  pairingKey: string;
+}) {
+  await ensureSchema();
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  await client.execute({
+    sql: `UPDATE agents
+          SET pairing_key = ?, pairing_key_created_at = ?, pairing_key_consumed_at = NULL, updated_at = ?
+          WHERE id = ?`,
+    args: [params.pairingKey, now, now, params.agentId],
+  });
+  return getAgentById(params.agentId);
 }
 
 export async function updateAgentUsername(params: {

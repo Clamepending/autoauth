@@ -6,258 +6,209 @@ export function getManifest(): ServiceManifest {
   return {
     id: "computeruse",
     name: "Computer Use",
-    description: "Control a paired browser extension on a user's device",
+    description:
+      "Submit browser tasks to a human-linked OttoAuth account, let humans self-serve from the website, and settle credits after completion",
     category: "compute",
-    status: "beta",
+    status: "active",
     endpoints: [
       {
-        name: "register_device",
+        name: "submit_task",
         method: "POST",
-        path: "/api/computeruse/register-device",
-        description: "Register a browser token to an agent (one-time setup)",
-        params: {
-          username: { type: "string", required: true, description: "Agent username" },
-          private_key: { type: "string", required: true, description: "Agent private key" },
-          browser_token: {
-            type: "string",
-            required: true,
-            description: "Browser token copied from the OttoAuth Chrome extension",
-          },
-        },
-      },
-      {
-        name: "start_run",
-        method: "POST",
-        path: "/api/computeruse/runs",
-        description: "Start an async computer-use run",
+        path: "/api/services/computeruse/submit-task",
+        description:
+          "Queue a browser task on the linked human's claimed OttoAuth device. OttoAuth enforces a spend cap and debits credits after completion.",
         params: {
           username: { type: "string", required: true, description: "Agent username" },
           private_key: { type: "string", required: true, description: "Agent private key" },
           task_prompt: {
             type: "string",
             required: true,
+            description: "Natural-language task for the browser fulfillment device to complete",
+          },
+          task_title: {
+            type: "string",
+            required: false,
+            description: "Optional short label for the task",
+          },
+          max_charge_cents: {
+            type: "number",
+            required: false,
             description:
-              "Natural-language task prompt. If it includes a URL, OttoAuth will route an open-link task. Otherwise OttoAuth can trigger the extension's local BYOK browser-agent planning flow (human approval required in the side panel).",
-          },
-          execution_mode: {
-            type: "string",
-            required: false,
-            description: "Optional override. Use local_agent to force a high-level local browser-agent plan/approval flow.",
-          },
-          device: {
-            type: "string",
-            required: false,
-            description: "Optional browser token (or device id). Usually omitted after register-device.",
+              "Optional explicit max spend for this task in cents. If omitted, OttoAuth uses the human's current credit balance as the cap.",
           },
         },
       },
       {
-        name: "get_run_status",
+        name: "get_task_status",
         method: "POST",
-        path: "/api/computeruse/runs/:runId",
-        description: "Fetch run status",
+        path: "/api/services/computeruse/tasks/:taskId",
+        description: "Check the status, billing breakdown, and completion summary for a submitted browser task",
         params: {
+          taskId: {
+            type: "number",
+            required: true,
+            description: "The task ID returned by submit_task",
+          },
           username: { type: "string", required: true, description: "Agent username" },
           private_key: { type: "string", required: true, description: "Agent private key" },
         },
       },
       {
-        name: "get_run_events",
+        name: "history",
         method: "POST",
-        path: "/api/computeruse/runs/:runId/events",
-        description: "Fetch run event log",
+        path: "/api/services/computeruse/history",
+        description: "List recent browser tasks submitted by this agent",
         params: {
           username: { type: "string", required: true, description: "Agent username" },
           private_key: { type: "string", required: true, description: "Agent private key" },
-          limit: { type: "number", required: false, description: "Max events to return" },
         },
       },
     ],
-    docsMarkdown: `# Computer Use — Control a paired browser extension
+    docsMarkdown: `# OttoAuth Computer Use
 
-## Agent-first discovery
+OttoAuth now supports **human-linked browser tasks**, **human self-serve order pages**, and **marketplace fulfillers**. Your human can link you with a pairing key, claim a browser device, submit their own tasks from the website, or opt their device into fulfilling tasks for other humans.
 
-For machine-readable tool discovery, first call \`GET ${baseUrl}/api/services\`, then call \`GET ${baseUrl}/api/services/computeruse\`. This page is the human-readable reference.
+## OpenClaw-first summary
 
-## What this is
+If you are an OpenClaw-style agent, the easiest OttoAuth onboarding is:
 
-Use this to trigger actions in a human's browser through the OttoAuth browser extension.
+1. Create your OttoAuth account.
+2. Save the returned \`privateKey\`.
+3. Give the human the \`pairingKey\`.
+4. Tell the human to sign in at \`${baseUrl}/login\`, link the agent, and claim a browser device.
+5. Submit browser tasks through OttoAuth against the human's credits.
+6. Share \`${baseUrl}/orders/<taskId>\` with the human if they want to watch fulfillment live.
+7. Tell the human about \`${baseUrl}/orders/new\` if they want to submit their own task directly.
 
-## Two modes (important)
+## Human-linked flow
 
-### 1. Cloud-triggered mode (OttoAuth API)
-- Agent calls OttoAuth
-- OttoAuth routes a command to the paired browser extension
-- Beta cloud routing supports:
-  - URL/open-link tasks (\`Open https://...\`)
-  - high-level local browser-agent goals (the extension generates a plan and asks the human to approve it)
-
-### 2. Local browser-agent mode (inside the extension)
-- Human opens the OttoAuth extension side panel
-- Enters BYOK model settings (OpenAI-compatible)
-- Sends a high-level task in chat
-- Extension generates a plan, asks for approval, then runs a local browser-agent loop
-- This mode supports richer browser interaction than the cloud-triggered open-link beta
-
-If you are an external agent using OttoAuth's public API today, use **Cloud-triggered mode** below.
-
-## Onboarding (very important)
-
-This is a 2-step setup: **human installs extension and shares a token**, then **you register that token**.
-
-### What you should say to the human
-
-Send a message like:
-
-> Please install the OttoAuth browser extension, open it, click **Regenerate**, and send me the Browser Token it shows.
-
-The human should:
-1. Install/open the OttoAuth browser extension
-2. Click **Regenerate**
-3. Copy the **Browser Token**
-4. Send that token to you
-
-### What you do with the token (one-time registration)
-
-Call:
+1. Create your agent account:
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/computeruse/register-device \\
+curl -s -X POST ${baseUrl}/api/agents/create \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"my_agent",
+    "callback_url":"https://example.com/ottoauth/callback"
+  }'
+\`\`\`
+
+This returns:
+- \`privateKey\` — keep this secret
+- \`pairingKey\` — give this to your human
+
+2. Tell your human:
+- sign in at \`${baseUrl}/login\`
+- paste your \`pairingKey\` into the OttoAuth dashboard
+- generate a **device claim code**
+- enter that device claim code into the OttoAuth browser extension running on their Raspberry Pi or browser machine
+- optionally enable marketplace fulfillment in the dashboard if they want that device to earn credits by fulfilling other humans' tasks
+
+3. Once the agent is linked and the human has claimed a device, submit tasks:
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
     "private_key":"MY_PRIVATE_KEY",
-    "browser_token":"BROWSER_TOKEN_FROM_HUMAN"
+    "task_prompt":"Open Amazon, buy two packs of AA batteries, and ship them to the default address on file.",
+    "max_charge_cents": 2000
   }'
 \`\`\`
 
-After this succeeds, OttoAuth remembers the browser for your agent (beta: one browser/device per agent).
+OttoAuth sends the task to the linked browser device, instructs it not to exceed the spend cap, and then debits the human's credits **after** completion.
 
-## How to use Computer Use (simple flow)
+## Human self-serve flow
 
-### 1. Start a run
+Humans can also use OttoAuth directly:
 
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/computeruse/runs \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
-    "task_prompt":"Open https://google.com"
-  }'
+- submit a browser/order task at \`${baseUrl}/orders/new\`
+- watch live fulfillment on \`${baseUrl}/orders/<taskId>\`
+- use the dashboard at \`${baseUrl}/dashboard\` to link agents, claim devices, and enable marketplace fulfillment
+
+This is useful for debugging and for humans who want to create OttoAuth tasks without routing through an agent first.
+
+## Marketplace fulfillers
+
+If a human claims an OttoAuth browser device and enables marketplace fulfillment:
+
+- OttoAuth may route other humans' self-serve tasks to that device
+- the requester's credits are debited after completion
+- the fulfiller receives a matching credit payout after the run completes
+
+The current marketplace policy is intentionally simple: OttoAuth picks an available opted-in device that looks online recently.
+
+## Billing model
+
+When the browser task completes, OttoAuth records:
+- goods subtotal
+- shipping
+- tax
+- any other task-reported fees
+- inference cost from the browser agent's model usage
+
+Those are combined into a single debit from the human's credit ledger.
+
+If the task was fulfilled by another human's marketplace device, OttoAuth also records a payout credit to that fulfiller's ledger.
+
+## Endpoints
+
+### Submit task
+
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/submit-task
+Content-Type: application/json
 \`\`\`
 
-This returns a \`run_id\` immediately. The browser action happens asynchronously.
+Required:
+- \`username\`
+- \`private_key\`
+- \`task_prompt\`
 
-### 2. (Optional) Start a high-level browser-agent goal
+Optional:
+- \`task_title\`
+- \`max_charge_cents\`
 
-You can also send a higher-level task prompt (without a URL). OttoAuth will route it to the extension, and the extension will:
-1. generate a local plan,
-2. show it to the human for approval,
-3. run the local browser-agent loop after approval.
+### Get task status
 
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/computeruse/runs \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
-    "task_prompt":"On the current page, summarize the visible content and draft a short response."
-  }'
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/tasks/:taskId
+Content-Type: application/json
 \`\`\`
 
-You can force this behavior explicitly with:
-- \`"execution_mode":"local_agent"\`
+Body:
+- \`username\`
+- \`private_key\`
 
-### 3. Check run status (important for local-agent runs)
+Response includes:
+- current status
+- billing status
+- payout status
+- final debit amount
+- token usage
+- summary / error
 
-For cloud-triggered local-agent goals, the run lifecycle is:
-1. \`queued\` / \`waiting_for_device\`
-2. extension receives the task and generates a local plan
-3. run moves to \`running\` when the plan is ready for human approval in the extension
-4. after the human approves and the local browser-agent loop finishes, the run becomes \`completed\` or \`failed\`
+### History
 
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/computeruse/runs/RUN_ID_HERE \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY"
-  }'
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/history
+Content-Type: application/json
 \`\`\`
 
-Example status snapshots you may see while polling:
+Body:
+- \`username\`
+- \`private_key\`
 
-\`\`\`json
-{
-  "run": {
-    "id": "run_123",
-    "status": "waiting_for_device"
-  }
-}
-\`\`\`
+## Notes
 
-\`\`\`json
-{
-  "run": {
-    "id": "run_123",
-    "status": "running"
-  },
-  "note": "The extension has generated a local plan and is waiting for human approval in the side panel."
-}
-\`\`\`
-
-\`\`\`json
-{
-  "run": {
-    "id": "run_123",
-    "status": "completed"
-  },
-  "current_task": {
-    "status": "completed",
-    "result": {
-      "summary": "Local browser-agent run completed after human-approved plan."
-    }
-  }
-}
-\`\`\`
-
-Agent polling rule:
-- If a **local-agent** run is \`"running"\`, do not assume active browser actions are happening yet. In this beta flow, \`running\` may mean the extension has generated a plan and is waiting for the human to approve it in the side panel.
-- Keep polling \`/api/computeruse/runs/:runId\` (and optionally \`/events\`) until the run reaches a terminal state such as \`completed\` or \`failed\`.
-
-### 4. (Optional) Inspect run events
-
-For high-level local-agent runs, the event log may include entries such as:
-- \`computeruse.local_agent.plan_ready\`
-- \`computeruse.local_agent.completed\`
-- \`computeruse.local_agent.failed\`
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/computeruse/runs/RUN_ID_HERE/events \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
-    "limit":50
-  }'
-\`\`\`
-
-## What the extension can do locally (human-operated)
-
-The OttoAuth browser extension now includes a local **BYOK browser agent chat sidebar** with:
-- plan generation + user approval before execution
-- local browser-agent loop (read page -> model -> action -> verify -> repeat)
-- step logs / transcript export for debugging
-- can be used directly by the human in the extension UI or triggered via OttoAuth cloud runs (\`execution_mode: "local_agent"\`)
-
-## Summary
-
-1. Ask human to install extension and send Browser Token
-2. Register token via \`/api/computeruse/register-device\`
-3. Start cloud-triggered runs via \`/api/computeruse/runs\`
-4. Poll \`/api/computeruse/runs/:runId\` (and optionally \`/events\`) for async progress/final state
-5. For high-level tasks, OttoAuth can trigger the extension's local BYOK browser-agent planning flow (human approves the plan in the side panel)
+- If the human has not linked the agent yet, task submission will be rejected.
+- If the human has not claimed a device yet, task submission will be rejected.
+- If the human has no credits remaining, task submission will be rejected.
+- Humans can create tasks directly from \`${baseUrl}/orders/new\`.
+- Humans can watch live low-rate screenshots on \`${baseUrl}/orders/<taskId>\`.
+- Humans can opt a claimed device into marketplace fulfillment from \`${baseUrl}/dashboard\`.
+- Existing low-level OttoAuth computer-use APIs still exist, but the credit-backed human-linked task flow above is the recommended path.
 `,
   };
 }

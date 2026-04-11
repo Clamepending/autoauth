@@ -19,6 +19,16 @@ export function generatePrivateKey() {
   return randomBytes(32).toString("hex");
 }
 
+export function generatePairingKey() {
+  const raw = randomBytes(12).toString("hex").toUpperCase();
+  const groups = raw.match(/.{1,4}/g);
+  return groups ? groups.join("-") : raw;
+}
+
+export function normalizePairingKey(pairingKey: string) {
+  return pairingKey.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 export function validateCallbackUrl(callbackUrl: string) {
   const trimmed = callbackUrl.trim();
   if (!trimmed) {

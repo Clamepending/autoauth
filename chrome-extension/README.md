@@ -17,6 +17,10 @@ npm run build
 4. Select the `dist/` folder
 5. Click the extension icon in the toolbar — the side panel opens
 6. Enter your Anthropic API key (starts with `sk-ant-`)
+7. In the OttoAuth connection settings, paste:
+   - the OttoAuth server URL
+   - a device label
+   - the short device claim code generated from the human OttoAuth dashboard
 
 ## Usage
 
@@ -56,11 +60,64 @@ Type a prompt in the chat input. The agent will:
 - **Background Service Worker**: Chrome DevTools Protocol (CDP) automation, tab management, console/network capture
 - **Content Scripts** (injected on demand): Accessibility tree walker, form handler, text extractor
 
+## OttoAuth claim flow
+
+The extension no longer just pairs blindly to the server. The intended OttoAuth setup is:
+
+1. Human signs in to OttoAuth on the website
+2. Human generates a device claim code in the dashboard
+3. Extension connects to OttoAuth with that claim code
+4. OttoAuth returns a device auth token
+5. The extension polls for human-linked tasks and reports completion plus model-usage telemetry back to OttoAuth
+
 ## Development
 
 ```bash
 npm run dev    # Watch mode (rebuilds on change)
 npm run build  # Production build
+npm run local-control-server
 ```
 
 After rebuilding, click the refresh icon on `chrome://extensions/` to reload.
+
+## Local Control Macro API
+
+When the side panel is open, the extension loads remote macros from the local control server and shows them as read-only `API` macros in the Action Library. While local intake is enabled, it re-syncs automatically every few seconds, so coding agents can add or update macros without editing Chrome storage directly.
+
+Base URL: `http://127.0.0.1:8787`
+
+- `GET /health` shows the queue status and macro API capabilities.
+- `GET /macros` lists the currently published remote macros.
+- `POST /macros` upserts by default.
+- `POST /macros/upsert` explicitly upserts one or more macros.
+- `POST /macros/replace` replaces the full remote macro set.
+- `POST /macros/delete` removes remote macros by id.
+
+Accepted `POST /macros` bodies:
+
+```json
+{
+  "name": "Amazon Quick Search",
+  "scope": { "type": "domain", "domainPattern": "amazon.com", "label": "Amazon" },
+  "steps": [
+    { "primitiveId": "find", "input": { "query": "Search Amazon search box" } },
+    { "primitiveId": "form_input", "input": { "ref": "{{last_ref}}", "value": "{{query}}" } },
+    { "primitiveId": "key", "input": { "text": "Return" } }
+  ]
+}
+```
+
+```json
+{
+  "mode": "replace",
+  "macros": [
+    {
+      "name": "Amazon Open Cart",
+      "scope": { "type": "domain", "domainPattern": "amazon.com", "label": "Amazon" },
+      "steps": [
+        { "primitiveId": "navigate", "input": { "url": "https://www.amazon.com/gp/cart/view.html" } }
+      ]
+    }
+  ]
+}
+```

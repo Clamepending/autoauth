@@ -1,4 +1,4 @@
-import type { ToolResultContent, TabInfo } from '../../shared/types';
+import type { OttoAuthModelUsage, ToolResultContent, TabInfo } from '../../shared/types';
 import { sendToBackground } from '../../shared/messaging';
 import { resizeScreenshotForModel } from '../../shared/imageUtils';
 import { KEY_DEFINITIONS, SCROLL_PIXELS_PER_TICK, CLICK_DELAY_MS, MAX_A11Y_CHARS, MAX_A11Y_DEPTH, MAX_PAGE_TEXT_CHARS } from '../../shared/constants';
@@ -7,6 +7,14 @@ import { setFormValue } from '../../content/formHandler';
 import { extractPageText } from '../../content/pageText';
 import { useStore } from '../store';
 import { permissionManager } from './permissions';
+import {
+  applyMacroStepResult,
+  createMacroRuntimeState,
+  findMacroByToolName,
+  isMacroMutating,
+  macroMatchesUrl,
+  resolveMacroStep,
+} from './actionLibrary';
 import Anthropic from '@anthropic-ai/sdk';
 
 const screenshotStore = new Map<string, string>();
@@ -19,6 +27,16 @@ function textResult(text: string): ToolResultContent[] {
 
 function imageResult(data: string): ToolResultContent[] {
   return [{ type: 'image', source: { type: 'base64', media_type: 'image/png', data } }];
+}
+
+function isToolFailure(text: string): boolean {
+  return (
+    text.startsWith('Error:') ||
+    text.startsWith('Failed:') ||
+    text.startsWith('Navigation failed:') ||
+    text.startsWith('Unknown tool:') ||
+    text.startsWith('Unknown computer action:')
+  );
 }
 
 function getActiveTabId(): number {
@@ -68,7 +86,7 @@ function isRestrictedUrl(url: string): boolean {
 async function checkTabAccess(tabId: number, toolName: string): Promise<string | null> {
   const url = await getTabUrl(tabId);
   if (isRestrictedUrl(url)) {
-    return `Cannot access ${url || 'this page'} — browser system pages block extension access. Use the navigate tool to go to a regular webpage first (e.g. navigate to "https://google.com").`;
+    return `Cannot access ${url || 'this page'} - browser system pages block extension access. Use the navigate tool to go to a regular webpage first (e.g. navigate to "https://google.com").`;
   }
   return null;
 }
@@ -511,13 +529,16 @@ export async function executeTool(
   input: Record<string, unknown>,
   apiKey: string,
   sessionId?: string,
+  onModelUsage?: (usage: OttoAuthModelUsage) => void,
 ): Promise<ToolResultContent[]> {
   const store = useStore.getState();
+  const macro = findMacroByToolName(store.actionMacros, name);
   _screenshotSessionId = sessionId;
   store.setCurrentTool(name, sessionId);
 
-  const isMutating = MUTATING_TOOLS.has(name) &&
-    (name !== 'computer' || MUTATING_ACTIONS.has(input.action as string));
+  const isMutating = macro
+    ? isMacroMutating(macro)
+    : MUTATING_TOOLS.has(name) && (name !== 'computer' || MUTATING_ACTIONS.has(input.action as string));
   let preDomain = '';
   const targetTabId = (input.tabId as number | undefined) || store.activeTabId;
 
@@ -529,6 +550,10 @@ export async function executeTool(
   }
 
   try {
+    if (macro) {
+      return await executeMacroTool(macro, input, apiKey, sessionId, onModelUsage);
+    }
+
     switch (name) {
       case 'computer':
         return await executeComputer(input, sessionId);
@@ -539,7 +564,7 @@ export async function executeTool(
       case 'form_input':
         return await executeFormInput(input);
       case 'find':
-        return await executeFind(input, apiKey);
+        return await executeFind(input, apiKey, onModelUsage);
       case 'get_page_text':
         return await executeGetPageText(input);
       case 'javascript_tool':
@@ -576,6 +601,58 @@ export async function executeTool(
     }
     store.setCurrentTool(null, sessionId);
   }
+}
+
+async function executeMacroTool(
+  macro: NonNullable<ReturnType<typeof findMacroByToolName>>,
+  input: Record<string, unknown>,
+  apiKey: string,
+  sessionId?: string,
+  onModelUsage?: (usage: OttoAuthModelUsage) => void,
+): Promise<ToolResultContent[]> {
+  const activeTabId = useStore.getState().activeTabId;
+  const requestedTabId = typeof input.tabId === 'number' ? input.tabId : activeTabId;
+  const tabUrl = requestedTabId ? await getTabUrl(requestedTabId) : '';
+
+  if (macro.scope.type === 'domain' && !macroMatchesUrl(macro, tabUrl)) {
+    const currentDomain = tabUrl ? new URL(tabUrl).hostname : 'unknown';
+    return textResult(
+      `Macro "${macro.name}" is scoped to ${macro.scope.domainPattern}, but the current site is ${currentDomain}.`,
+    );
+  }
+
+  let runtimeState = createMacroRuntimeState(macro, input, activeTabId);
+  const summaryLines = [`Ran macro "${macro.name}" with ${macro.steps.length} step(s).`];
+  let lastImage: ToolResultContent | null = null;
+
+  for (let index = 0; index < macro.steps.length; index += 1) {
+    const step = resolveMacroStep(macro, macro.steps[index], runtimeState);
+    const result = await executeTool(step.toolName, step.input, apiKey, sessionId, onModelUsage);
+    runtimeState = applyMacroStepResult(runtimeState, index + 1, result);
+    const textParts = result
+      .filter((entry): entry is Extract<ToolResultContent, { type: 'text' }> => entry.type === 'text')
+      .map((entry) => entry.text)
+      .filter(Boolean);
+    const imageParts = result.filter((entry): entry is Extract<ToolResultContent, { type: 'image' }> => entry.type === 'image');
+
+    if (imageParts.length > 0) {
+      lastImage = imageParts[imageParts.length - 1];
+    }
+
+    if (textParts.length > 0) {
+      summaryLines.push(`${index + 1}. ${step.primitive.label}: ${textParts.join(' ')}`);
+    } else {
+      summaryLines.push(`${index + 1}. ${step.primitive.label}: complete`);
+    }
+
+    const failed = textParts.find((text) => isToolFailure(text));
+    if (failed) {
+      const errorSummary = `${summaryLines.join('\n')}\nStopped because step ${index + 1} failed.`;
+      return lastImage ? [{ type: 'text', text: errorSummary }, lastImage] : textResult(errorSummary);
+    }
+  }
+
+  return lastImage ? [{ type: 'text', text: summaryLines.join('\n') }, lastImage] : textResult(summaryLines.join('\n'));
 }
 
 async function executeComputer(input: Record<string, unknown>, sessionId?: string): Promise<ToolResultContent[]> {
@@ -698,7 +775,11 @@ async function executeFormInput(input: Record<string, unknown>): Promise<ToolRes
   return textResult(msg || 'form_input executed');
 }
 
-async function executeFind(input: Record<string, unknown>, apiKey: string): Promise<ToolResultContent[]> {
+async function executeFind(
+  input: Record<string, unknown>,
+  apiKey: string,
+  onModelUsage?: (usage: OttoAuthModelUsage) => void,
+): Promise<ToolResultContent[]> {
   const tabId = input.tabId as number;
   const blocked = await checkTabAccess(tabId, 'find');
   if (blocked) return textResult(blocked);
@@ -735,6 +816,15 @@ FOUND: 0`;
     max_tokens: 800,
     messages: [{ role: 'user', content: findPrompt }],
   });
+  const usage = response.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+  if (usage && onModelUsage && ((usage.input_tokens || 0) > 0 || (usage.output_tokens || 0) > 0)) {
+    onModelUsage({
+      model: 'claude-haiku-4-5-20251001',
+      input_tokens: usage.input_tokens || 0,
+      output_tokens: usage.output_tokens || 0,
+      source: 'tool_find',
+    });
+  }
 
   const responseText = (response.content as Array<{ type: string; text?: string }>)
     .filter((b) => b.type === 'text')

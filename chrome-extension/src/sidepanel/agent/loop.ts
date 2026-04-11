@@ -7,8 +7,9 @@ import {
   OTTOAUTH_TOOL_TIMEOUT_MS,
 } from '../../shared/constants';
 import { sendToBackground } from '../../shared/messaging';
-import type { TabInfo } from '../../shared/types';
+import type { OttoAuthModelUsage, TabInfo } from '../../shared/types';
 import { buildSystemPrompt, buildTabContextReminder } from './systemPrompt';
+import { buildActionLibraryPrompt, findMacroByToolName, getMacroPermissionType } from './actionLibrary';
 import { getToolDefinitions } from './toolDefinitions';
 import { executeTool } from './toolExecutor';
 import { permissionManager } from './permissions';
@@ -26,10 +27,39 @@ export interface AgentLoopEvent {
 
 export interface AgentLoopOptions {
   onEvent?: (event: AgentLoopEvent) => void;
+  onModelUsage?: (usage: OttoAuthModelUsage) => void;
+  model?: string;
 }
 
 function emitAgentLoopEvent(options: AgentLoopOptions | undefined, type: string, payload: Record<string, unknown> = {}): void {
   options?.onEvent?.({ type, payload });
+}
+
+function emitModelUsage(
+  options: AgentLoopOptions | undefined,
+  usage: OttoAuthModelUsage | null,
+): void {
+  if (!usage) return;
+  options?.onModelUsage?.(usage);
+}
+
+function extractModelUsage(response: Record<string, unknown>, fallbackModel: string, source: string): OttoAuthModelUsage | null {
+  const usage = response.usage as Record<string, unknown> | undefined;
+  if (!usage) return null;
+  const inputTokens =
+    typeof usage.input_tokens === 'number' ? usage.input_tokens : 0;
+  const outputTokens =
+    typeof usage.output_tokens === 'number' ? usage.output_tokens : 0;
+  if (inputTokens <= 0 && outputTokens <= 0) return null;
+  return {
+    model:
+      typeof response.model === 'string' && response.model.trim()
+        ? response.model
+        : fallbackModel,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    source,
+  };
 }
 
 async function callWithRetry(
@@ -151,27 +181,30 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
   permissionManager.setMode(store.permissionMode);
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+  const model = options?.model || MODEL;
 
   try {
     emitAgentLoopEvent(options, 'agent_loop_started', { sessionId: sid, userPrompt });
-    const tabsResp = await sendToBackground({ type: 'tabs-context', sessionId: sid });
-    let tabs: TabInfo[] = (tabsResp.data as TabInfo[]) || [];
+    const refreshTabContext = async (): Promise<TabInfo[]> => {
+      const tabsResp = await sendToBackground({ type: 'tabs-context', sessionId: sid });
+      const nextTabs: TabInfo[] = (tabsResp.data as TabInfo[]) || [];
+      const activeTab = nextTabs.find((tab) => tab.active);
+      if (activeTab) {
+        store.setActiveTabId(activeTab.id);
 
-    const activeTab = tabs.find((t) => t.active);
-    if (activeTab) {
-      store.setActiveTabId(activeTab.id);
+        const vpResp = await sendToBackground({ type: 'get-viewport-size', tabId: activeTab.id });
+        if (vpResp.success) {
+          const vp = vpResp.data as { width: number; height: number };
+          store.setViewportSize(vp);
+        }
 
-      const vpResp = await sendToBackground({ type: 'get-viewport-size', tabId: activeTab.id });
-      if (vpResp.success) {
-        const vp = vpResp.data as { width: number; height: number };
-        store.setViewportSize(vp);
+        await sendToBackground({ type: 'enable-console-capture', tabId: activeTab.id }).catch(() => {});
+        await sendToBackground({ type: 'enable-network-capture', tabId: activeTab.id }).catch(() => {});
       }
+      return nextTabs;
+    };
 
-      await sendToBackground({ type: 'enable-console-capture', tabId: activeTab.id });
-      await sendToBackground({ type: 'enable-network-capture', tabId: activeTab.id });
-    }
-
-    const systemPrompt = buildSystemPrompt(tabs);
+    let tabs = await refreshTabContext();
 
     const messages: ApiMessage[] = [
       { role: 'user', content: userPrompt },
@@ -195,8 +228,16 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
         break;
       }
 
+      tabs = await refreshTabContext();
       const vp = useStore.getState().viewportSize;
-      const tools = getToolDefinitions(vp.width, vp.height);
+      const activeTab = tabs.find((tab) => tab.active);
+      const activeUrl = activeTab?.url || '';
+      const actionMacros = useStore.getState().actionMacros;
+      const tools = getToolDefinitions(vp.width, vp.height, actionMacros, activeUrl);
+      const systemPrompt = buildSystemPrompt(
+        tabs,
+        buildActionLibraryPrompt(actionMacros, activeUrl),
+      );
 
       const assistantMsgId = `asst_${Date.now()}_${loopCount}`;
       h.addMessage({
@@ -213,7 +254,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
         response = await callWithRetry(
           () =>
             (client.beta.messages.create as Function)({
-              model: MODEL,
+              model,
               max_tokens: MAX_TOKENS,
               system: systemPrompt,
               tools,
@@ -226,7 +267,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
             const secs = Math.round(waitMs / 1000);
             h.appendToLastAssistant({
               type: 'text',
-              text: `Rate limited — retrying in ${secs}s (attempt ${attempt}/5)...`,
+              text: `Rate limited - retrying in ${secs}s (attempt ${attempt}/5)...`,
             });
           },
         );
@@ -239,6 +280,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
       }
 
       const respObj = response as { content: unknown[]; stop_reason?: string };
+      emitModelUsage(options, extractModelUsage(response, model, 'agent_loop'));
       const respContent = respObj.content;
       messages.push({ role: 'assistant', content: respContent });
 
@@ -309,9 +351,11 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
           toolUse.name!,
           toolInput.action as string | undefined,
         );
+        const macro = findMacroByToolName(useStore.getState().actionMacros, toolUse.name!);
+        const resolvedPermType = macro ? getMacroPermissionType(macro) : permType;
         const allowed = await permissionManager.checkPermission(
           domain,
-          permType,
+          resolvedPermType,
           toolUse.name!,
           toolUse.id!,
         );
@@ -329,7 +373,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
           const toolStart = Date.now();
           try {
             result = await withTimeout(
-              executeTool(toolUse.name!, toolInput, apiKey, sid),
+              executeTool(toolUse.name!, toolInput, apiKey, sid, options?.onModelUsage),
               OTTOAUTH_TOOL_TIMEOUT_MS,
               () => new Error(`Tool timed out after ${Math.round(OTTOAUTH_TOOL_TIMEOUT_MS / 1000)}s`),
             );

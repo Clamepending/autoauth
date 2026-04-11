@@ -8,10 +8,13 @@ import { normalizeMockDeviceId } from "@/lib/computeruse-mock";
 import {
   getComputerUseDeviceById,
   getComputerUseTaskById,
+  touchComputerUseDeviceSeen,
   updateComputerUseTaskResult,
   verifyComputerUseDeviceToken,
 } from "@/lib/computeruse-store";
 import { handleAmazonTaskCompletion } from "@/lib/amazon-fulfillment";
+import { completeGenericBrowserTaskFromExtension } from "@/lib/generic-browser-tasks";
+import type { ModelUsageRecord } from "@/lib/model-pricing";
 
 type Context = {
   params: {
@@ -68,6 +71,7 @@ export async function POST(request: Request, context: Context) {
   if (task.deviceId !== "*" && task.deviceId !== deviceId) {
     return NextResponse.json({ error: "Task does not belong to this device." }, { status: 403, headers: corsHeaders() });
   }
+  await touchComputerUseDeviceSeen(deviceId).catch(() => null);
 
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const status = typeof payload?.status === "string" && payload.status.trim().toLowerCase() === "failed"
@@ -82,6 +86,26 @@ export async function POST(request: Request, context: Context) {
   const result = payload?.result && typeof payload.result === "object"
     ? (payload.result as Record<string, unknown>)
     : (summary ? { summary } : null);
+  const usages = Array.isArray(payload?.usages)
+    ? (payload?.usages as Array<Record<string, unknown>>)
+        .map((usage) => ({
+          model: typeof usage.model === "string" ? usage.model : "",
+          input_tokens:
+            typeof usage.input_tokens === "number"
+              ? usage.input_tokens
+              : typeof usage.inputTokens === "number"
+                ? usage.inputTokens
+                : 0,
+          output_tokens:
+            typeof usage.output_tokens === "number"
+              ? usage.output_tokens
+              : typeof usage.outputTokens === "number"
+                ? usage.outputTokens
+                : 0,
+          source: typeof usage.source === "string" ? usage.source : null,
+        }))
+        .filter((usage) => usage.model) as ModelUsageRecord[]
+    : [];
 
   await updateComputerUseTaskResult({
     taskId: task.id,
@@ -139,14 +163,28 @@ export async function POST(request: Request, context: Context) {
     });
   }
 
-  handleAmazonTaskCompletion({
-    taskId: task.id,
-    status,
-    result,
-    error,
-  }).catch((e) => {
+  try {
+    await handleAmazonTaskCompletion({
+      taskId: task.id,
+      status,
+      result,
+      error,
+    });
+  } catch (e) {
     console.error("[local-agent-complete] Amazon fulfillment hook error:", e);
-  });
+  }
+
+  try {
+    await completeGenericBrowserTaskFromExtension({
+      computeruseTaskId: task.id,
+      status,
+      result,
+      error,
+      usages,
+    });
+  } catch (e) {
+    console.error("[local-agent-complete] Generic browser task billing hook error:", e);
+  }
 
   return NextResponse.json(
     {

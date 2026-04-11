@@ -25,11 +25,39 @@ export interface TraceRecorder {
     messages: DisplayMessage[];
   }) => Promise<{ ok: boolean; error?: string; directoryName?: string }>;
   persist: (args: {
-    status: 'completed' | 'failed';
+    status: 'completed' | 'failed' | 'stopped';
     result: Record<string, unknown> | null;
     error: string | null;
     messages: DisplayMessage[];
   }) => Promise<{ ok: boolean; error?: string; directoryName?: string }>;
+}
+
+type WritableDirectoryHandle = FileSystemDirectoryHandle & {
+  queryPermission?: (descriptor: { mode: 'readwrite' }) => Promise<PermissionState>;
+  requestPermission?: (descriptor: { mode: 'readwrite' }) => Promise<PermissionState>;
+};
+
+function isHeadlessTraceContext(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /\/(headless|offscreen)\.html$/.test(window.location.pathname)
+    || window.location.pathname.endsWith('headless.html')
+    || window.location.pathname.endsWith('offscreen.html');
+}
+
+async function getHeadlessFallbackDirectory(): Promise<FileSystemDirectoryHandle | null> {
+  if (!isHeadlessTraceContext()) return null;
+  const storage = navigator.storage as StorageManager & {
+    getDirectory?: () => Promise<FileSystemDirectoryHandle>;
+  };
+  if (typeof storage.getDirectory !== 'function') {
+    return null;
+  }
+  try {
+    const root = await storage.getDirectory();
+    return await root.getDirectoryHandle('ottoauth-headless-traces', { create: true });
+  } catch {
+    return null;
+  }
 }
 
 function idbRequest<T>(request: IDBRequest<T>): Promise<T> {
@@ -108,14 +136,37 @@ async function ensureDirectoryWritable(
   handle: FileSystemDirectoryHandle,
   requestPermission = false,
 ): Promise<boolean> {
-  const query = await handle.queryPermission({ mode: 'readwrite' });
+  const permissionHandle = handle as WritableDirectoryHandle;
+  const canWriteByProbe = async () => {
+    try {
+      const probeHandle = await handle.getFileHandle('.ottoauth-write-probe', { create: true });
+      const writable = await probeHandle.createWritable();
+      try {
+        await writable.write('');
+      } finally {
+        await writable.close();
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const query = permissionHandle.queryPermission
+    ? await permissionHandle.queryPermission({ mode: 'readwrite' })
+    : 'granted';
   if (query === 'granted') {
     return true;
   }
   if (!requestPermission) {
-    return false;
+    return canWriteByProbe();
   }
-  return (await handle.requestPermission({ mode: 'readwrite' })) === 'granted';
+  if (!permissionHandle.requestPermission) {
+    return canWriteByProbe();
+  }
+  if ((await permissionHandle.requestPermission({ mode: 'readwrite' })) === 'granted') {
+    return true;
+  }
+  return canWriteByProbe();
 }
 
 function sanitizeFileName(value: string): string {
@@ -244,7 +295,7 @@ function buildTracePayload(args: {
   };
   startedAt: Date;
   completedAt: string | null;
-  status: 'running' | 'completed' | 'failed';
+  status: 'running' | 'completed' | 'failed' | 'stopped';
   result: Record<string, unknown> | null;
   error: string | null;
   baseDirName: string;
@@ -252,10 +303,13 @@ function buildTracePayload(args: {
   messages: DisplayMessage[];
 }) {
   const { context, startedAt, completedAt, status, result, error, baseDirName, events, messages } = args;
+  const completedTime = completedAt ? new Date(completedAt).getTime() : Date.now();
+  const executionDurationMs = Math.max(0, completedTime - startedAt.getTime());
   return {
     schemaVersion: TRACE_SCHEMA_VERSION,
     startedAt: startedAt.toISOString(),
     completedAt,
+    executionDurationMs,
     status,
     result,
     error,
@@ -345,11 +399,14 @@ export async function chooseTraceRecordingDirectory(): Promise<{
   folderName?: string;
   error?: string;
 }> {
-  if (!('showDirectoryPicker' in window)) {
+  const pickerWindow = window as Window & {
+    showDirectoryPicker?: (options?: { mode?: 'readwrite' | 'read' }) => Promise<FileSystemDirectoryHandle>;
+  };
+  if (typeof pickerWindow.showDirectoryPicker !== 'function') {
     return { ok: false, error: 'Directory selection is not supported in this browser context.' };
   }
   try {
-    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    const handle = await pickerWindow.showDirectoryPicker({ mode: 'readwrite' });
     const granted = await ensureDirectoryWritable(handle, true);
     if (!granted) {
       return { ok: false, error: 'Write permission was not granted for the selected folder.' };
@@ -403,6 +460,10 @@ export async function ensureTraceRecordingReady(
   useStore.getState().setOttoAuthTraceRecordingFolderName(folderName);
   useStore.getState().setOttoAuthTraceRecordingEnabled(true);
   if (!writable) {
+    const fallbackDirectory = await getHeadlessFallbackDirectory();
+    if (fallbackDirectory) {
+      return { ok: true, required: true, folderName };
+    }
     return {
       ok: false,
       required: true,
@@ -417,6 +478,33 @@ export async function ensureTraceRecordingReady(
     [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME]: folderName,
   });
   return { ok: true, required: true, folderName };
+}
+
+export function formatTraceRecordingFailureMessage(error?: string | null): string {
+  const detail = String(error || 'write permission is required for the selected folder.').trim();
+  return `Trace recording not ready: ${detail} Open OttoAuth settings and re-select the recording folder to restore write access.`;
+}
+
+export async function disableTraceRecording(folderName?: string | null): Promise<void> {
+  const normalizedFolderName = normalizeFolderName(folderName);
+  await new Promise<void>((resolve) => {
+    chrome.storage.local.set(
+      {
+        [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: false,
+        [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_PAUSED]: true,
+        ...(normalizedFolderName
+          ? {
+              [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_FOLDER_NAME]: normalizedFolderName,
+            }
+          : {}),
+      },
+      () => resolve(),
+    );
+  });
+  useStore.getState().setOttoAuthTraceRecordingEnabled(false);
+  if (typeof folderName !== 'undefined') {
+    useStore.getState().setOttoAuthTraceRecordingFolderName(normalizedFolderName);
+  }
 }
 
 export async function createTraceRecorder(context: {
@@ -446,20 +534,22 @@ export async function createTraceRecorder(context: {
   }
 
   if (!directoryHandle) {
-    chrome.storage.local.set({
-      [STORAGE_KEY_OTTOAUTH_TRACE_RECORDING_ENABLED]: false,
-    });
-    useStore.getState().setOttoAuthTraceRecordingEnabled(false);
+    await disableTraceRecording(persistedFolderName);
     return null;
   }
   const writable = await ensureDirectoryWritable(directoryHandle, false);
+  let activeDirectoryHandle: FileSystemDirectoryHandle | null = directoryHandle;
   if (!writable) {
-    console.warn('[TraceRecorder] Recording enabled, but the selected folder is not writable.');
-    useStore.getState().setOttoAuthTraceRecordingEnabled(false);
-    useStore.getState().setOttoAuthTraceRecordingFolderName(
-      persistedFolderName || normalizeFolderName(directoryHandle.name),
-    );
-    return null;
+    const fallbackDirectory = await getHeadlessFallbackDirectory();
+    if (fallbackDirectory) {
+      activeDirectoryHandle = fallbackDirectory;
+    } else {
+      console.warn('[TraceRecorder] Recording enabled, but the selected folder is not writable.');
+      await disableTraceRecording(
+        persistedFolderName || normalizeFolderName(directoryHandle.name),
+      );
+      return null;
+    }
   }
 
   useStore.getState().setOttoAuthTraceRecordingEnabled(true);
@@ -481,7 +571,7 @@ export async function createTraceRecorder(context: {
   let lastPersistedMessageCount = 0;
 
   const persistSnapshot = async (args: {
-    status: 'running' | 'completed' | 'failed';
+    status: 'running' | 'completed' | 'failed' | 'stopped';
     result: Record<string, unknown> | null;
     error: string | null;
     messages: DisplayMessage[];
@@ -497,7 +587,7 @@ export async function createTraceRecorder(context: {
     }
 
     try {
-      const runDir = await ensureRunDirectory(directoryHandle, startedAt, site, baseDirName);
+      const runDir = await ensureRunDirectory(activeDirectoryHandle, startedAt, site, baseDirName);
       const recordedAt = new Date().toISOString();
       await writeJsonFile(runDir, 'task.json', buildTaskPayload(context, recordedAt));
       await writeJsonFile(
