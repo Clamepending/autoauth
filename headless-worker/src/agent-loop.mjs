@@ -106,6 +106,10 @@ export async function runAgentLoop({
   onModelUsage,
 }) {
   const client = new Anthropic({ apiKey });
+  const selectedModel =
+    typeof model === 'string' && model.trim()
+      ? model.trim()
+      : DEFAULT_MODEL;
   const messages = [
     { role: 'user', content: prompt },
   ];
@@ -119,7 +123,7 @@ export async function runAgentLoop({
     onEvent?.('loop_started', { loop: loop + 1, tabCount: tabs.length });
 
     const response = await client.beta.messages.create({
-      model,
+      model: selectedModel,
       max_tokens: MAX_TOKENS,
       system: buildSystemPrompt(tabs),
       tools: runtime.getToolDefinitions(),
@@ -129,7 +133,7 @@ export async function runAgentLoop({
 
     if ((response.usage?.input_tokens || 0) > 0 || (response.usage?.output_tokens || 0) > 0) {
       const usage = {
-        model,
+        model: selectedModel,
         input_tokens: response.usage?.input_tokens || 0,
         output_tokens: response.usage?.output_tokens || 0,
         source: 'main_loop',
