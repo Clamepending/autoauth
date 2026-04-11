@@ -578,18 +578,27 @@ export class BrowserRuntime {
   async #executeReadPage(input) {
     const page = await this.#getPageForInput(input);
     const tree = await page.evaluate(
-      generateAccessibilityTree,
-      input.filter === 'all' ? 'all' : 'interactive',
-      Number(input.depth) || 12,
-      Number(input.max_chars) || 15000,
-      input.ref_id ? String(input.ref_id) : null,
+      ({ filter, depth, maxChars, refId }) =>
+        generateAccessibilityTree(filter, depth, maxChars, refId),
+      {
+        filter: input.filter === 'all' ? 'all' : 'interactive',
+        depth: Number(input.depth) || 12,
+        maxChars: Number(input.max_chars) || 15000,
+        refId: input.ref_id ? String(input.ref_id) : null,
+      },
     );
     return textResult(tree || '(no accessibility tree data)');
   }
 
   async #executeFormInput(input) {
     const page = await this.#getPageForInput(input);
-    const result = await page.evaluate(setFormValue, String(input.ref || ''), input.value);
+    const result = await page.evaluate(
+      ({ refId, value }) => setFormValue(refId, value),
+      {
+        refId: String(input.ref || ''),
+        value: input.value,
+      },
+    );
     return textResult(result || 'form_input executed');
   }
 
@@ -600,7 +609,16 @@ export class BrowserRuntime {
     const page = await this.#getPageForInput(input);
     const query = String(input.query || '').trim();
     if (!query) return textResult('Error: query is required.');
-    const tree = await page.evaluate(generateAccessibilityTree, 'all', 15, 50000, null);
+    const tree = await page.evaluate(
+      ({ filter, depth, maxChars, refId }) =>
+        generateAccessibilityTree(filter, depth, maxChars, refId),
+      {
+        filter: 'all',
+        depth: 15,
+        maxChars: 50000,
+        refId: null,
+      },
+    );
     if (!tree) return textResult('Could not read page for find.');
 
     const response = await context.anthropicClient.messages.create({
