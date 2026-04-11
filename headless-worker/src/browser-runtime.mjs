@@ -1,0 +1,672 @@
+import fs from 'node:fs/promises';
+import { chromium } from 'playwright-core';
+import { extractPageText, generateAccessibilityTree, setFormValue } from './dom-helpers.mjs';
+
+const DEFAULT_VIEWPORT = { width: 1280, height: 800 };
+const COMMON_BROWSER_PATHS = [
+  process.env.OTTOAUTH_BROWSER_PATH,
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/snap/bin/chromium',
+].filter(Boolean);
+
+const KEY_ALIASES = {
+  return: 'Enter',
+  enter: 'Enter',
+  tab: 'Tab',
+  escape: 'Escape',
+  esc: 'Escape',
+  backspace: 'Backspace',
+  delete: 'Delete',
+  space: 'Space',
+  arrowup: 'ArrowUp',
+  arrowdown: 'ArrowDown',
+  arrowleft: 'ArrowLeft',
+  arrowright: 'ArrowRight',
+  home: 'Home',
+  end: 'End',
+  pageup: 'PageUp',
+  pagedown: 'PageDown',
+  command: 'Meta',
+  cmd: 'Meta',
+  meta: 'Meta',
+  control: 'Control',
+  ctrl: 'Control',
+  alt: 'Alt',
+  option: 'Alt',
+  shift: 'Shift',
+};
+
+function textResult(text) {
+  return [{ type: 'text', text }];
+}
+
+function imageResult(base64) {
+  return [{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: base64 } }];
+}
+
+function stringifyError(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function fileExists(targetPath) {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function resolveBrowserExecutable(preferredPath = null) {
+  const candidates = [preferredPath, ...COMMON_BROWSER_PATHS].filter(Boolean);
+  for (const candidate of candidates) {
+    if (await fileExists(candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    'Could not find a Chrome/Chromium executable. Set OTTOAUTH_BROWSER_PATH or pass --browser-path.',
+  );
+}
+
+export class BrowserRuntime {
+  constructor(options = {}) {
+    this.profileDir = options.profileDir;
+    this.browserPath = options.browserPath || null;
+    this.headless = options.headless !== false;
+    this.keepTabs = Boolean(options.keepTabs);
+    this.viewport = options.viewport || DEFAULT_VIEWPORT;
+    this.context = null;
+    this.browserExecutablePath = null;
+    this.pageIds = new WeakMap();
+    this.pagesById = new Map();
+    this.nextPageId = 1;
+    this.activePageId = null;
+    this.currentTracePath = null;
+  }
+
+  async start() {
+    this.browserExecutablePath = await resolveBrowserExecutable(this.browserPath);
+    this.context = await chromium.launchPersistentContext(this.profileDir, {
+      executablePath: this.browserExecutablePath,
+      headless: this.headless,
+      viewport: this.viewport,
+      ignoreHTTPSErrors: true,
+      chromiumSandbox: false,
+    });
+    this.context.setDefaultNavigationTimeout(45000);
+    this.context.setDefaultTimeout(45000);
+
+    for (const page of this.context.pages()) {
+      this.#registerPage(page);
+    }
+    this.context.on('page', (page) => this.#registerPage(page));
+
+    if (this.context.pages().length === 0) {
+      await this.createTab();
+    } else if (this.activePageId == null) {
+      this.activePageId = this.#getPageId(this.context.pages()[0]);
+    }
+  }
+
+  async stop() {
+    if (!this.context) return;
+    try {
+      if (this.currentTracePath) {
+        await this.stopTaskTrace().catch(() => {});
+      }
+      await this.context.close();
+    } finally {
+      this.context = null;
+      this.currentTracePath = null;
+    }
+  }
+
+  async prepareTaskWorkspace() {
+    if (!this.context) {
+      throw new Error('Browser runtime is not started.');
+    }
+    if (!this.keepTabs) {
+      const existingPages = [...this.context.pages()];
+      await Promise.all(
+        existingPages.map((page) =>
+          page.close().catch(() => {}),
+        ),
+      );
+      this.pagesById.clear();
+      this.pageIds = new WeakMap();
+      this.activePageId = null;
+      this.nextPageId = 1;
+    }
+    const tab = await this.createTab();
+    try {
+      await tab.page.goto('about:blank', { waitUntil: 'domcontentloaded' });
+    } catch {
+      // about:blank is best-effort only
+    }
+    return tab;
+  }
+
+  async startTaskTrace(tracePath) {
+    if (!this.context) return;
+    this.currentTracePath = tracePath;
+    await this.context.tracing.start({
+      screenshots: true,
+      snapshots: true,
+      sources: false,
+    });
+  }
+
+  async stopTaskTrace() {
+    if (!this.context || !this.currentTracePath) return;
+    const tracePath = this.currentTracePath;
+    this.currentTracePath = null;
+    await this.context.tracing.stop({ path: tracePath });
+  }
+
+  async createTab() {
+    if (!this.context) throw new Error('Browser runtime is not started.');
+    const page = await this.context.newPage();
+    const id = this.#registerPage(page);
+    this.activePageId = id;
+    return { id, page };
+  }
+
+  async tabsContext() {
+    if (!this.context) throw new Error('Browser runtime is not started.');
+    const pages = this.context.pages();
+    if (pages.length === 0) {
+      await this.createTab();
+    }
+    const records = [];
+    for (const page of this.context.pages()) {
+      const id = this.#registerPage(page);
+      records.push({
+        id,
+        title: await page.title().catch(() => ''),
+        url: page.url() || 'about:blank',
+        active: id === this.activePageId,
+        groupId: -1,
+      });
+    }
+    records.sort((a, b) => a.id - b.id);
+    return records;
+  }
+
+  getViewport() {
+    return this.viewport;
+  }
+
+  async snapshotForOttoAuth() {
+    const page = await this.getActivePage();
+    const tabs = await this.tabsContext();
+    const shot = await this.takeScreenshot(page);
+    return {
+      image_base64: shot.base64,
+      width: shot.width,
+      height: shot.height,
+      tabs: tabs.map((tab) => ({
+        id: tab.id,
+        title: tab.title,
+        url: tab.url,
+        active: tab.active,
+      })),
+    };
+  }
+
+  getToolDefinitions() {
+    return [
+      {
+        name: 'computer',
+        type: 'computer_20250124',
+        display_width_px: this.viewport.width,
+        display_height_px: this.viewport.height,
+        display_number: 1,
+      },
+      {
+        name: 'navigate',
+        description: 'Navigate to a URL, or go back/forward in browser history.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            tabId: { type: 'number' },
+          },
+          required: ['url'],
+        },
+      },
+      {
+        name: 'read_page',
+        description: 'Read an accessibility-style tree of elements and refs on the page.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            filter: { type: 'string', enum: ['interactive', 'all'] },
+            tabId: { type: 'number' },
+            depth: { type: 'number' },
+            ref_id: { type: 'string' },
+            max_chars: { type: 'number' },
+          },
+          required: [],
+        },
+      },
+      {
+        name: 'form_input',
+        description: 'Set the value of a form field by reference id.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            ref: { type: 'string' },
+            value: {},
+            tabId: { type: 'number' },
+          },
+          required: ['ref', 'value'],
+        },
+      },
+      {
+        name: 'find',
+        description: 'Search the page tree in natural language and return matching refs.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+            tabId: { type: 'number' },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'get_page_text',
+        description: 'Extract the main text content from the current page.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            tabId: { type: 'number' },
+            max_chars: { type: 'number' },
+          },
+          required: [],
+        },
+      },
+      {
+        name: 'javascript_tool',
+        description: 'Execute JavaScript in the current page context.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            action: { type: 'string' },
+            text: { type: 'string' },
+            tabId: { type: 'number' },
+          },
+          required: ['text'],
+        },
+      },
+      {
+        name: 'tabs_context',
+        description: 'List all current tabs with ids and active state.',
+        input_schema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
+      },
+      {
+        name: 'tabs_create',
+        description: 'Create a new blank tab.',
+        input_schema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
+      },
+      {
+        name: 'resize_window',
+        description: 'Resize the browser viewport for the current task.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            width: { type: 'number' },
+            height: { type: 'number' },
+            tabId: { type: 'number' },
+          },
+          required: ['width', 'height'],
+        },
+      },
+    ];
+  }
+
+  async executeTool(name, input, context = {}) {
+    switch (name) {
+      case 'computer':
+        return this.#executeComputer(input);
+      case 'navigate':
+        return this.#executeNavigate(input);
+      case 'read_page':
+        return this.#executeReadPage(input);
+      case 'form_input':
+        return this.#executeFormInput(input);
+      case 'find':
+        return this.#executeFind(input, context);
+      case 'get_page_text':
+        return this.#executeGetPageText(input);
+      case 'javascript_tool':
+        return this.#executeJavascript(input);
+      case 'tabs_context':
+        return this.#executeTabsContext();
+      case 'tabs_create':
+        return this.#executeTabsCreate();
+      case 'resize_window':
+        return this.#executeResizeWindow(input);
+      default:
+        return textResult(`Unknown tool: ${name}`);
+    }
+  }
+
+  async getActivePage() {
+    const page = this.activePageId != null ? this.pagesById.get(this.activePageId) : null;
+    if (page && !page.isClosed()) return page;
+    const pages = this.context?.pages() || [];
+    if (pages.length > 0) {
+      const next = pages[0];
+      this.activePageId = this.#registerPage(next);
+      return next;
+    }
+    const created = await this.createTab();
+    return created.page;
+  }
+
+  async takeScreenshot(page, clip = null) {
+    const buffer = await page.screenshot({
+      type: 'png',
+      scale: 'css',
+      ...(clip ? { clip } : {}),
+    });
+    const viewport = page.viewportSize() || this.viewport;
+    return {
+      base64: buffer.toString('base64'),
+      width: clip ? Math.round(clip.width) : viewport.width,
+      height: clip ? Math.round(clip.height) : viewport.height,
+    };
+  }
+
+  #registerPage(page) {
+    const existingId = this.pageIds.get(page);
+    if (existingId) {
+      if (!this.pagesById.has(existingId)) {
+        this.pagesById.set(existingId, page);
+      }
+      return existingId;
+    }
+
+    const id = this.nextPageId;
+    this.nextPageId += 1;
+    this.pageIds.set(page, id);
+    this.pagesById.set(id, page);
+    if (this.activePageId == null) {
+      this.activePageId = id;
+    }
+    page.on('close', () => {
+      this.pagesById.delete(id);
+      if (this.activePageId === id) {
+        const nextPage = this.context?.pages().find((candidate) => !candidate.isClosed()) || null;
+        this.activePageId = nextPage ? this.#getPageId(nextPage) : null;
+      }
+    });
+    page.on('dialog', (dialog) => dialog.dismiss().catch(() => {}));
+    return id;
+  }
+
+  #getPageId(page) {
+    return this.pageIds.get(page) || this.#registerPage(page);
+  }
+
+  async #getPageForInput(input = {}) {
+    const explicitTabId = Number(input.tabId);
+    if (Number.isFinite(explicitTabId) && this.pagesById.has(explicitTabId)) {
+      this.activePageId = explicitTabId;
+      return this.pagesById.get(explicitTabId);
+    }
+    return this.getActivePage();
+  }
+
+  async #resolveRefToCoordinate(page, refId) {
+    return page.evaluate((ref) => {
+      const el = window.__claudeElementMap?.[ref]?.deref?.();
+      if (!el) return null;
+      el.scrollIntoView({ behavior: 'instant', block: 'center' });
+      const rect = el.getBoundingClientRect();
+      return [
+        Math.round(rect.x + rect.width / 2),
+        Math.round(rect.y + rect.height / 2),
+      ];
+    }, refId);
+  }
+
+  async #executeComputer(input) {
+    const page = await this.#getPageForInput(input);
+    const action = String(input.action || '');
+    switch (action) {
+      case 'screenshot': {
+        const shot = await this.takeScreenshot(page);
+        return imageResult(shot.base64);
+      }
+      case 'left_click':
+      case 'right_click':
+      case 'double_click':
+      case 'triple_click': {
+        let coords = Array.isArray(input.coordinate) ? input.coordinate : null;
+        if (!coords && input.ref) {
+          coords = await this.#resolveRefToCoordinate(page, input.ref);
+        }
+        if (!coords) return textResult('Error: No coordinate or ref provided for click.');
+        const [x, y] = coords.map((value) => Math.round(Number(value)));
+        const button = action === 'right_click' ? 'right' : 'left';
+        const clickCount =
+          action === 'double_click' ? 2 : action === 'triple_click' ? 3 : 1;
+        await page.mouse.click(x, y, { button, clickCount });
+        await page.waitForTimeout(300);
+        const shot = await this.takeScreenshot(page);
+        return imageResult(shot.base64);
+      }
+      case 'hover': {
+        let coords = Array.isArray(input.coordinate) ? input.coordinate : null;
+        if (!coords && input.ref) {
+          coords = await this.#resolveRefToCoordinate(page, input.ref);
+        }
+        if (!coords) return textResult('Error: No coordinate or ref provided for hover.');
+        const [x, y] = coords.map((value) => Math.round(Number(value)));
+        await page.mouse.move(x, y);
+        await page.waitForTimeout(200);
+        const shot = await this.takeScreenshot(page);
+        return imageResult(shot.base64);
+      }
+      case 'type': {
+        await page.keyboard.type(String(input.text || ''));
+        return textResult(`Typed ${String(input.text || '').length} characters.`);
+      }
+      case 'key': {
+        const repeat = Math.max(1, Math.min(20, Number(input.repeat) || 1));
+        const normalized = String(input.text || '')
+          .split('+')
+          .map((part) => KEY_ALIASES[part.trim().toLowerCase()] || part.trim())
+          .filter(Boolean)
+          .join('+');
+        if (!normalized) return textResult('Error: key text is required.');
+        for (let index = 0; index < repeat; index += 1) {
+          await page.keyboard.press(normalized);
+        }
+        return textResult(`Pressed ${normalized}${repeat > 1 ? ` x${repeat}` : ''}.`);
+      }
+      case 'scroll': {
+        const direction = String(input.scroll_direction || 'down').toLowerCase();
+        const amount = Math.max(120, Math.min(5000, Number(input.scroll_amount) || 800));
+        const deltaY = direction === 'up' ? -amount : amount;
+        await page.mouse.wheel(0, deltaY);
+        await page.waitForTimeout(250);
+        const shot = await this.takeScreenshot(page);
+        return imageResult(shot.base64);
+      }
+      case 'scroll_to': {
+        if (!input.ref) return textResult('Error: ref is required for scroll_to.');
+        const ok = await page.evaluate((ref) => {
+          const el = window.__claudeElementMap?.[ref]?.deref?.();
+          if (!el) return false;
+          el.scrollIntoView({ behavior: 'instant', block: 'center' });
+          return true;
+        }, String(input.ref));
+        if (!ok) return textResult(`Error: ref ${input.ref} not found.`);
+        const shot = await this.takeScreenshot(page);
+        return imageResult(shot.base64);
+      }
+      case 'wait': {
+        const seconds = Math.max(1, Math.min(30, Number(input.duration) || 2));
+        await page.waitForTimeout(seconds * 1000);
+        const shot = await this.takeScreenshot(page);
+        return imageResult(shot.base64);
+      }
+      case 'left_click_drag': {
+        const start = Array.isArray(input.start_coordinate) ? input.start_coordinate : null;
+        const end = Array.isArray(input.coordinate) ? input.coordinate : null;
+        if (!start || !end) return textResult('Error: start_coordinate and coordinate are required for drag.');
+        await page.mouse.move(Math.round(start[0]), Math.round(start[1]));
+        await page.mouse.down();
+        await page.mouse.move(Math.round(end[0]), Math.round(end[1]), { steps: 15 });
+        await page.mouse.up();
+        await page.waitForTimeout(300);
+        const shot = await this.takeScreenshot(page);
+        return imageResult(shot.base64);
+      }
+      case 'zoom': {
+        const region = Array.isArray(input.region) ? input.region : null;
+        if (!region || region.length < 4) {
+          return textResult('Error: region [x, y, width, height] is required for zoom.');
+        }
+        const clip = {
+          x: Math.max(0, Math.round(Number(region[0]) || 0)),
+          y: Math.max(0, Math.round(Number(region[1]) || 0)),
+          width: Math.max(1, Math.round(Number(region[2]) || 1)),
+          height: Math.max(1, Math.round(Number(region[3]) || 1)),
+        };
+        const shot = await this.takeScreenshot(page, clip);
+        return imageResult(shot.base64);
+      }
+      default:
+        return textResult(`Unknown computer action: ${action}`);
+    }
+  }
+
+  async #executeNavigate(input) {
+    const page = await this.#getPageForInput(input);
+    const url = String(input.url || '').trim();
+    if (!url) return textResult('Navigation failed: url is required.');
+    if (url === 'back') {
+      await page.goBack({ waitUntil: 'domcontentloaded' }).catch(() => null);
+    } else if (url === 'forward') {
+      await page.goForward({ waitUntil: 'domcontentloaded' }).catch(() => null);
+    } else {
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+    }
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+    const shot = await this.takeScreenshot(page);
+    return imageResult(shot.base64);
+  }
+
+  async #executeReadPage(input) {
+    const page = await this.#getPageForInput(input);
+    const tree = await page.evaluate(
+      generateAccessibilityTree,
+      input.filter === 'all' ? 'all' : 'interactive',
+      Number(input.depth) || 12,
+      Number(input.max_chars) || 15000,
+      input.ref_id ? String(input.ref_id) : null,
+    );
+    return textResult(tree || '(no accessibility tree data)');
+  }
+
+  async #executeFormInput(input) {
+    const page = await this.#getPageForInput(input);
+    const result = await page.evaluate(setFormValue, String(input.ref || ''), input.value);
+    return textResult(result || 'form_input executed');
+  }
+
+  async #executeFind(input, context) {
+    if (!context.anthropicClient) {
+      return textResult('Error: find is unavailable because no Anthropic client is configured.');
+    }
+    const page = await this.#getPageForInput(input);
+    const query = String(input.query || '').trim();
+    if (!query) return textResult('Error: query is required.');
+    const tree = await page.evaluate(generateAccessibilityTree, 'all', 15, 50000, null);
+    if (!tree) return textResult('Could not read page for find.');
+
+    const response = await context.anthropicClient.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      messages: [
+        {
+          role: 'user',
+          content: `You are helping find elements on a web page. Given this accessibility tree and a search query, return the matching elements.\n\nAccessibility tree:\n${tree}\n\nSearch query: "${query}"\n\nReturn your results in this exact format:\nFOUND: <number of matches>\nThen for each match, one per line:\n<ref_id> | <role> | <name> | <reason for match>\n\nReturn at most 20 matches. If no matches found, return:\nFOUND: 0`,
+        },
+      ],
+    });
+    if (((response.usage?.input_tokens || 0) > 0 || (response.usage?.output_tokens || 0) > 0) && typeof context.onModelUsage === 'function') {
+      context.onModelUsage({
+        model: 'claude-haiku-4-5-20251001',
+        input_tokens: response.usage?.input_tokens || 0,
+        output_tokens: response.usage?.output_tokens || 0,
+        source: 'tool_find',
+      });
+    }
+    const text = response.content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text || '')
+      .join('\n');
+    return textResult(text || 'FOUND: 0');
+  }
+
+  async #executeGetPageText(input) {
+    const page = await this.#getPageForInput(input);
+    const text = await page.evaluate(extractPageText, Number(input.max_chars) || 10000);
+    return textResult(text || '(no page text)');
+  }
+
+  async #executeJavascript(input) {
+    const page = await this.#getPageForInput(input);
+    const result = await page.evaluate((code) => {
+      try {
+        const value = eval(code);
+        if (typeof value === 'undefined') return 'undefined';
+        if (typeof value === 'string') return value;
+        return JSON.stringify(value);
+      } catch (error) {
+        return `Error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }, String(input.text || ''));
+    return textResult(String(result || 'undefined'));
+  }
+
+  async #executeTabsContext() {
+    const tabs = await this.tabsContext();
+    const lines = tabs.map((tab) => `Tab ${tab.id}: "${tab.title}" (${tab.url})${tab.active ? ' [ACTIVE]' : ''}`);
+    return textResult(lines.join('\n') || 'No tabs found.');
+  }
+
+  async #executeTabsCreate() {
+    const tab = await this.createTab();
+    return textResult(`Created new tab with ID ${tab.id}.`);
+  }
+
+  async #executeResizeWindow(input) {
+    const width = Math.max(320, Math.min(2400, Number(input.width) || this.viewport.width));
+    const height = Math.max(240, Math.min(1600, Number(input.height) || this.viewport.height));
+    this.viewport = { width, height };
+    const page = await this.#getPageForInput(input);
+    await page.setViewportSize({ width, height });
+    const shot = await this.takeScreenshot(page);
+    return [{ type: 'text', text: `Viewport resized to ${width}x${height}.` }, ...imageResult(shot.base64)];
+  }
+}

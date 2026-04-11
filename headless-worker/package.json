@@ -1,0 +1,20 @@
+{
+  "name": "ottoauth-headless-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pair": "node ./src/cli.mjs pair",
+    "run": "node ./src/cli.mjs run",
+    "once": "node ./src/cli.mjs once",
+    "status": "node ./src/cli.mjs status",
+    "verify": "node ./scripts/verify.mjs",
+    "live-local-e2e": "node ./scripts/live-local-e2e.mjs",
+    "bootstrap": "./scripts/bootstrap.sh"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "dotenv": "^16.6.1",
+    "playwright-core": "^1.54.2"
+  }
+}
