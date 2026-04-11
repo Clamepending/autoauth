@@ -59,6 +59,11 @@ The human has already pre-funded credits. Do not ask for a new payment approval 
 Spend cap:
 - Never complete a purchase above ${spendCapUsd}.
 - If the total would exceed ${spendCapUsd}, stop before purchase and report a failure with the price you found.
+
+Order defaults:
+- Set tip to 0 unless the human explicitly asks for a different tip.
+- Do not add donations, round-ups, protection plans, or upsells unless the human explicitly asks for them.
+- If a site requires a non-zero tip or another extra charge and there is no zero/default-free option, choose the lowest available option and mention it clearly in the final summary.
 ${websiteSection}${shippingSection}
 
 Task to complete:

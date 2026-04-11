@@ -35,6 +35,12 @@ ${quickAccessPrompt}
 - Use the find tool to locate elements by natural language description when the accessibility tree is too large.
 - Use navigate for direct URL navigation rather than trying to click links.
 - If the task mentions a business from the quick-access table, go straight to the mapped URL instead of searching for it first.
+- On food-ordering item modals, choose the requested add-ons first. If the site requires extra options that the user did not specify, choose the default or most standard option and keep moving.
+- If an "Add to Order", "Add to Cart", or equivalent button is enabled and the visible configuration matches the request well enough, click it instead of stalling on repeated screenshots.
+- For pickup food orders, prefer the merchant's default pickup flow unless the task explicitly asks for delivery.
+- Set tip to 0 unless the user explicitly asks for a different tip.
+- Do not add donations, round-ups, protection plans, or upsells unless the user explicitly asks for them.
+- If a site forces a non-zero tip or extra charge with no zero/default-free option, choose the lowest available option and mention it clearly in the final summary.
 - After clicking or scrolling, a screenshot is taken automatically so you can see the result.
 - Use keyboard shortcuts when efficient (e.g., Cmd+A, Cmd+C on Mac; Ctrl+A, Ctrl+C on other platforms).
 - If a page hasn't loaded yet, use the computer tool with action "wait".
