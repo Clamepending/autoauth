@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { buildQuickAccessPrompt } from './quick-access-links.mjs';
 
 const MAX_TOKENS = Number(process.env.OTTOAUTH_MAX_TOKENS || 4096);
 const DEFAULT_MODEL = process.env.OTTOAUTH_MODEL?.trim() || 'claude-sonnet-4-5-20250929';
@@ -9,11 +10,14 @@ function buildSystemPrompt(tabs) {
   const tabLines = tabs.length > 0
     ? tabs.map((tab) => `- Tab ${tab.id}: "${tab.title}" (${tab.url})${tab.active ? ' [ACTIVE]' : ''}`).join('\n')
     : '- No tabs are open.';
+  const quickAccessPrompt = buildQuickAccessPrompt();
 
   return `You are OttoAuth's headless browser fulfillment agent running through Playwright on a claimed worker device.
 
 Current tabs:
 ${tabLines}
+
+${quickAccessPrompt}
 
 Guidelines:
 - Always start by taking a screenshot with the computer tool.
@@ -21,6 +25,7 @@ Guidelines:
 - Use read_page to get refs for interactive elements.
 - Prefer form_input over click+type for normal form fields when possible.
 - Use find when the page is large and you need a specific element quickly.
+- If the task mentions a business from the quick-access table, go directly to the mapped URL instead of searching from a generic homepage.
 - The ACTIVE tab is the one you should drive with the computer tool.
 - After scrolling or clicking, request another screenshot if you need confirmation.
 - Be decisive and keep going until the task is fully complete or clearly blocked.
