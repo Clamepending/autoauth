@@ -10,6 +10,7 @@ function printUsage() {
 
 Commands:
   pair    Pair or claim this device with OttoAuth
+  login   Open the dedicated worker browser profile for website sign-in
   run     Poll continuously and fulfill tasks
   once    Poll once and handle at most one task
   status  Print local worker status
@@ -20,12 +21,19 @@ Common flags:
   --label "Raspberry Pi Worker"
   --claim-code XXXX-XXXX-XXXX
   --browser-path /path/to/chrome
+  --site snackpass
+  --url https://order.snackpass.co/
   --headful
+  --headless
   --keep-tabs
   --model claude-sonnet-4-5-20250929
   --wait-ms 25000
 `);
 }
+
+const LOGIN_SITE_URLS = {
+  snackpass: 'https://order.snackpass.co/',
+};
 
 function requireApiKey() {
   const apiKey =
@@ -106,6 +114,84 @@ async function commandStatus() {
   }
 }
 
+function resolveLoginUrl(flags) {
+  const explicitUrl = typeof flags.url === 'string' ? flags.url.trim() : '';
+  if (explicitUrl) return explicitUrl;
+  const site = typeof flags.site === 'string' ? flags.site.trim().toLowerCase() : 'snackpass';
+  return LOGIN_SITE_URLS[site] || LOGIN_SITE_URLS.snackpass;
+}
+
+async function waitForLoginExit(runtime, autoCloseMs) {
+  const context = runtime.context;
+  if (!context) return;
+
+  await new Promise((resolve) => {
+    let settled = false;
+    let intervalId = null;
+    let timeoutId = null;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (intervalId) clearInterval(intervalId);
+      if (timeoutId) clearTimeout(timeoutId);
+      resolve();
+    };
+
+    context.once('close', finish);
+
+    intervalId = setInterval(() => {
+      try {
+        const openPages = context.pages().filter((page) => !page.isClosed());
+        if (openPages.length === 0) {
+          finish();
+        }
+      } catch {
+        finish();
+      }
+    }, 500);
+    intervalId.unref?.();
+
+    if (autoCloseMs > 0) {
+      timeoutId = setTimeout(finish, autoCloseMs);
+      timeoutId.unref?.();
+    }
+  });
+}
+
+async function commandLogin(flags) {
+  const config = await loadWorkerConfig();
+  const browserPath = String(flags['browser-path'] || config.browserPath || '').trim() || null;
+  const headless = boolFromFlag(flags.headless, false);
+  const keepTabs = boolFromFlag(flags['keep-tabs'], true);
+  const url = resolveLoginUrl(flags);
+  const autoCloseMs = intFromFlag(flags['auto-close-ms'], 0);
+
+  const runtime = new (await import('./browser-runtime.mjs')).BrowserRuntime({
+    profileDir: getProfileDir(),
+    browserPath,
+    headless,
+    keepTabs,
+  });
+
+  console.log(`[ottoauth-headless] Opening worker browser profile at ${url}`);
+  if (!headless) {
+    console.log('[ottoauth-headless] Close the browser window when you are done signing in.');
+  }
+
+  try {
+    await runtime.start();
+    const page = await runtime.getActivePage();
+    await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(async () => {
+      await page.goto(url).catch(() => {});
+    });
+    await page.bringToFront?.().catch(() => {});
+    await waitForLoginExit(runtime, autoCloseMs);
+  } finally {
+    await runtime.stop().catch(() => {});
+  }
+}
+
 async function commandRun(flags, once) {
   const config = await loadWorkerConfig();
   validatePairedConfig(config);
@@ -149,6 +235,10 @@ async function main() {
   }
   if (command === 'status') {
     await commandStatus();
+    return;
+  }
+  if (command === 'login') {
+    await commandLogin(flags);
     return;
   }
   if (command === 'run') {

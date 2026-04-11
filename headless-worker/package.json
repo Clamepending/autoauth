@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "pair": "node ./src/cli.mjs pair",
+    "login": "node ./src/cli.mjs login",
     "run": "node ./src/cli.mjs run",
     "once": "node ./src/cli.mjs once",
     "status": "node ./src/cli.mjs status",

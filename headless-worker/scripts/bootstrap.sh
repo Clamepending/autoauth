@@ -22,6 +22,9 @@ Flags:
   --claim-code CODE         Device claim code from OttoAuth dashboard (required)
   --browser-path PATH       Chrome/Chromium path (optional, auto-detected if omitted)
   --model MODEL             Anthropic model override for the service env file
+  --login-site SITE         Site to open for manual sign-in before service start (default: snackpass)
+  --login-url URL           Exact URL to open for manual sign-in
+  --skip-login              Do not launch the visible sign-in browser step
   --headful                 Run the service visibly instead of headless
   --keep-tabs               Reuse old tabs between tasks
   --skip-service            Pair and install deps, but do not create/start systemd user service
@@ -64,6 +67,9 @@ DEVICE_LABEL=""
 CLAIM_CODE=""
 BROWSER_PATH_OVERRIDE=""
 MODEL_OVERRIDE=""
+LOGIN_SITE="snackpass"
+LOGIN_URL=""
+SKIP_LOGIN=0
 HEADFUL=0
 KEEP_TABS=0
 SKIP_SERVICE=0
@@ -83,6 +89,12 @@ while [[ $# -gt 0 ]]; do
       BROWSER_PATH_OVERRIDE="${2:-}"; shift 2 ;;
     --model)
       MODEL_OVERRIDE="${2:-}"; shift 2 ;;
+    --login-site)
+      LOGIN_SITE="${2:-}"; shift 2 ;;
+    --login-url)
+      LOGIN_URL="${2:-}"; shift 2 ;;
+    --skip-login)
+      SKIP_LOGIN=1; shift ;;
     --headful)
       HEADFUL=1; shift ;;
     --keep-tabs)
@@ -99,6 +111,13 @@ while [[ $# -gt 0 ]]; do
       exit 1 ;;
   esac
 done
+
+has_graphical_session() {
+  if [[ "${OSTYPE:-}" == darwin* ]]; then
+    return 0
+  fi
+  [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]
+}
 
 if [[ -z "${ANTHROPIC_API_KEY:-}" && -z "${CLAUDE_API_KEY:-}" ]]; then
   echo "Set ANTHROPIC_API_KEY before running bootstrap." >&2
@@ -135,6 +154,13 @@ SERVICE_PATH="$USER_SYSTEMD_DIR/$SERVICE_NAME"
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[dry-run] Would install npm dependencies in $ROOT_DIR"
   echo "[dry-run] Would pair device $DEVICE_ID ($DEVICE_LABEL) to $SERVER_URL"
+  if [[ "$SKIP_LOGIN" -eq 0 ]]; then
+    if [[ -n "$LOGIN_URL" ]]; then
+      echo "[dry-run] Would launch a visible sign-in browser at $LOGIN_URL"
+    else
+      echo "[dry-run] Would launch a visible sign-in browser for site '$LOGIN_SITE'"
+    fi
+  fi
   echo "[dry-run] Would write service env to $SERVICE_ENV_PATH"
   if [[ "$SKIP_SERVICE" -eq 0 ]]; then
     echo "[dry-run] Would install/start user systemd service at $SERVICE_PATH"
@@ -153,6 +179,28 @@ if [[ -n "$BROWSER_PATH" ]]; then
   PAIR_ARGS+=(--browser-path "$BROWSER_PATH")
 fi
 (cd "$ROOT_DIR" && PATH=/opt/homebrew/bin:$PATH node "${PAIR_ARGS[@]}")
+
+if [[ "$SKIP_LOGIN" -eq 0 ]]; then
+  if has_graphical_session; then
+    echo "[bootstrap] Opening the dedicated worker browser profile so you can sign in..."
+    LOGIN_ARGS=(./src/cli.mjs login --site "$LOGIN_SITE")
+    if [[ -n "$LOGIN_URL" ]]; then
+      LOGIN_ARGS=(./src/cli.mjs login --url "$LOGIN_URL")
+    fi
+    if [[ -n "$BROWSER_PATH" ]]; then
+      LOGIN_ARGS+=(--browser-path "$BROWSER_PATH")
+    fi
+    (cd "$ROOT_DIR" && PATH=/opt/homebrew/bin:$PATH node "${LOGIN_ARGS[@]}")
+  else
+    echo "[bootstrap] No graphical desktop session detected, so the Snackpass sign-in window was skipped." >&2
+    echo "Run this later on the device when a desktop session is available:" >&2
+    if [[ -n "$LOGIN_URL" ]]; then
+      echo "  cd $ROOT_DIR && PATH=/opt/homebrew/bin:\$PATH node ./src/cli.mjs login --url \"$LOGIN_URL\"" >&2
+    else
+      echo "  cd $ROOT_DIR && PATH=/opt/homebrew/bin:\$PATH node ./src/cli.mjs login --site \"$LOGIN_SITE\"" >&2
+    fi
+  fi
+fi
 
 {
   echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-${CLAUDE_API_KEY:-}}"

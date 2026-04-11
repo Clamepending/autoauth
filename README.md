@@ -90,6 +90,8 @@ If the repo is already present, this also works:
 cd /path/to/autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/bootstrap.sh --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --claim-code XXXX-XXXX-XXXX
 ```
 
+During install, OttoAuth now opens the worker's dedicated persistent browser profile to Snackpass so you can sign in once, then it starts the background service after you close that window. Add `--skip-login` if you want to postpone that step.
+
 ## OttoAuth MCP proxy server
 
 This repo now includes a stdio MCP server that:
