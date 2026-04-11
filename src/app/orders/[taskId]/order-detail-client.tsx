@@ -363,11 +363,13 @@ export function OrderDetailClient(props: {
             <div className="supported-accounts-title">Live Screen</div>
             {data.latest_snapshot ? (
               <div className="live-view-block">
-                <img
-                  src={`data:image/png;base64,${data.latest_snapshot.image_base64}`}
-                  alt="Live browser snapshot"
-                  className="live-view-image"
-                />
+                <div className="live-view-frame">
+                  <img
+                    src={`data:image/png;base64,${data.latest_snapshot.image_base64}`}
+                    alt="Live browser snapshot"
+                    className="live-view-image"
+                  />
+                </div>
                 <div className="dashboard-muted">
                   Latest frame {fmtDate(data.latest_snapshot.created_at)}
                 </div>

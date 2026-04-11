@@ -338,6 +338,8 @@ footer {
   padding: 20px;
   display: grid;
   gap: 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .dashboard-card.highlight {
@@ -359,6 +361,7 @@ footer {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-prewrap {
@@ -376,6 +379,7 @@ footer {
 .dashboard-list {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .dashboard-feed {
@@ -405,6 +409,10 @@ footer {
   align-items: flex-start;
   padding-top: 12px;
   border-top: 1px solid var(--grid);
+}
+
+.dashboard-row > div {
+  min-width: 0;
 }
 
 .dashboard-row:first-child {
@@ -479,11 +487,23 @@ footer {
 .live-view-block {
   display: grid;
   gap: 12px;
+  min-width: 0;
+}
+
+.live-view-frame {
+  width: 100%;
+  min-width: 0;
+  max-height: min(75vh, 960px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: #efefef;
 }
 
 .live-view-image {
   width: 100%;
-  border: 1px solid var(--line);
+  max-width: 100%;
+  height: auto;
+  display: block;
   background: #fff;
 }
 
