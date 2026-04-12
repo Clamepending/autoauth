@@ -33,7 +33,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 64px 24px;
+  padding: clamp(28px, 5vw, 64px) clamp(16px, 4vw, 24px);
   position: relative;
   overflow: hidden;
 }
@@ -106,6 +106,9 @@ h1 {
   font-size: 15px;
   box-shadow: 6px 6px 0 var(--shadow);
   display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 .grid {
@@ -167,6 +170,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
 
 .supported-account .logo {
@@ -239,6 +243,12 @@ footer {
   flex-wrap: wrap;
 }
 
+.auth-actions > *,
+.dashboard-actions > *,
+.hero-actions > * {
+  flex: 0 1 auto;
+}
+
 .auth-button {
   appearance: none;
   border: 1px solid var(--line);
@@ -246,11 +256,15 @@ footer {
   color: var(--ink);
   padding: 12px 16px;
   font: inherit;
+  font-size: 16px;
+  line-height: 1.2;
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  min-height: 46px;
 }
 
 .auth-button.primary {
@@ -270,6 +284,7 @@ footer {
   color: var(--ink);
   padding: 12px 14px;
   font: inherit;
+  font-size: 16px;
 }
 
 .task-textarea {
@@ -390,6 +405,7 @@ footer {
   max-height: 460px;
   overflow: auto;
   padding-right: 8px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dashboard-feed::-webkit-scrollbar {
@@ -690,6 +706,7 @@ footer {
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: clamp(20px, 3vw, 28px);
   letter-spacing: 0.12em;
+  word-break: break-all;
 }
 
 .live-view-block {
@@ -705,6 +722,7 @@ footer {
   overflow: auto;
   border: 1px solid var(--line);
   background: #efefef;
+  -webkit-overflow-scrolling: touch;
 }
 
 .live-view-image {
@@ -718,7 +736,10 @@ footer {
 .snapshot-strip {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .snapshot-chip {
@@ -730,6 +751,7 @@ footer {
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .snapshot-chip.selected {
@@ -743,6 +765,7 @@ footer {
   max-height: 560px;
   overflow: auto;
   padding-right: 8px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .task-chat-feed::-webkit-scrollbar {
@@ -761,6 +784,7 @@ footer {
   border: 1px solid var(--line);
   padding: 14px 16px;
   max-width: min(100%, 92%);
+  min-width: 0;
 }
 
 .chat-requester {
@@ -976,14 +1000,66 @@ footer {
   text-decoration: underline;
 }
 
+@media (max-width: 960px) {
+  .hero,
+  .auth-card,
+  .dashboard-shell,
+  .pay-card {
+    padding: 32px 28px;
+    box-shadow: 8px 8px 0 var(--shadow);
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+  }
+
+  .dashboard-grid.metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-grid.wide {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-card-span-2 {
+    grid-column: auto;
+  }
+
+  .auth-actions,
+  .dashboard-actions,
+  .hero-actions {
+    width: 100%;
+  }
+
+  .auth-actions > *,
+  .dashboard-actions > *,
+  .hero-actions > * {
+    flex: 1 1 180px;
+  }
+
+  .dashboard-device-actions {
+    justify-items: start;
+  }
+
+  .dashboard-feed,
+  .task-chat-feed {
+    max-height: 380px;
+  }
+
+  .live-view-frame {
+    max-height: 58vh;
+  }
+}
+
 @media (max-width: 640px) {
   .hero {
     padding: 28px;
+    gap: 22px;
   }
 
   .commandline {
     font-size: 13px;
-    word-break: break-all;
+    padding: 14px 16px;
   }
 
   .auth-card,
@@ -997,19 +1073,96 @@ footer {
   }
 
   .dashboard-grid,
+  .dashboard-grid.metrics-grid,
   .dashboard-grid.wide {
     grid-template-columns: 1fr;
   }
 
   .dashboard-row {
     flex-direction: column;
+    gap: 8px;
   }
 
   .dashboard-device-actions {
     justify-items: stretch;
   }
 
+  .dashboard-row > * {
+    width: 100%;
+  }
+
+  .dashboard-activity-side {
+    justify-items: start;
+  }
+
+  .snapshot-strip {
+    margin-inline: -4px;
+    padding-inline: 4px;
+  }
+
+  .task-chat-feed {
+    max-height: 320px;
+    padding-right: 4px;
+  }
+
+  .chat-bubble {
+    max-width: 100%;
+    padding: 12px 14px;
+  }
+
+  .claim-code {
+    font-size: clamp(18px, 7vw, 24px);
+    letter-spacing: 0.08em;
+  }
+
+  .supported-account {
+    align-items: flex-start;
+  }
+
+  .auth-actions > *,
+  .dashboard-actions > *,
+  .hero-actions > * {
+    flex: 1 1 100%;
+  }
+
+  .pay-button {
+    width: 100%;
+    text-align: center;
+  }
+
   .dashboard-card-span-2 {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  main::before,
+  main::after {
+    width: 360px;
+    height: 360px;
+  }
+
+  .hero,
+  .auth-card,
+  .dashboard-shell,
+  .pay-card {
+    padding: 24px 18px;
+    box-shadow: 6px 6px 0 var(--shadow);
+  }
+
+  .dashboard-card {
+    padding: 16px;
+  }
+
+  .dashboard-balance {
+    font-size: 30px;
+  }
+
+  .dashboard-stat {
+    font-size: 28px;
+  }
+
+  .live-view-frame {
+    max-height: 50vh;
   }
 }
