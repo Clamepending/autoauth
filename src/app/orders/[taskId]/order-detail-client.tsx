@@ -408,6 +408,7 @@ export function OrderDetailClient(props: {
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<number | null>(
     props.initialData.latest_snapshot?.id ?? props.initialData.recent_snapshots[0]?.id ?? null,
   );
+  const [followingLatestSnapshot, setFollowingLatestSnapshot] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [savingRating, setSavingRating] = useState(false);
   const [ratingMessage, setRatingMessage] = useState<string | null>(null);
@@ -424,7 +425,10 @@ export function OrderDetailClient(props: {
     const snapshotIds = data.recent_snapshots.map((snapshot) => snapshot.id);
     if (selectedSnapshotId == null) {
       const fallbackId = data.latest_snapshot?.id ?? data.recent_snapshots[0]?.id ?? null;
-      if (fallbackId != null) setSelectedSnapshotId(fallbackId);
+      if (fallbackId != null) {
+        setSelectedSnapshotId(fallbackId);
+        setFollowingLatestSnapshot(true);
+      }
       return;
     }
     if (
@@ -433,8 +437,16 @@ export function OrderDetailClient(props: {
       data.latest_snapshot?.id != null
     ) {
       setSelectedSnapshotId(data.latest_snapshot.id);
+      setFollowingLatestSnapshot(true);
     }
   }, [data.latest_snapshot, data.recent_snapshots, selectedSnapshotId]);
+
+  useEffect(() => {
+    if (!followingLatestSnapshot) return;
+    if (data.latest_snapshot?.id == null) return;
+    if (selectedSnapshotId === data.latest_snapshot.id) return;
+    setSelectedSnapshotId(data.latest_snapshot.id);
+  }, [data.latest_snapshot, followingLatestSnapshot, selectedSnapshotId]);
 
   useEffect(() => {
     const taskDone =
@@ -749,7 +761,10 @@ export function OrderDetailClient(props: {
                         key={snapshot.id}
                         type="button"
                         className={`snapshot-chip ${selectedSnapshot.id === snapshot.id ? "selected" : ""}`}
-                        onClick={() => setSelectedSnapshotId(snapshot.id)}
+                        onClick={() => {
+                          setSelectedSnapshotId(snapshot.id);
+                          setFollowingLatestSnapshot(snapshot.id === data.latest_snapshot?.id);
+                        }}
                       >
                         {snapshot.id === data.latest_snapshot?.id ? "Latest" : "Frame"} · {new Date(snapshot.created_at).toLocaleTimeString()}
                       </button>
