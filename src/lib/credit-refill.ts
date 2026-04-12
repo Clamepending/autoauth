@@ -1,13 +1,6 @@
 export const MIN_REFILL_CENTS = 500;
 export const MAX_REFILL_CENTS = 50000;
 
-export function isCreditRefillSimulationEnabled() {
-  if ((process.env.OTTOAUTH_ENABLE_REFILL_SIMULATION ?? "").trim() === "1") {
-    return true;
-  }
-  return process.env.NODE_ENV !== "production";
-}
-
 export function parsePositiveInteger(value: unknown) {
   if (typeof value === "number") {
     return Number.isInteger(value) ? value : Math.trunc(value);
