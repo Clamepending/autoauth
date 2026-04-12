@@ -128,6 +128,10 @@ export class BrowserRuntime {
       viewport: this.viewport,
       ignoreHTTPSErrors: true,
       chromiumSandbox: false,
+      // Suppress Chrome's "controlled by automated test software" infobar for
+      // visible worker sessions while keeping headless runs on Playwright's
+      // normal defaults.
+      ignoreDefaultArgs: this.headless ? undefined : ['--enable-automation'],
       args: buildBrowserLaunchArgs(),
     });
     this.context.setDefaultNavigationTimeout(45000);
