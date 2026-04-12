@@ -119,6 +119,7 @@ type QuickFact = {
   label: string;
   value: string;
   mono?: boolean;
+  prominent?: boolean;
 };
 
 function fmtDate(value: string | null | undefined) {
@@ -436,6 +437,7 @@ function FulfillmentEssentialsCard(props: {
       label: "Order number",
       value: props.task.pickup_details.order_number,
       mono: true,
+      prominent: true,
     });
   }
   if (props.task.pickup_details?.confirmation_code) {
@@ -443,6 +445,7 @@ function FulfillmentEssentialsCard(props: {
       label: "Confirmation code",
       value: props.task.pickup_details.confirmation_code,
       mono: true,
+      prominent: true,
     });
   }
   if (props.task.pickup_details?.pickup_code) {
@@ -450,6 +453,15 @@ function FulfillmentEssentialsCard(props: {
       label: "Pickup code",
       value: props.task.pickup_details.pickup_code,
       mono: true,
+      prominent: true,
+    });
+  }
+  if (props.task.pickup_details?.order_reference) {
+    quickFacts.push({
+      label: "Receipt reference",
+      value: props.task.pickup_details.order_reference,
+      mono: true,
+      prominent: true,
     });
   }
   if (props.task.pickup_details?.ready_time) {
@@ -500,9 +512,21 @@ function FulfillmentEssentialsCard(props: {
       {quickFacts.length > 0 && (
         <div className="quick-facts-grid">
           {quickFacts.map((fact) => (
-            <div key={`${fact.label}:${fact.value}`} className="quick-fact-card">
+            <div
+              key={`${fact.label}:${fact.value}`}
+              className={`quick-fact-card ${fact.prominent ? "quick-fact-card-prominent" : ""}`}
+            >
               <div className="quick-fact-label">{fact.label}</div>
-              <div className={`quick-fact-value ${fact.mono ? "mono" : ""}`}>{fact.value}</div>
+              <div
+                className={`quick-fact-value ${fact.mono ? "mono" : ""} ${
+                  fact.prominent ? "quick-fact-value-prominent" : ""
+                }`}
+              >
+                {fact.value}
+              </div>
+              {fact.prominent ? (
+                <div className="dashboard-muted">Easy-to-show pickup detail</div>
+              ) : null}
               <CopyValueButton value={fact.value} />
             </div>
           ))}

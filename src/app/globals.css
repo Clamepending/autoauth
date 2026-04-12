@@ -633,6 +633,12 @@ footer {
   padding: 14px;
 }
 
+.quick-fact-card-prominent {
+  background: #fff;
+  border-width: 2px;
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
 .quick-fact-label {
   font-size: 11px;
   letter-spacing: 0.12em;
@@ -646,6 +652,12 @@ footer {
   font-weight: 700;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.quick-fact-value-prominent {
+  font-size: clamp(28px, 5.2vw, 42px);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
 }
 
 .quick-links-row {
@@ -993,6 +1005,10 @@ footer {
 
   .quick-fact-value {
     font-size: 17px;
+  }
+
+  .quick-fact-value-prominent {
+    font-size: clamp(30px, 10vw, 42px);
   }
 
   .chat-bubble-meta {
