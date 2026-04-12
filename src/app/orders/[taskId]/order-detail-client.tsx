@@ -115,6 +115,12 @@ type ChatItem = {
   timestamp: string;
 };
 
+type QuickFact = {
+  label: string;
+  value: string;
+  mono?: boolean;
+};
+
 function fmtDate(value: string | null | undefined) {
   if (!value) return "Not yet";
   return new Date(value).toLocaleString();
@@ -400,6 +406,127 @@ function TrackingDetailsBlock(props: {
   );
 }
 
+function CopyValueButton(props: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(props.value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <button type="button" className="auth-button copy-button" onClick={handleCopy}>
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+function FulfillmentEssentialsCard(props: {
+  task: TaskPayload;
+}) {
+  const quickFacts: QuickFact[] = [];
+
+  if (props.task.pickup_details?.order_number) {
+    quickFacts.push({
+      label: "Order number",
+      value: props.task.pickup_details.order_number,
+      mono: true,
+    });
+  }
+  if (props.task.pickup_details?.confirmation_code) {
+    quickFacts.push({
+      label: "Confirmation code",
+      value: props.task.pickup_details.confirmation_code,
+      mono: true,
+    });
+  }
+  if (props.task.pickup_details?.pickup_code) {
+    quickFacts.push({
+      label: "Pickup code",
+      value: props.task.pickup_details.pickup_code,
+      mono: true,
+    });
+  }
+  if (props.task.pickup_details?.ready_time) {
+    quickFacts.push({
+      label: "Ready time",
+      value: props.task.pickup_details.ready_time,
+    });
+  }
+  if (props.task.tracking_details?.tracking_number) {
+    quickFacts.push({
+      label: "Tracking number",
+      value: props.task.tracking_details.tracking_number,
+      mono: true,
+    });
+  }
+  if (props.task.tracking_details?.delivery_eta) {
+    quickFacts.push({
+      label: "Delivery ETA",
+      value: props.task.tracking_details.delivery_eta,
+    });
+  }
+
+  const quickLinks = [
+    props.task.pickup_details?.receipt_url
+      ? { label: "Open receipt", href: props.task.pickup_details.receipt_url }
+      : null,
+    props.task.tracking_details?.tracking_url
+      ? { label: "Track package", href: props.task.tracking_details.tracking_url }
+      : null,
+    props.task.website_url
+      ? { label: "Open website", href: props.task.website_url }
+      : null,
+  ].filter((value): value is { label: string; href: string } => Boolean(value));
+
+  if (quickFacts.length === 0 && quickLinks.length === 0) {
+    return null;
+  }
+
+  return (
+    <article className="dashboard-card order-essentials-card">
+      <div className="dashboard-section-header">
+        <div className="supported-accounts-title">Order Essentials</div>
+        {props.task.merchant ? <div className="dashboard-muted">{props.task.merchant}</div> : null}
+      </div>
+      <div className="dashboard-muted">
+        The fastest details to show at pickup or delivery. These stay easy to reach on mobile.
+      </div>
+      {quickFacts.length > 0 && (
+        <div className="quick-facts-grid">
+          {quickFacts.map((fact) => (
+            <div key={`${fact.label}:${fact.value}`} className="quick-fact-card">
+              <div className="quick-fact-label">{fact.label}</div>
+              <div className={`quick-fact-value ${fact.mono ? "mono" : ""}`}>{fact.value}</div>
+              <CopyValueButton value={fact.value} />
+            </div>
+          ))}
+        </div>
+      )}
+      {quickLinks.length > 0 && (
+        <div className="quick-links-row">
+          {quickLinks.map((link) => (
+            <a
+              key={`${link.label}:${link.href}`}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className="auth-button"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
 export function OrderDetailClient(props: {
   taskId: number;
   initialData: DetailPayload;
@@ -616,6 +743,12 @@ export function OrderDetailClient(props: {
             This purchase completed, but the fulfiller did not capture an order number, pickup code, or tracking number.
             Check the recent frames below and the merchant account directly before pickup or delivery.
           </div>
+        )}
+
+        {(data.task.pickup_details || data.task.tracking_details || data.task.website_url) && (
+          <section className="dashboard-grid mobile-priority-grid">
+            <FulfillmentEssentialsCard task={data.task} />
+          </section>
         )}
 
         <section className="dashboard-grid metrics-grid">
