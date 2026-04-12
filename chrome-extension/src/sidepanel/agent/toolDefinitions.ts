@@ -111,6 +111,17 @@ export function getToolDefinitions(
       },
     },
     {
+      name: 'tabs_activate',
+      description: 'Switch the active browser tab to an existing tab ID.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {
+          tabId: { type: 'number', description: 'Tab ID to activate.' },
+        },
+        required: ['tabId'],
+      },
+    },
+    {
       name: 'read_console_messages',
       description: 'Read browser console messages (console.log, console.error, etc.) from a specific tab.',
       input_schema: {

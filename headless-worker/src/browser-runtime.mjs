@@ -190,6 +190,7 @@ export class BrowserRuntime {
     const page = await this.context.newPage();
     const id = this.#registerPage(page);
     this.activePageId = id;
+    await page.bringToFront().catch(() => {});
     return { id, page };
   }
 
@@ -340,6 +341,17 @@ export class BrowserRuntime {
         },
       },
       {
+        name: 'tabs_activate',
+        description: 'Switch the active browser tab to an existing tab ID.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            tabId: { type: 'number' },
+          },
+          required: ['tabId'],
+        },
+      },
+      {
         name: 'resize_window',
         description: 'Resize the browser viewport for the current task.',
         input_schema: {
@@ -375,6 +387,8 @@ export class BrowserRuntime {
         return this.#executeTabsContext();
       case 'tabs_create':
         return this.#executeTabsCreate();
+      case 'tabs_activate':
+        return this.#executeTabsActivate(input);
       case 'resize_window':
         return this.#executeResizeWindow(input);
       default:
@@ -384,11 +398,15 @@ export class BrowserRuntime {
 
   async getActivePage() {
     const page = this.activePageId != null ? this.pagesById.get(this.activePageId) : null;
-    if (page && !page.isClosed()) return page;
+    if (page && !page.isClosed()) {
+      await page.bringToFront().catch(() => {});
+      return page;
+    }
     const pages = this.context?.pages() || [];
     if (pages.length > 0) {
       const next = pages[0];
       this.activePageId = this.#registerPage(next);
+      await next.bringToFront().catch(() => {});
       return next;
     }
     const created = await this.createTab();
@@ -444,7 +462,9 @@ export class BrowserRuntime {
     const explicitTabId = Number(input.tabId);
     if (Number.isFinite(explicitTabId) && this.pagesById.has(explicitTabId)) {
       this.activePageId = explicitTabId;
-      return this.pagesById.get(explicitTabId);
+      const page = this.pagesById.get(explicitTabId);
+      await page?.bringToFront().catch(() => {});
+      return page;
     }
     return this.getActivePage();
   }
@@ -710,7 +730,21 @@ export class BrowserRuntime {
 
   async #executeTabsCreate() {
     const tab = await this.createTab();
-    return textResult(`Created new tab with ID ${tab.id}.`);
+    return textResult(`Created and activated new tab with ID ${tab.id}.`);
+  }
+
+  async #executeTabsActivate(input) {
+    const requestedTabId = Number(input.tabId);
+    if (!Number.isFinite(requestedTabId)) {
+      return textResult('Error: tabId is required for tabs_activate.');
+    }
+    const page = this.pagesById.get(requestedTabId);
+    if (!page || page.isClosed()) {
+      return textResult(`Error: Tab ${requestedTabId} not found.`);
+    }
+    this.activePageId = requestedTabId;
+    await page.bringToFront().catch(() => {});
+    return textResult(`Activated tab ${requestedTabId}.`);
   }
 
   async #executeResizeWindow(input) {

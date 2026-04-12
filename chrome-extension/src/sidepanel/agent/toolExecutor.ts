@@ -628,6 +628,8 @@ export async function executeTool(
         return await executeTabsContext(sessionId);
       case 'tabs_create':
         return await executeTabsCreate(sessionId);
+      case 'tabs_activate':
+        return await executeTabsActivate(input);
       case 'read_console_messages':
         return await executeReadConsole(input);
       case 'read_network_requests':
@@ -950,9 +952,24 @@ async function executeTabsCreate(sessionId?: string): Promise<ToolResultContent[
   const resp = await sendToBackground({ type: 'tabs-create', sessionId });
   if (!resp.success) return textResult(`Failed: ${resp.error}`);
   const data = resp.data as { id: number; url: string; title: string };
+  await sendToBackground({ type: 'tabs-activate', tabId: data.id }).catch(() => {});
+  useStore.getState().setActiveTabId(data.id);
   await sendToBackground({ type: 'enable-console-capture', tabId: data.id }).catch(() => {});
   await sendToBackground({ type: 'enable-network-capture', tabId: data.id }).catch(() => {});
-  return textResult(`Created new tab with ID ${data.id}`);
+  return textResult(`Created and activated new tab with ID ${data.id}`);
+}
+
+async function executeTabsActivate(input: Record<string, unknown>): Promise<ToolResultContent[]> {
+  const tabId = input.tabId as number;
+  if (typeof tabId !== 'number' || !Number.isFinite(tabId)) {
+    return textResult('Failed: tabId is required.');
+  }
+  const resp = await sendToBackground({ type: 'tabs-activate', tabId });
+  if (!resp.success) return textResult(`Failed: ${resp.error}`);
+  useStore.getState().setActiveTabId(tabId);
+  await sendToBackground({ type: 'enable-console-capture', tabId }).catch(() => {});
+  await sendToBackground({ type: 'enable-network-capture', tabId }).catch(() => {});
+  return textResult(`Activated tab ${tabId}`);
 }
 
 async function executeReadConsole(input: Record<string, unknown>): Promise<ToolResultContent[]> {
