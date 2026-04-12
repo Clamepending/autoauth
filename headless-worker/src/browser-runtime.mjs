@@ -18,6 +18,7 @@ function buildBrowserLaunchArgs() {
   const args = [
     '--no-default-browser-check',
     '--no-first-run',
+    '--disable-blink-features=AutomationControlled',
   ];
   if (process.platform === 'linux') {
     // Keep the dedicated worker profile self-contained so a background service
@@ -72,6 +73,97 @@ function stringifyError(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function nativeNavigatorPlatform() {
+  if (process.platform === 'darwin') return 'MacIntel';
+  if (process.platform === 'win32') return 'Win32';
+  if (process.platform === 'linux') {
+    return process.arch === 'arm64' ? 'Linux aarch64' : 'Linux x86_64';
+  }
+  return null;
+}
+
+function nativeUserAgentPlatformToken() {
+  if (process.platform === 'darwin') return 'Macintosh; Intel Mac OS X 10_15_7';
+  if (process.platform === 'win32') return 'Windows NT 10.0; Win64; x64';
+  if (process.platform === 'linux') {
+    return process.arch === 'arm64' ? 'X11; Linux aarch64' : 'X11; Linux x86_64';
+  }
+  return null;
+}
+
+function normalizeUserAgent(rawUserAgent) {
+  const normalized = String(rawUserAgent || '').trim();
+  if (!normalized) return normalized;
+
+  let next = normalized.replace(/HeadlessChrome\//g, 'Chrome/');
+  const platformToken = nativeUserAgentPlatformToken();
+  if (platformToken && /CrOS x86_64/.test(next)) {
+    next = next.replace(/CrOS x86_64/g, platformToken);
+  }
+  return next;
+}
+
+function buildStealthProfile(rawUserAgent) {
+  return {
+    language: 'en-US',
+    languages: ['en-US', 'en'],
+    navigatorPlatform: nativeNavigatorPlatform(),
+    userAgent: normalizeUserAgent(rawUserAgent),
+    vendor: 'Google Inc.',
+  };
+}
+
+function installStealthOverrides(profile) {
+  const defineGetter = (target, key, value) => {
+    try {
+      Object.defineProperty(target, key, {
+        configurable: true,
+        enumerable: true,
+        get: () => value,
+      });
+    } catch {
+      // Ignore browsers that reject redefining a property.
+    }
+  };
+
+  if (profile?.userAgent) {
+    defineGetter(Navigator.prototype, 'userAgent', profile.userAgent);
+  }
+  if (profile?.navigatorPlatform) {
+    defineGetter(Navigator.prototype, 'platform', profile.navigatorPlatform);
+  }
+  if (profile?.vendor) {
+    defineGetter(Navigator.prototype, 'vendor', profile.vendor);
+  }
+  if (profile?.language) {
+    defineGetter(Navigator.prototype, 'language', profile.language);
+  }
+  if (Array.isArray(profile?.languages) && profile.languages.length > 0) {
+    defineGetter(Navigator.prototype, 'languages', profile.languages);
+  }
+  defineGetter(Navigator.prototype, 'webdriver', undefined);
+
+  const chromeObject = window.chrome ?? {};
+  if (!chromeObject.runtime) {
+    chromeObject.runtime = {};
+  }
+  if (!chromeObject.app) {
+    chromeObject.app = {
+      InstallState: {
+        DISABLED: 'disabled',
+        INSTALLED: 'installed',
+        NOT_INSTALLED: 'not_installed',
+      },
+      RunningState: {
+        CANNOT_RUN: 'cannot_run',
+        READY_TO_RUN: 'ready_to_run',
+        RUNNING: 'running',
+      },
+    };
+  }
+  window.chrome = chromeObject;
+}
+
 function isSyntheticPointerJavascript(code) {
   const normalized = String(code || '');
   if (!normalized) return false;
@@ -118,6 +210,7 @@ export class BrowserRuntime {
     this.nextPageId = 1;
     this.activePageId = null;
     this.currentTracePath = null;
+    this.stealthProfile = null;
   }
 
   async start() {
@@ -126,16 +219,26 @@ export class BrowserRuntime {
       executablePath: this.browserExecutablePath,
       headless: this.headless,
       viewport: this.viewport,
+      locale: 'en-US',
       ignoreHTTPSErrors: true,
       chromiumSandbox: false,
-      // Suppress Chrome's "controlled by automated test software" infobar for
-      // visible worker sessions while keeping headless runs on Playwright's
-      // normal defaults.
-      ignoreDefaultArgs: this.headless ? undefined : ['--enable-automation'],
+      // Playwright's default automation flag is a direct anti-bot signal.
+      ignoreDefaultArgs: ['--enable-automation'],
       args: buildBrowserLaunchArgs(),
     });
     this.context.setDefaultNavigationTimeout(45000);
     this.context.setDefaultTimeout(45000);
+
+    const bootstrapPage = this.context.pages()[0] || (await this.context.newPage());
+    const rawUserAgent = await bootstrapPage.evaluate(() => navigator.userAgent).catch(() => '');
+    this.stealthProfile = buildStealthProfile(rawUserAgent);
+    await this.context.addInitScript(installStealthOverrides, this.stealthProfile);
+    await this.context.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9',
+      ...(this.stealthProfile?.userAgent
+        ? { 'User-Agent': this.stealthProfile.userAgent }
+        : {}),
+    });
 
     for (const page of this.context.pages()) {
       this.#registerPage(page);

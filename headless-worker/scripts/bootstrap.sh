@@ -230,6 +230,29 @@ fi
 {
   echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-${CLAUDE_API_KEY:-}}"
   echo "OTTOAUTH_BROWSER_PATH=$BROWSER_PATH"
+  if [[ "$HEADFUL" -eq 1 ]]; then
+    echo "OTTOAUTH_HEADFUL=1"
+    if [[ "${OSTYPE:-}" != darwin* ]]; then
+      DISPLAY_VALUE="${DISPLAY:-}"
+      if [[ -z "$DISPLAY_VALUE" && -S "/tmp/.X11-unix/X0" ]]; then
+        DISPLAY_VALUE=":0"
+      fi
+      if [[ -n "$DISPLAY_VALUE" ]]; then
+        echo "DISPLAY=$DISPLAY_VALUE"
+      fi
+
+      XAUTHORITY_VALUE="${XAUTHORITY:-}"
+      if [[ -z "$XAUTHORITY_VALUE" && -f "$HOME/.Xauthority" ]]; then
+        XAUTHORITY_VALUE="$HOME/.Xauthority"
+      fi
+      if [[ -n "$XAUTHORITY_VALUE" ]]; then
+        echo "XAUTHORITY=$XAUTHORITY_VALUE"
+      fi
+    fi
+  fi
+  if [[ "$KEEP_TABS" -eq 1 ]]; then
+    echo "OTTOAUTH_KEEP_TABS=1"
+  fi
   if [[ -n "$MODEL_OVERRIDE" ]]; then
     echo "OTTOAUTH_MODEL=$MODEL_OVERRIDE"
   fi

@@ -143,6 +143,22 @@ function uniquePreservingOrder(values) {
   return result;
 }
 
+function resolveHeadlessMode(flags, defaultValue = true) {
+  if (flags.headless != null) {
+    return boolFromFlag(flags.headless, defaultValue);
+  }
+  if (flags.headful != null) {
+    return !boolFromFlag(flags.headful, false);
+  }
+  if (process.env.OTTOAUTH_HEADLESS != null) {
+    return boolFromFlag(process.env.OTTOAUTH_HEADLESS, defaultValue);
+  }
+  if (process.env.OTTOAUTH_HEADFUL != null) {
+    return !boolFromFlag(process.env.OTTOAUTH_HEADFUL, false);
+  }
+  return defaultValue;
+}
+
 function resolveLoginUrls(flags) {
   const explicitUrls = splitCsvFlag(flags.url);
   if (explicitUrls.length > 0) {
@@ -202,8 +218,11 @@ async function waitForLoginExit(runtime, autoCloseMs) {
 async function commandLogin(flags) {
   const config = await loadWorkerConfig();
   const browserPath = String(flags['browser-path'] || config.browserPath || '').trim() || null;
-  const headless = boolFromFlag(flags.headless, false);
-  const keepTabs = boolFromFlag(flags['keep-tabs'], true);
+  const headless = resolveHeadlessMode(flags, false);
+  const keepTabs =
+    flags['keep-tabs'] != null
+      ? boolFromFlag(flags['keep-tabs'], true)
+      : boolFromFlag(process.env.OTTOAUTH_KEEP_TABS, true);
   const urls = resolveLoginUrls(flags);
   const autoCloseMs = intFromFlag(flags['auto-close-ms'], 0);
 
@@ -245,9 +264,12 @@ async function commandRun(flags, once) {
   validatePairedConfig(config);
   const apiKey = requireApiKey();
   const browserPath = String(flags['browser-path'] || config.browserPath || '').trim() || null;
-  const headless = !boolFromFlag(flags.headful, false);
-  const keepTabs = boolFromFlag(flags['keep-tabs'], false);
-  const waitMs = intFromFlag(flags['wait-ms'], 25000);
+  const headless = resolveHeadlessMode(flags, true);
+  const keepTabs =
+    flags['keep-tabs'] != null
+      ? boolFromFlag(flags['keep-tabs'], false)
+      : boolFromFlag(process.env.OTTOAUTH_KEEP_TABS, false);
+  const waitMs = intFromFlag(flags['wait-ms'] ?? process.env.OTTOAUTH_WAIT_MS, 25000);
   const model = typeof flags.model === 'string' && flags.model.trim() ? flags.model.trim() : null;
 
   console.log(`[ottoauth-headless] Starting ${once ? 'one-shot' : 'continuous'} worker for ${config.deviceId} on ${config.serverUrl}.`);
