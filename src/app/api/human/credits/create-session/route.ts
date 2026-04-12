@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getBaseUrl } from "@/lib/base-url";
+import {
+  parsePositiveInteger,
+  validateRefillAmountCents,
+} from "@/lib/credit-refill";
 import { requireCurrentHumanUser } from "@/lib/human-session";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
-
-const MIN_REFILL_CENTS = 500;
-const MAX_REFILL_CENTS = 50000;
-
-function parsePositiveInteger(value: unknown) {
-  if (typeof value === "number") {
-    return Number.isInteger(value) ? value : Math.trunc(value);
-  }
-  const parsed = Number(value);
-  return Number.isInteger(parsed) ? parsed : Math.trunc(parsed);
-}
 
 export async function POST(request: Request) {
   const user = await requireCurrentHumanUser().catch(() => null);
@@ -27,13 +20,10 @@ export async function POST(request: Request) {
   }
 
   const amountCents = parsePositiveInteger(payload.amount_cents);
-  if (!Number.isInteger(amountCents) || amountCents < MIN_REFILL_CENTS || amountCents > MAX_REFILL_CENTS) {
+  const amountError = validateRefillAmountCents(amountCents);
+  if (amountError) {
     return NextResponse.json(
-      {
-        error: `Refill amount must be between $${(MIN_REFILL_CENTS / 100).toFixed(2)} and $${(
-          MAX_REFILL_CENTS / 100
-        ).toFixed(2)}.`,
-      },
+      { error: amountError },
       { status: 400 },
     );
   }

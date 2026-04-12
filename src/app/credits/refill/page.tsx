@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getHumanCreditBalance } from "@/lib/human-accounts";
+import { isCreditRefillSimulationEnabled } from "@/lib/credit-refill";
 import { getCurrentHumanUser } from "@/lib/human-session";
 import { isStripeConfigured } from "@/lib/stripe";
 import { RefillClient } from "./refill-client";
@@ -18,6 +19,7 @@ export default async function CreditsRefillPage() {
     <RefillClient
       currentBalanceCents={balanceCents}
       stripeConfigured={isStripeConfigured()}
+      simulationEnabled={isCreditRefillSimulationEnabled()}
     />
   );
 }

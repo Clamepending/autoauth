@@ -20,11 +20,14 @@ function parseUsdToCents(value: string) {
 export function RefillClient(props: {
   currentBalanceCents: number;
   stripeConfigured: boolean;
+  simulationEnabled: boolean;
 }) {
   const [selectedAmountCents, setSelectedAmountCents] = useState<number>(2000);
   const [customAmount, setCustomAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [simulating, setSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const effectiveAmountCents = useMemo(() => {
     if (customAmount.trim()) {
@@ -44,6 +47,7 @@ export function RefillClient(props: {
     }
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const response = await fetch("/api/human/credits/create-session", {
         method: "POST",
@@ -65,6 +69,46 @@ export function RefillClient(props: {
       setError("Network error. Please try again.");
     }
     setLoading(false);
+  }
+
+  async function handleSimulate() {
+    if (!props.simulationEnabled) {
+      setError("Test refills are not enabled here.");
+      return;
+    }
+    if (!effectiveAmountCents) {
+      setError("Enter a valid refill amount.");
+      return;
+    }
+    setSimulating(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const response = await fetch("/api/human/credits/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount_cents: effectiveAmountCents }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setError(payload?.error || "Could not run test refill.");
+        return;
+      }
+      const balanceDisplay =
+        typeof payload?.balance_cents === "number"
+          ? fmtUsd(payload.balance_cents)
+          : null;
+      setSuccessMessage(
+        balanceDisplay
+          ? `Test refill succeeded. New balance: ${balanceDisplay}.`
+          : "Test refill succeeded.",
+      );
+      window.setTimeout(() => window.location.assign("/dashboard"), 700);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSimulating(false);
+    }
   }
 
   return (
@@ -155,11 +199,31 @@ export function RefillClient(props: {
                     : "Refill credits"}
               </button>
             </div>
+            {props.simulationEnabled && (
+              <div className="pay-actions">
+                <button
+                  type="button"
+                  onClick={handleSimulate}
+                  disabled={simulating}
+                  className="auth-button"
+                >
+                  {simulating
+                    ? "Simulating…"
+                    : effectiveAmountCents
+                      ? `Test refill ${fmtUsd(effectiveAmountCents)} without Stripe`
+                      : "Test refill without Stripe"}
+                </button>
+                <div className="dashboard-muted">
+                  This adds a temporary test refill entry to your OttoAuth balance without charging a card. Use it to verify the crediting flow before a real payment.
+                </div>
+              </div>
+            )}
             {!props.stripeConfigured && (
               <div className="auth-error">
                 Stripe checkout is not configured yet on this deployment.
               </div>
             )}
+            {successMessage && <div className="auth-success">{successMessage}</div>}
             {error && <div className="auth-error">{error}</div>}
           </article>
         </section>
