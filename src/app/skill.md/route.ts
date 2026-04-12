@@ -40,6 +40,8 @@ The public hosted contract you should rely on is:
 
 Do **not** assume every other route in the repo is part of the stable hosted agent surface. Some lower-level \`/api/computeruse/*\` routes are device-oriented or dev/migration paths. For normal hosted agent integrations, prefer the service-discovery flow below.
 
+This skill is intentionally about **how to use OttoAuth as an agent caller**. It does not document OttoAuth's worker-side fulfillment protocol.
+
 ## Current hosted architecture
 
 ### 1. Agent account
@@ -64,7 +66,7 @@ Your human must:
 1. sign in at \`${baseUrl}/login\`
 2. paste your \`pairingKey\` into \`${baseUrl}/dashboard\`
 3. generate a short-lived **device claim code**
-4. enter that claim code into an OttoAuth browser extension or headless worker
+4. complete OttoAuth's device setup flow with that claim code
 5. make sure their OttoAuth account has credits available
 
 Until that is done, the main hosted browser-task API will reject your requests.
@@ -100,7 +102,7 @@ If you are an OpenClaw-style agent or any general-purpose agent, OttoAuth should
 
 1. Create your OttoAuth account once and store the returned \`privateKey\` securely.
 2. Never share the \`privateKey\`. Share only the \`pairingKey\` with the human.
-3. Tell the human to sign in, link you in the dashboard, pair a browser device with a claim code, and keep credits available.
+3. Tell the human to sign in, link you in the dashboard, finish OttoAuth's device setup flow, and keep credits available.
 4. For browser automation on the hosted OttoAuth server, prefer \`POST ${baseUrl}/api/services/computeruse/submit-task\`.
 5. When OttoAuth returns a task object, use \`task.id\` as the human-facing order/task id and send the human to \`${baseUrl}/orders/<taskId>\` if they want to watch fulfillment live.
 6. If the human wants to submit a task directly without routing through you, tell them to use \`${baseUrl}/orders/new\`.
@@ -138,7 +140,7 @@ Tell your human to do this:
 2. sign in
 3. paste your \`pairingKey\` into \`${baseUrl}/dashboard\`
 4. generate a device claim code in the dashboard
-5. pair that code into the OttoAuth browser extension or OttoAuth headless worker
+5. complete OttoAuth's device setup flow with that claim code
 6. make sure the OttoAuth account has credits available at \`${baseUrl}/credits/refill\` if needed
 
 You cannot use the hosted \`computeruse\` service until:
@@ -150,7 +152,7 @@ You cannot use the hosted \`computeruse\` service until:
 ### 3. Human handoff message you can use
 
 \`\`\`
-Please sign in to OttoAuth at ${baseUrl}/login, paste this pairing key into your dashboard, generate a device claim code, and pair it in your OttoAuth browser extension or headless worker. Once your device is claimed and your OttoAuth balance has credits, I can submit browser tasks for you. You can also submit your own task at ${baseUrl}/orders/new and watch any live task at ${baseUrl}/orders/<taskId>.
+Please sign in to OttoAuth at ${baseUrl}/login, paste this pairing key into your dashboard, generate a device claim code, and finish OttoAuth's device setup flow. Once your device is claimed and your OttoAuth balance has credits, I can submit browser tasks for you. You can also submit your own task at ${baseUrl}/orders/new and watch any live task at ${baseUrl}/orders/<taskId>.
 \`\`\`
 
 ### 4. First successful browser order path
@@ -488,172 +490,9 @@ curl -s -X POST ${baseUrl}/api/services/amazon/history \\
   }'
 \`\`\`
 
-## Local development and docs-only validation
-
-This section is for **self-hosted or local OttoAuth testing only**. It is intentionally more explicit than the hosted production sections above so that a coding agent can validate the full loop from the shell without reading repo source.
-
-These endpoints are useful for local validation, but they are **not** the default hosted production contract:
-
-- \`POST ${baseUrl}/api/auth/dev-login\`
-- \`POST ${baseUrl}/api/human/pair-agent\`
-- \`POST ${baseUrl}/api/human/devices/pairing-code\`
-- \`POST ${baseUrl}/api/computeruse/device/pair\`
-- \`GET ${baseUrl}/api/computeruse/device/wait-task?waitMs=1000\`
-- \`POST ${baseUrl}/api/computeruse/device/tasks/<computerUseTaskId>/local-agent-complete\`
-
-### When to use this local section
-
-Use it when all of the following are true:
-
-- you are testing against a local or self-hosted OttoAuth server
-- the human website shows a **Developer Login** option at \`${baseUrl}/login\`
-- you want to verify the full onboarding + submit + fulfillment + status loop from a terminal agent
-
-### Local human bootstrap
-
-If Developer Login is visible on \`${baseUrl}/login\`, a local coding agent can create the human session directly:
-
-\`\`\`bash
-curl -i -X POST ${baseUrl}/api/auth/dev-login \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "email":"human@example.com",
-    "display_name":"Human Test"
-  }'
-\`\`\`
-
-Save the returned session cookie and reuse it on these human-authenticated routes:
-
-- \`POST ${baseUrl}/api/human/pair-agent\`
-- \`POST ${baseUrl}/api/human/devices/pairing-code\`
-- \`GET ${baseUrl}/api/human/me\`
-
-### Full local validation sequence
-
-1. create an agent with \`POST ${baseUrl}/api/agents/create\`
-2. create a local human session with \`POST ${baseUrl}/api/auth/dev-login\`
-3. pair the agent to that human:
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/human/pair-agent \\
-  -H 'content-type: application/json' \\
-  -H 'cookie: <human session cookie>' \\
-  -d '{
-    "pairing_key":"PAIRING_KEY_FROM_AGENT_CREATE"
-  }'
-\`\`\`
-
-4. mint a short-lived device claim code:
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/human/devices/pairing-code \\
-  -H 'content-type: application/json' \\
-  -H 'cookie: <human session cookie>' \\
-  -d '{
-    "device_label":"local-browser"
-  }'
-\`\`\`
-
-5. pair a mock or headless browser worker to that code:
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/computeruse/device/pair \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "device_id":"local-device-1",
-    "device_label":"local-browser",
-    "pairing_code":"PAIRING_CODE_FROM_PREVIOUS_STEP"
-  }'
-\`\`\`
-
-This returns a \`deviceToken\`.
-
-6. submit the real agent browser task through the hosted contract:
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"your_agent_name",
-    "private_key":"YOUR_PRIVATE_KEY",
-    "task_prompt":"Buy office supplies if they fit in budget.",
-    "website_url":"https://example.com/store",
-    "shipping_address":"Jane Doe\\n123 Market St\\nSan Francisco, CA 94110",
-    "max_charge_cents": 1800
-  }'
-\`\`\`
-
-Save both:
-
-- \`task.id\` as the canonical OttoAuth order id
-- \`task.computeruse_task_id\` as the worker-facing device task id
-
-7. let the paired worker claim the queued browser task:
-
-\`\`\`bash
-curl -i ${baseUrl}/api/computeruse/device/wait-task?waitMs=1000 \\
-  -H 'authorization: Bearer DEVICE_TOKEN' \\
-  -H 'x-ottoauth-mock-device: local-device-1'
-\`\`\`
-
-If multiple queued tasks already exist for that device, the first \`wait-task\` response may not be the task you just submitted. In local validation, treat the \`task.computeruse_task_id\` returned by \`submit-task\` as the authoritative worker task id for your order.
-
-8. complete the worker task with a final browser result:
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/computeruse/device/tasks/COMPUTERUSE_TASK_ID/local-agent-complete \\
-  -H 'content-type: application/json' \\
-  -H 'authorization: Bearer DEVICE_TOKEN' \\
-  -H 'x-ottoauth-mock-device: local-device-1' \\
-  -d '{
-    "status":"completed",
-    "result":{
-      "status":"completed",
-      "summary":"Bought office supplies successfully.",
-      "merchant":"Example Mart",
-      "charges":{
-        "goods_cents":1250,
-        "shipping_cents":100,
-        "tax_cents":100,
-        "other_cents":50,
-        "currency":"usd"
-      }
-    }
-  }'
-\`\`\`
-
-9. verify the order/task through the hosted agent-facing status endpoint:
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/computeruse/tasks/TASK_ID \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"your_agent_name",
-    "private_key":"YOUR_PRIVATE_KEY"
-  }'
-\`\`\`
-
-Success means the task reaches \`status = "completed"\`.
-
-### What a coding agent should conclude from a successful local run
-
-If the sequence above works, then:
-
-- \`skill.md\` was sufficient to create a real OttoAuth agent account
-- the human onboarding sequence was sufficient to link spending authority and a claimed device
-- the hosted \`computeruse\` service contract was sufficient to submit a real order/task
-- the OttoAuth website URLs were sufficient for human-facing handoff and live order viewing
-- the lower-level local device routes were sufficient to validate fulfillment behavior in development
-
 ## Lower-level and non-default endpoints
 
-These exist, but they are **not** the main hosted service-discovery path:
-
-- \`POST ${baseUrl}/api/computeruse/register-device\`
-- \`POST ${baseUrl}/api/computeruse/runs\`
-- \`POST ${baseUrl}/api/computeruse/tasks\`
-
-Those routes are useful only if you are explicitly managing an OttoAuth browser token / device registration and want lower-level computer-use behavior. For most hosted agents, prefer \`${baseUrl}/api/services/*\`.
+OttoAuth has lower-level device-oriented and fulfillment-oriented routes under \`/api/computeruse/*\`, but they are not part of the main agent integration contract and are intentionally omitted from this skill. For most hosted agents, prefer \`${baseUrl}/api/services/*\`.
 
 \`POST ${baseUrl}/api/requests\` is also not your main execution path. It currently creates a pending request / Slack notification rather than providing a live callable service.
 
