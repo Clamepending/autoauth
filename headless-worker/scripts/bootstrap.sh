@@ -22,7 +22,7 @@ Flags:
   --claim-code CODE         Device claim code from OttoAuth dashboard (required)
   --browser-path PATH       Chrome/Chromium path (optional, auto-detected if omitted)
   --model MODEL             Anthropic model override for the service env file
-  --login-site SITE         Site to open for manual sign-in before service start (default: snackpass)
+  --login-site SITE[,SITE]  Site alias list to open for manual sign-in before service start (default: snackpass)
   --login-url URL           Exact URL to open for manual sign-in
   --skip-login              Do not launch the visible sign-in browser step
   --headful                 Run the service visibly instead of headless

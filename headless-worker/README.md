@@ -111,6 +111,13 @@ cd headless-worker
 npm run login -- --site snackpass
 ```
 
+To sign into the dedicated worker profile for several supported services at once:
+
+```bash
+cd headless-worker
+npm run login -- --site snackpass,grubhub,instacart,uber,amazon
+```
+
 You can also open an exact URL:
 
 ```bash
@@ -157,6 +164,7 @@ Important subfolders:
 
 - This worker preserves browser login state across runs by using a persistent Chrome profile.
 - The login window uses the dedicated worker profile, so it does not automatically import your normal laptop Chrome passwords or other sites unless you log into them inside that worker profile.
+- Signing into plain Chromium or Chrome outside this `npm run login` flow does not log the worker profile in. Use the worker login command whenever you want OttoAuth tasks to reuse that session.
 - By default it closes existing tabs at the start of each task so tasks start from a clean browser while keeping cookies/session state.
 - OttoAuth task screenshots are still streamed back even in headless mode.
 - The bootstrap script tries to enable a user `systemd` service. If your Pi image does not support `systemctl --user`, it will still pair the worker and print the manual run command instead.

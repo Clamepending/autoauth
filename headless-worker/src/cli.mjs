@@ -21,7 +21,7 @@ Common flags:
   --label "Raspberry Pi Worker"
   --claim-code XXXX-XXXX-XXXX
   --browser-path /path/to/chrome
-  --site snackpass
+  --site snackpass,grubhub,instacart,uber,amazon
   --url https://order.snackpass.co/
   --headful
   --headless
@@ -33,6 +33,11 @@ Common flags:
 
 const LOGIN_SITE_URLS = {
   snackpass: 'https://order.snackpass.co/',
+  fantuan: 'https://www.fantuanorder.com/',
+  grubhub: 'https://www.grubhub.com/',
+  instacart: 'https://www.instacart.com/',
+  uber: 'https://central.uber.com/',
+  amazon: 'https://www.amazon.com/',
 };
 
 function requireApiKey() {
@@ -114,11 +119,46 @@ async function commandStatus() {
   }
 }
 
-function resolveLoginUrl(flags) {
-  const explicitUrl = typeof flags.url === 'string' ? flags.url.trim() : '';
-  if (explicitUrl) return explicitUrl;
-  const site = typeof flags.site === 'string' ? flags.site.trim().toLowerCase() : 'snackpass';
-  return LOGIN_SITE_URLS[site] || LOGIN_SITE_URLS.snackpass;
+function splitCsvFlag(value) {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => splitCsvFlag(entry));
+  }
+  if (typeof value !== 'string') {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function uniquePreservingOrder(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+    if (seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
+}
+
+function resolveLoginUrls(flags) {
+  const explicitUrls = splitCsvFlag(flags.url);
+  if (explicitUrls.length > 0) {
+    return uniquePreservingOrder(explicitUrls);
+  }
+  const sites = splitCsvFlag(flags.site);
+  const requestedSites = sites.length > 0 ? sites : ['snackpass'];
+  return uniquePreservingOrder(
+    requestedSites.map((site) => {
+      const normalized = site.toLowerCase();
+      if (LOGIN_SITE_URLS[normalized]) {
+        return LOGIN_SITE_URLS[normalized];
+      }
+      return site;
+    }),
+  );
 }
 
 async function waitForLoginExit(runtime, autoCloseMs) {
@@ -164,7 +204,7 @@ async function commandLogin(flags) {
   const browserPath = String(flags['browser-path'] || config.browserPath || '').trim() || null;
   const headless = boolFromFlag(flags.headless, false);
   const keepTabs = boolFromFlag(flags['keep-tabs'], true);
-  const url = resolveLoginUrl(flags);
+  const urls = resolveLoginUrls(flags);
   const autoCloseMs = intFromFlag(flags['auto-close-ms'], 0);
 
   const runtime = new (await import('./browser-runtime.mjs')).BrowserRuntime({
@@ -174,18 +214,26 @@ async function commandLogin(flags) {
     keepTabs,
   });
 
-  console.log(`[ottoauth-headless] Opening worker browser profile at ${url}`);
+  console.log(`[ottoauth-headless] Opening worker browser profile for ${urls.length} login target(s).`);
+  urls.forEach((url) => console.log(`  - ${url}`));
   if (!headless) {
     console.log('[ottoauth-headless] Close the browser window when you are done signing in.');
   }
 
   try {
     await runtime.start();
-    const page = await runtime.getActivePage();
-    await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(async () => {
-      await page.goto(url).catch(() => {});
-    });
-    await page.bringToFront?.().catch(() => {});
+    const openedPages = [];
+    for (let index = 0; index < urls.length; index += 1) {
+      const url = urls[index];
+      const page = index === 0
+        ? await runtime.getActivePage()
+        : (await runtime.createTab()).page;
+      await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(async () => {
+        await page.goto(url).catch(() => {});
+      });
+      openedPages.push(page);
+    }
+    await openedPages[0]?.bringToFront?.().catch(() => {});
     await waitForLoginExit(runtime, autoCloseMs);
   } finally {
     await runtime.stop().catch(() => {});

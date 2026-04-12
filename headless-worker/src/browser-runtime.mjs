@@ -14,6 +14,21 @@ const COMMON_BROWSER_PATHS = [
   '/snap/bin/chromium',
 ].filter(Boolean);
 
+function buildBrowserLaunchArgs() {
+  const args = [
+    '--no-default-browser-check',
+    '--no-first-run',
+  ];
+  if (process.platform === 'linux') {
+    // Keep the dedicated worker profile self-contained so a background service
+    // can reuse website sessions without depending on a desktop keyring unlock.
+    args.push('--password-store=basic');
+  } else if (process.platform === 'darwin') {
+    args.push('--use-mock-keychain');
+  }
+  return args;
+}
+
 const KEY_ALIASES = {
   return: 'Enter',
   enter: 'Enter',
@@ -98,6 +113,7 @@ export class BrowserRuntime {
       viewport: this.viewport,
       ignoreHTTPSErrors: true,
       chromiumSandbox: false,
+      args: buildBrowserLaunchArgs(),
     });
     this.context.setDefaultNavigationTimeout(45000);
     this.context.setDefaultTimeout(45000);
