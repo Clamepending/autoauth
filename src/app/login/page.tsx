@@ -44,7 +44,7 @@ export default async function LoginPage({
         <div className="eyebrow">Human Login</div>
         <h1>Sign in to OttoAuth</h1>
         <p className="lede">
-          Link your agents, manage credits, and claim the browser device that will fulfill tasks on your behalf.
+          Link your agents, manage credits, and link the fulfillment agent that will handle orders on your behalf.
         </p>
 
         {error && <div className="auth-error">{error}</div>}
@@ -70,7 +70,7 @@ export default async function LoginPage({
 
         <div className="card">
           <strong>What happens after login</strong>
-          You start with $20 in credits, paste your agent&apos;s pairing key into your dashboard, then claim the extension device with a short code from OttoAuth.
+          Paste your agent&apos;s link code into your dashboard, then link a fulfillment agent with a short code from OttoAuth.
         </div>
 
         <p className="auth-footer">

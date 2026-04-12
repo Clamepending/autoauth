@@ -41,7 +41,7 @@ export function NewOrderClient() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setError(payload?.error || "Could not create task.");
+        setError(payload?.error || "Could not create order.");
         return;
       }
       window.location.href = `/orders/${payload?.task?.id}`;
@@ -56,9 +56,9 @@ export function NewOrderClient() {
         <div className="dashboard-header">
           <div>
             <div className="eyebrow">Human Order Page</div>
-            <h1>Request a browser task</h1>
+            <h1>Create an order</h1>
             <p className="lede">
-              Submit a purchase or general browser task yourself, then watch fulfillment live once a device picks it up.
+              Submit a purchase or browser order yourself, then watch fulfillment live once a device picks it up.
             </p>
           </div>
           <div className="dashboard-actions">
@@ -72,7 +72,7 @@ export function NewOrderClient() {
 
         <section className="dashboard-grid wide">
           <article className="dashboard-card">
-            <div className="supported-accounts-title">Task Request</div>
+            <div className="supported-accounts-title">Order Request</div>
             <form className="stack-form" onSubmit={handleSubmit}>
               <input
                 className="auth-input"
@@ -91,7 +91,7 @@ export function NewOrderClient() {
                 className="auth-input task-textarea"
                 value={taskPrompt}
                 onChange={(event) => setTaskPrompt(event.target.value)}
-                placeholder="Describe exactly what should be ordered or what browser task should be completed. Include size, flavor, quantity, options, substitutions, or any other details that matter."
+                placeholder="Describe exactly what should be ordered or what browser work should be completed. Include size, flavor, quantity, options, substitutions, or any other details that matter."
               />
               <div className="dashboard-muted">
                 This description is what the browser fulfiller follows. If it is vague or incomplete, OttoAuth may order the wrong item or hit errors during checkout.
@@ -115,7 +115,7 @@ export function NewOrderClient() {
                 <option value="marketplace">Only marketplace devices</option>
               </select>
               <button className="auth-button primary" type="submit" disabled={submitting}>
-                {submitting ? "Submitting..." : "Submit task"}
+                {submitting ? "Submitting..." : "Submit order"}
               </button>
             </form>
           </article>
@@ -125,9 +125,9 @@ export function NewOrderClient() {
             <div className="dashboard-list">
               <div className="dashboard-row">
                 <div>
-                  <strong>1. OttoAuth assigns a device</strong>
+                  <strong>1. OttoAuth assigns a fulfiller</strong>
                   <div className="dashboard-muted">
-                    Auto mode prefers your own claimed browser device and falls back to an opted-in marketplace fulfiller.
+                    Auto mode prefers your own linked fulfillment agent and falls back to an opted-in marketplace fulfiller.
                   </div>
                 </div>
               </div>
@@ -143,7 +143,7 @@ export function NewOrderClient() {
                 <div>
                   <strong>3. Credits settle after completion</strong>
                   <div className="dashboard-muted">
-                    OttoAuth calculates the total after the task finishes and credits the fulfiller if another human completed it for you.
+                    OttoAuth calculates the total after the order finishes and credits the fulfiller if another human completed it for you.
                   </div>
                 </div>
               </div>

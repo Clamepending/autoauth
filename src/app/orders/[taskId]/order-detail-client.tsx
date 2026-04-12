@@ -260,11 +260,11 @@ function describeEvent(event: RunEvent) {
       : null;
   switch (event.type) {
     case "computeruse.run.created":
-      return "Task accepted by OttoAuth and assigned to a browser fulfiller.";
+      return "Order accepted by OttoAuth and assigned to a browser fulfiller.";
     case "computeruse.task.queued":
-      return taskId ? `Queued for device pickup as task ${taskId}.` : "Queued for device pickup.";
+      return taskId ? `Queued for device pickup as internal job ${taskId}.` : "Queued for device pickup.";
     case "computeruse.task.delivered":
-      return taskId ? `Picked up by the fulfiller device as task ${taskId}.` : "Picked up by the fulfiller device.";
+      return taskId ? `Picked up by the fulfiller device as internal job ${taskId}.` : "Picked up by the fulfiller device.";
     case "computeruse.chat.human_message":
       return "You sent a live message to the browser fulfiller.";
     case "computeruse.chat.agent_message":
@@ -274,11 +274,11 @@ function describeEvent(event: RunEvent) {
     case "computeruse.run.awaiting_agent_clarification":
       return "OttoAuth is waiting for clarification before continuing the run.";
     case "computeruse.human_clarification.responded":
-      return "Your clarification reply was received and OttoAuth resumed the task.";
+      return "Your clarification reply was received and OttoAuth resumed the order.";
     case "computeruse.human_clarification.timed_out":
       return "The clarification window expired before OttoAuth received a reply.";
     case "computeruse.agent_clarification.responded":
-      return "The submitting agent replied to the clarification request and OttoAuth resumed the task.";
+      return "The submitting agent replied to the clarification request and OttoAuth resumed the order.";
     case "computeruse.agent_clarification.timed_out":
       return "The submitting agent did not answer the clarification request before the deadline.";
     case "computeruse.local_agent.completed":
@@ -286,9 +286,9 @@ function describeEvent(event: RunEvent) {
     case "computeruse.local_agent.failed":
       return "Browser fulfiller reported a failure.";
     case "computeruse.run.completed":
-      return "OttoAuth marked the task run complete.";
+      return "OttoAuth marked the order complete.";
     case "computeruse.run.failed":
-      return "OttoAuth marked the task run failed.";
+      return "OttoAuth marked the order failed.";
     default:
       return event.type;
   }
@@ -309,7 +309,7 @@ function displaySummary(task: TaskPayload) {
     return "OttoAuth is waiting for a clarification reply before the browser fulfiller can continue.";
   }
   if (task.status === "failed") {
-    return task.error || "This task failed before the fulfiller returned a written summary.";
+    return task.error || "This order failed before the fulfiller returned a written summary.";
   }
   return "Not yet available";
 }
@@ -594,7 +594,7 @@ export function OrderDetailClient(props: {
         <div className="dashboard-header">
           <div>
             <div className="eyebrow">Order Detail</div>
-            <h1>{data.task.task_title || `Task #${data.task.id}`}</h1>
+            <h1>{data.task.task_title || `Order #${data.task.id}`}</h1>
             <p className="lede">
               Watch the live browser snapshot, chat with the fulfiller when needed, and inspect the final charges once fulfillment finishes.
             </p>
@@ -621,7 +621,7 @@ export function OrderDetailClient(props: {
           <article className="dashboard-card">
             <div className="supported-accounts-title">Status</div>
             <div className="dashboard-row">
-              <strong>Task</strong>
+              <strong>Order</strong>
               <span className={`status-chip status-${data.task.status}`}>{displayTaskStatus(data.task.status)}</span>
             </div>
             <div className="dashboard-row">
@@ -733,11 +733,11 @@ export function OrderDetailClient(props: {
               </div>
             ) : data.task.status !== "completed" ? (
               <div className="dashboard-muted">
-                Ratings unlock after the task is completed.
+                Ratings unlock after the order is completed.
               </div>
             ) : data.fulfiller && data.requester && data.fulfiller.id === data.requester.id ? (
               <div className="dashboard-muted">
-                Self-fulfilled tasks do not need a separate rating.
+                Self-fulfilled orders do not need a separate rating.
               </div>
             ) : (
               <div className="dashboard-muted">
@@ -799,7 +799,7 @@ export function OrderDetailClient(props: {
           </article>
 
           <article className="dashboard-card">
-            <div className="supported-accounts-title">Task Chat</div>
+            <div className="supported-accounts-title">Order Chat</div>
             <div className="task-chat-feed">
               {taskChatItems.length === 0 ? (
                 <div className="dashboard-empty">No messages yet.</div>
@@ -825,7 +825,7 @@ export function OrderDetailClient(props: {
               <div className="task-chat-composer">
                 {data.task.status === "awaiting_agent_clarification" && data.task.clarification?.deadline_at && (
                   <div className="dashboard-muted">
-                    Reply by {fmtDate(data.task.clarification.deadline_at)} or OttoAuth will cancel this task.
+                    Reply by {fmtDate(data.task.clarification.deadline_at)} or OttoAuth will cancel this order.
                   </div>
                 )}
                 <textarea
