@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getCurrentHumanUser } from "@/lib/human-session";
+import { getBaseUrl } from "@/lib/base-url";
 import { HomeCommandBox } from "@/app/home-command-box";
 
 const SERVICE_ICONS: Record<string, React.ReactNode> = {
@@ -37,7 +38,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const curlCommand = "curl -s http://localhost:3000/skill.md";
+  const curlCommand = `curl -s ${getBaseUrl()}/skill.md`;
   const humanUser = await getCurrentHumanUser();
 
   return (
