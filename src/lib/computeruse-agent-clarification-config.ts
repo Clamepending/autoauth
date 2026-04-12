@@ -1,4 +1,17 @@
-const DEFAULT_AGENT_CLARIFICATION_TIMEOUT_MS = 30_000;
+const DEFAULT_AGENT_CLARIFICATION_TIMEOUT_MS = 600_000;
+
+export function getAgentClarificationTimeoutSeconds() {
+  return Math.ceil(getAgentClarificationTimeoutMs() / 1000);
+}
+
+export function getAgentClarificationTimeoutLabel() {
+  const totalSeconds = getAgentClarificationTimeoutSeconds();
+  if (totalSeconds % 60 === 0) {
+    const minutes = totalSeconds / 60;
+    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+  return `${totalSeconds} second${totalSeconds === 1 ? "" : "s"}`;
+}
 
 export function getAgentClarificationTimeoutMs() {
   const raw = Number(process.env.OTTOAUTH_AGENT_CLARIFICATION_TIMEOUT_MS ?? "");

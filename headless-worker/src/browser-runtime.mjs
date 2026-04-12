@@ -38,6 +38,10 @@ const KEY_ALIASES = {
   backspace: 'Backspace',
   delete: 'Delete',
   space: 'Space',
+  up: 'ArrowUp',
+  down: 'ArrowDown',
+  left: 'ArrowLeft',
+  right: 'ArrowRight',
   arrowup: 'ArrowUp',
   arrowdown: 'ArrowDown',
   arrowleft: 'ArrowLeft',
@@ -66,6 +70,17 @@ function imageResult(base64) {
 
 function stringifyError(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isSyntheticPointerJavascript(code) {
+  const normalized = String(code || '');
+  if (!normalized) return false;
+  return (
+    /dispatchEvent/i.test(normalized) &&
+    /(MouseEvent|PointerEvent|TouchEvent|mousedown|mouseup|pointerdown|pointerup|touchstart|touchend|touchmove)/i.test(
+      normalized,
+    )
+  );
 }
 
 async function fileExists(targetPath) {
@@ -482,6 +497,206 @@ export class BrowserRuntime {
     }, refId);
   }
 
+  async #readVerificationState(page) {
+    const fallbackUrl = page.url() || 'about:blank';
+    try {
+      const state = await page.evaluate(() => {
+        const bodyText = document.body?.innerText?.replace(/\s+/g, ' ').trim() || '';
+        const hasPressAndHoldText = /press\s*&?\s*hold/i.test(bodyText);
+        const hasTryAgainText = /please try again/i.test(bodyText);
+        const hasEmailVerificationStep =
+          Boolean(
+            document.querySelector(
+              'input[type="email"], input[name*="email" i], input[placeholder*="email" i]',
+            ),
+          ) ||
+          /temporary verification code|enter your email address/i.test(bodyText);
+        const hasBlockedText =
+          /access to this page has been blocked|verify you are human|human verification|captcha/i.test(
+            bodyText,
+          );
+        const hasPxCaptcha = Boolean(
+          document.querySelector('#px-captcha, .px-captcha, [id*="px-captcha"]'),
+        );
+        return {
+          url: window.location.href,
+          hasPressAndHoldText,
+          hasTryAgainText,
+          hasEmailVerificationStep,
+          hasBlockedText,
+          hasPxCaptcha,
+        };
+      });
+
+      const isVerificationBarrier =
+        state.url.includes('/captcha/verify') ||
+        state.hasPxCaptcha ||
+        state.hasPressAndHoldText ||
+        state.hasEmailVerificationStep ||
+        state.hasBlockedText;
+      const isVerificationPending =
+        isVerificationBarrier &&
+        !state.hasPressAndHoldText &&
+        !state.hasEmailVerificationStep &&
+        !state.hasTryAgainText;
+
+      return {
+        ...state,
+        isVerificationBarrier,
+        isVerificationPending,
+        isPressAndHoldBarrier: isVerificationBarrier && !state.hasEmailVerificationStep && !isVerificationPending,
+      };
+    } catch {
+      return {
+        url: fallbackUrl,
+        hasPressAndHoldText: false,
+        hasTryAgainText: false,
+        hasEmailVerificationStep: false,
+        hasBlockedText: false,
+        hasPxCaptcha: false,
+        isVerificationBarrier: fallbackUrl.includes('/captcha/verify'),
+        isVerificationPending: false,
+        isPressAndHoldBarrier: fallbackUrl.includes('/captcha/verify'),
+      };
+    }
+  }
+
+  async #waitForVerificationOutcome(page, currentState, timeoutMs = 8000) {
+    let latestState = currentState;
+    if (!latestState.isVerificationPending) return latestState;
+
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      await page.waitForTimeout(400);
+      latestState = await this.#readVerificationState(page);
+      if (!latestState.isVerificationPending) {
+        return latestState;
+      }
+    }
+
+    return latestState;
+  }
+
+  async #performPlaywrightPressAndHold(page, x, y, holdMs) {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    const startedAt = Date.now();
+    let tick = 0;
+    while (Date.now() - startedAt < holdMs) {
+      const remaining = holdMs - (Date.now() - startedAt);
+      await page.waitForTimeout(Math.min(250, Math.max(50, remaining)));
+      tick += 1;
+      const offset = tick % 2 === 0 ? 0 : 1;
+      await page.mouse.move(x + offset, y, { steps: 2 }).catch(() => {});
+    }
+    await page.mouse.up();
+  }
+
+  async #performCdpMousePressAndHold(page, x, y, holdMs) {
+    const session = await page.context().newCDPSession(page);
+    try {
+      await session.send('Input.dispatchMouseEvent', {
+        type: 'mouseMoved',
+        x,
+        y,
+        button: 'none',
+        buttons: 0,
+      });
+      await session.send('Input.dispatchMouseEvent', {
+        type: 'mousePressed',
+        x,
+        y,
+        button: 'left',
+        buttons: 1,
+        clickCount: 1,
+      });
+
+      const startedAt = Date.now();
+      let tick = 0;
+      while (Date.now() - startedAt < holdMs) {
+        const remaining = holdMs - (Date.now() - startedAt);
+        await page.waitForTimeout(Math.min(250, Math.max(50, remaining)));
+        tick += 1;
+        const offset = tick % 2 === 0 ? 0 : 1;
+        await session.send('Input.dispatchMouseEvent', {
+          type: 'mouseMoved',
+          x: x + offset,
+          y,
+          button: 'none',
+          buttons: 1,
+        });
+      }
+
+      await session.send('Input.dispatchMouseEvent', {
+        type: 'mouseReleased',
+        x,
+        y,
+        button: 'left',
+        buttons: 0,
+        clickCount: 1,
+      });
+      return true;
+    } finally {
+      await session.detach().catch(() => {});
+    }
+  }
+
+  async #performCdpTouchPressAndHold(page, x, y, holdMs) {
+    const session = await page.context().newCDPSession(page);
+    const pointForOffset = (offset) => [
+      {
+        x: x + offset,
+        y,
+        radiusX: 2,
+        radiusY: 2,
+        rotationAngle: 0,
+        force: 1,
+        id: 1,
+      },
+    ];
+
+    try {
+      await session.send('Emulation.setTouchEmulationEnabled', {
+        enabled: true,
+        maxTouchPoints: 1,
+      });
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: pointForOffset(0),
+        modifiers: 0,
+      });
+
+      const startedAt = Date.now();
+      let tick = 0;
+      while (Date.now() - startedAt < holdMs) {
+        const remaining = holdMs - (Date.now() - startedAt);
+        await page.waitForTimeout(Math.min(250, Math.max(50, remaining)));
+        tick += 1;
+        const offset = tick % 2 === 0 ? 0 : 1;
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: pointForOffset(offset),
+          modifiers: 0,
+        });
+      }
+
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchEnd',
+        touchPoints: [],
+        modifiers: 0,
+      });
+      return true;
+    } finally {
+      await session
+        .send('Emulation.setTouchEmulationEnabled', {
+          enabled: false,
+          maxTouchPoints: 1,
+        })
+        .catch(() => {});
+      await session.detach().catch(() => {});
+    }
+  }
+
   async #executeComputer(input) {
     const page = await this.#getPageForInput(input);
     const action = String(input.action || '');
@@ -583,17 +798,71 @@ export class BrowserRuntime {
         }
         if (!coords) return textResult('Error: No coordinate or ref provided for press_and_hold.');
         const [x, y] = coords.map((value) => Math.round(Number(value)));
-        const holdMs = Math.round(
+        const beforeState = await this.#readVerificationState(page);
+        const requestedHoldMs = Math.round(
           Math.max(0.2, Math.min(30, Number(input.duration) || 2)) * 1000,
         );
-        await page.mouse.move(x, y);
-        await page.mouse.down();
-        await page.waitForTimeout(holdMs);
-        await page.mouse.up();
-        await page.waitForTimeout(300);
+        const holdMs = beforeState.isPressAndHoldBarrier
+          ? Math.max(requestedHoldMs, 3500)
+          : requestedHoldMs;
+        const touchHoldMs = beforeState.isPressAndHoldBarrier
+          ? Math.min(Math.max(holdMs + 1000, 4500), 8000)
+          : holdMs;
+        let cdpMouseAttempted = false;
+        let cdpTouchAttempted = false;
+
+        try {
+          await this.#performCdpMousePressAndHold(page, x, y, holdMs);
+          cdpMouseAttempted = true;
+        } catch {
+          await this.#performPlaywrightPressAndHold(page, x, y, holdMs);
+        }
+
+        await page.waitForTimeout(beforeState.isVerificationBarrier ? 1800 : 1200);
+        let afterState = await this.#waitForVerificationOutcome(
+          page,
+          await this.#readVerificationState(page),
+          8000,
+        );
+
+        if (afterState.isPressAndHoldBarrier && beforeState.isPressAndHoldBarrier) {
+          try {
+            await this.#performCdpTouchPressAndHold(page, x, y, touchHoldMs);
+            cdpTouchAttempted = true;
+            await page.waitForTimeout(1800);
+            afterState = await this.#waitForVerificationOutcome(
+              page,
+              await this.#readVerificationState(page),
+              10000,
+            );
+          } catch {
+            // Mouse hold already ran; keep the best effort result.
+          }
+        }
+
         const shot = await this.takeScreenshot(page);
+        const detailParts = [`Pressed and held for ${(holdMs / 1000).toFixed(1)}s.`];
+        if (cdpMouseAttempted) {
+          detailParts.push('Used native CDP mouse hold.');
+        } else {
+          detailParts.push('Used Playwright mouse hold fallback.');
+        }
+        if (cdpTouchAttempted) {
+          detailParts.push(
+            `Retried with native touch hold for ${(touchHoldMs / 1000).toFixed(1)}s because the verification barrier stayed visible.`,
+          );
+        }
+        if (beforeState.isPressAndHoldBarrier && afterState.hasEmailVerificationStep) {
+          detailParts.push(`Verification advanced to the follow-up email step at ${afterState.url}.`);
+        } else if (afterState.isVerificationPending) {
+          detailParts.push(`Verification is still processing at ${afterState.url}; wait before retrying.`);
+        } else if (afterState.isPressAndHoldBarrier) {
+          detailParts.push(`Verification barrier still visible at ${afterState.url}.`);
+        } else if (beforeState.isVerificationBarrier) {
+          detailParts.push(`Verification state changed after the hold at ${afterState.url}.`);
+        }
         return [
-          { type: 'text', text: `Pressed and held for ${(holdMs / 1000).toFixed(1)}s.` },
+          { type: 'text', text: detailParts.join(' ') },
           ...imageResult(shot.base64),
         ];
       }
@@ -709,16 +978,23 @@ export class BrowserRuntime {
 
   async #executeJavascript(input) {
     const page = await this.#getPageForInput(input);
-    const result = await page.evaluate((code) => {
+    const code = String(input.text || '');
+    const verificationState = await this.#readVerificationState(page);
+    if (verificationState.isPressAndHoldBarrier && isSyntheticPointerJavascript(code)) {
+      return textResult(
+        'Error: Synthetic DOM mouse/touch events are unreliable on this verification page. Use the computer tool with action "press_and_hold" instead.',
+      );
+    }
+    const result = await page.evaluate((evalCode) => {
       try {
-        const value = eval(code);
+        const value = eval(evalCode);
         if (typeof value === 'undefined') return 'undefined';
         if (typeof value === 'string') return value;
         return JSON.stringify(value);
       } catch (error) {
         return `Error: ${error instanceof Error ? error.message : String(error)}`;
       }
-    }, String(input.text || ''));
+    }, code);
     return textResult(String(result || 'undefined'));
   }
 

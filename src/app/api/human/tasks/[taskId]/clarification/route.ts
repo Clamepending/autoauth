@@ -9,6 +9,7 @@ import {
   isAgentClarificationExpired,
   resumeAgentClarificationTask,
 } from "@/lib/computeruse-agent-clarification";
+import { getAgentClarificationTimeoutLabel } from "@/lib/computeruse-agent-clarification-config";
 
 type Context = {
   params: {
@@ -71,10 +72,11 @@ export async function POST(request: Request, context: Context) {
     );
   }
   if (isAgentClarificationExpired(task)) {
+    const timeoutLabel = getAgentClarificationTimeoutLabel();
     return NextResponse.json(
       {
         error:
-          "This clarification window expired after 30 seconds and the request was canceled.",
+          `This clarification window expired after ${timeoutLabel} and the request was canceled.`,
       },
       { status: 409 },
     );

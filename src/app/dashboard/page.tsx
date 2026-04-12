@@ -10,7 +10,6 @@ import {
 import { getCurrentHumanUser } from "@/lib/human-session";
 import {
   getHumanFulfillmentRatingStats,
-  listGenericBrowserTasksRelatedToHuman,
 } from "@/lib/generic-browser-tasks";
 
 export const dynamic = "force-dynamic";
@@ -21,14 +20,13 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const [balanceCents, linkedAgents, devices, pairingCodes, ledger, tasks, fulfillmentStats] =
+  const [balanceCents, linkedAgents, devices, pairingCodes, ledger, fulfillmentStats] =
     await Promise.all([
       getHumanCreditBalance(user.id),
       getLinkedAgentsForHuman(user.id),
       listComputerUseDevicesForHuman(user.id),
       getActiveHumanDevicePairingCodes(user.id),
       listCreditLedgerEntries(user.id, 20),
-      listGenericBrowserTasksRelatedToHuman(user.id, 20),
       getHumanFulfillmentRatingStats(user.id),
     ]);
 
@@ -40,7 +38,6 @@ export default async function DashboardPage() {
       devices={devices}
       pairingCodes={pairingCodes}
       ledger={ledger}
-      tasks={tasks}
       fulfillmentStats={fulfillmentStats}
     />
   );

@@ -1388,6 +1388,9 @@ export async function completeGenericBrowserTaskFromExtension(params: {
   const inferenceCents = shouldCharge ? inference.cents : 0;
   const totalCents = goodsCents + shippingCents + taxCents + otherCents + inferenceCents;
   const now = new Date().toISOString();
+  const selfFulfilled =
+    existing.fulfiller_human_user_id != null &&
+    existing.fulfiller_human_user_id === existing.human_user_id;
   const billingStatus: GenericBrowserTaskBillingStatus = shouldCharge
     ? totalCents > 0
       ? "debited"
@@ -1428,14 +1431,14 @@ export async function completeGenericBrowserTaskFromExtension(params: {
       payoutStatus = "not_applicable";
     } else {
       payoutCents = totalCents;
-      payoutStatus = "credited";
+      payoutStatus = selfFulfilled ? "self_fulfilled" : "credited";
       payoutCreditedAt = now;
       await addCreditLedgerEntry({
         humanUserId: existing.fulfiller_human_user_id,
         amountCents: totalCents,
         entryType: "task_payout",
         description:
-          existing.fulfiller_human_user_id === existing.human_user_id
+          selfFulfilled
             ? finalSummary ||
               existing.task_title ||
               `Self-fulfilled browser task #${existing.id}`
@@ -1446,8 +1449,7 @@ export async function completeGenericBrowserTaskFromExtension(params: {
         referenceId: String(existing.id),
         metadata: {
           source_human_user_id: existing.human_user_id,
-          self_fulfilled:
-            existing.fulfiller_human_user_id === existing.human_user_id,
+          self_fulfilled: selfFulfilled,
           merchant: billing.merchant,
           currency: billing.currency,
           goods_cents: goodsCents,
@@ -1578,6 +1580,9 @@ export async function rateGenericBrowserTaskByRequester(params: {
 
 export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?: HumanUserRecord | null) {
   const fmt = (cents: number | null) => (cents != null ? `$${(cents / 100).toFixed(2)}` : null);
+  const selfFulfilled =
+    task.fulfiller_human_user_id != null &&
+    task.fulfiller_human_user_id === task.human_user_id;
   return {
     id: task.id,
     submission_source: task.submission_source,
@@ -1619,6 +1624,8 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
     inference_total: fmt(task.inference_cents),
     total_debited: fmt(task.total_cents),
     payout_total: fmt(task.payout_cents),
+    net_credits: fmt(task.payout_cents - task.total_cents),
+    self_fulfilled: selfFulfilled,
     input_tokens: task.input_tokens,
     output_tokens: task.output_tokens,
     run_id: task.run_id,
