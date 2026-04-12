@@ -455,6 +455,11 @@ footer {
   font-size: 13px;
 }
 
+.dashboard-task-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .status-chip {
   font-size: 12px;
   text-transform: uppercase;
@@ -900,6 +905,10 @@ footer {
     gap: 8px 12px;
   }
 
+  .dashboard-task {
+    gap: 10px;
+  }
+
   .snapshot-strip {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -972,6 +981,10 @@ footer {
 
   .dashboard-stat {
     font-size: 28px;
+  }
+
+  .dashboard-section-header {
+    gap: 8px;
   }
 
   .live-view-frame {
