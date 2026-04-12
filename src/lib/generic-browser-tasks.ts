@@ -617,6 +617,21 @@ function looksLikeClarificationRequest(text: string | null) {
   );
 }
 
+function sanitizeClarificationQuestion(text: string | null, limit = 500) {
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+
+  const withoutFences = raw.replace(/```[\s\S]*?```/g, " ");
+  const withoutJsonTail = withoutFences.replace(/\{[\s\S]*$/, " ");
+  const collapsed = withoutJsonTail.replace(/\s+/g, " ").trim();
+  if (!collapsed) return null;
+
+  const explicitQuestion = collapsed.match(/[^.?!\n]*(?:\?|$)/)?.[0]?.trim() || collapsed;
+  const cleaned = explicitQuestion.replace(/^[:\-\s]+|[:\-\s]+$/g, "").trim();
+  if (!cleaned) return null;
+  return cleaned.length > limit ? `${cleaned.slice(0, limit)}...` : cleaned;
+}
+
 function extractClarificationRequest(
   result: Record<string, unknown> | null,
   error?: string | null,
@@ -624,20 +639,20 @@ function extractClarificationRequest(
   const explicitFlag =
     result?.clarification_requested === true ||
     result?.needs_agent_clarification === true;
-  const question = firstString(
-    [
-      result?.clarification_question,
-      result?.clarification_request,
-      result?.question,
-      result?.error,
-      result?.summary,
-      error,
-    ],
+  const explicitQuestion = firstString(
+    [result?.clarification_question, result?.clarification_request, result?.question],
     2000,
   );
-  if (!question) return null;
-  if (explicitFlag || looksLikeClarificationRequest(question)) {
-    return question;
+  const cleanedExplicit = sanitizeClarificationQuestion(explicitQuestion);
+  if (cleanedExplicit) {
+    return cleanedExplicit;
+  }
+
+  const fallbackQuestion = firstString([result?.error, result?.summary, error], 2000);
+  const cleanedFallback = sanitizeClarificationQuestion(fallbackQuestion);
+  if (!cleanedFallback) return null;
+  if (explicitFlag || looksLikeClarificationRequest(cleanedFallback)) {
+    return cleanedFallback;
   }
   return null;
 }

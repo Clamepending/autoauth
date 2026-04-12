@@ -115,3 +115,37 @@ export async function reportTaskResult(config, taskId, payload) {
   }
   return body;
 }
+
+export async function fetchTaskMessages(config, taskId) {
+  const response = await fetch(
+    `${normalizeServerUrl(config.serverUrl)}/api/computeruse/device/tasks/${encodeURIComponent(taskId)}/messages`,
+    {
+      method: 'GET',
+      headers: buildDeviceHeaders(config),
+    },
+  );
+  const body = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(body?.error || `fetch messages failed with HTTP ${response.status}.`);
+  }
+  return Array.isArray(body?.messages) ? body.messages : [];
+}
+
+export async function sendTaskMessage(config, taskId, message) {
+  const response = await fetch(
+    `${normalizeServerUrl(config.serverUrl)}/api/computeruse/device/tasks/${encodeURIComponent(taskId)}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        ...buildDeviceHeaders(config),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message }),
+    },
+  );
+  const body = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(body?.error || `send message failed with HTTP ${response.status}.`);
+  }
+  return body?.message || null;
+}

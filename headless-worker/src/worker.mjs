@@ -1,6 +1,12 @@
 import { runAgentLoop } from './agent-loop.mjs';
 import { BrowserRuntime } from './browser-runtime.mjs';
-import { reportTaskResult, uploadTaskSnapshot, waitForTask } from './ottoauth-client.mjs';
+import {
+  fetchTaskMessages,
+  reportTaskResult,
+  sendTaskMessage,
+  uploadTaskSnapshot,
+  waitForTask,
+} from './ottoauth-client.mjs';
 import { createTaskTraceRecorder } from './task-trace.mjs';
 
 function sleep(ms) {
@@ -21,6 +27,17 @@ function taskGoal(task) {
 
 function truncate(text, limit) {
   return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function sanitizeClarificationQuestion(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return '';
+  const withoutFences = raw.replace(/```[\s\S]*?```/g, ' ');
+  const withoutJsonTail = withoutFences.replace(/\{[\s\S]*$/, ' ');
+  const collapsed = withoutJsonTail.replace(/\s+/g, ' ').trim();
+  if (!collapsed) return '';
+  const firstQuestion = collapsed.match(/[^.?!]*(?:\?|$)/)?.[0]?.trim() || collapsed;
+  return truncate(firstQuestion || collapsed, 500);
 }
 
 function looksLikeClarificationRequest(text) {
@@ -131,7 +148,7 @@ function normalizeOttoAuthCompletion(result, messages) {
   if (looksLikeClarificationRequest(summaryText)) {
     const error =
       'OttoAuth does not support live clarification replies. The fulfiller asked for more direction instead of returning a final result.';
-    const clarificationQuestion = truncate(summaryText, 1200);
+    const clarificationQuestion = sanitizeClarificationQuestion(summaryText);
     return {
       status: 'failed',
       result: buildOttoAuthFailureResult(
@@ -242,6 +259,10 @@ async function handleTask({
       prompt: goal,
       apiKey,
       model,
+      taskChat: {
+        fetchRequesterMessages: () => fetchTaskMessages(config, task.id),
+        sendAgentMessage: (message) => sendTaskMessage(config, task.id, message),
+      },
       onEvent: (type, payload) => recorder.note(type, payload).catch(() => {}),
       onModelUsage: (usage) => {
         modelUsages.push(usage);

@@ -91,7 +91,7 @@ export function extractOttoAuthTaskCompletion(sessionId: string): OttoAuthTaskCo
     if (looksLikeClarificationRequest(lastAssistantText)) {
       const error =
         'OttoAuth does not support live clarification replies. The fulfiller asked for more direction instead of returning a final result.';
-      const clarificationQuestion = truncate(lastAssistantText, 1200);
+      const clarificationQuestion = sanitizeClarificationQuestion(lastAssistantText);
       return {
         status: 'failed',
         result: buildOttoAuthFailureResult(
@@ -206,7 +206,7 @@ function normalizeStructuredOttoAuthResult(
   if (looksLikeClarificationRequest(summaryText)) {
     const error =
       'OttoAuth does not support live clarification replies. The fulfiller asked for more direction instead of returning a final result.';
-    const clarificationQuestion = truncate(summaryText, 1200);
+    const clarificationQuestion = sanitizeClarificationQuestion(summaryText);
     return {
       status: 'failed',
       result: buildOttoAuthFailureResult(
@@ -335,4 +335,15 @@ function looksLikeClarificationRequest(text: string): boolean {
 
 function truncate(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function sanitizeClarificationQuestion(text: string): string {
+  const raw = text.trim();
+  if (!raw) return '';
+  const withoutFences = raw.replace(/```[\s\S]*?```/g, ' ');
+  const withoutJsonTail = withoutFences.replace(/\{[\s\S]*$/, ' ');
+  const collapsed = withoutJsonTail.replace(/\s+/g, ' ').trim();
+  if (!collapsed) return '';
+  const firstQuestion = collapsed.match(/[^.?!]*(?:\?|$)/)?.[0]?.trim() || collapsed;
+  return truncate(firstQuestion || collapsed, 500);
 }

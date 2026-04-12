@@ -529,6 +529,70 @@ footer {
   color: #fff;
 }
 
+.task-chat-feed {
+  display: grid;
+  gap: 12px;
+  max-height: 560px;
+  overflow: auto;
+  padding-right: 8px;
+}
+
+.task-chat-feed::-webkit-scrollbar {
+  width: 10px;
+}
+
+.task-chat-feed::-webkit-scrollbar-thumb {
+  background: #d7d7d7;
+  border-radius: 999px;
+  border: 2px solid #fff;
+}
+
+.chat-bubble {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  padding: 14px 16px;
+  max-width: min(100%, 92%);
+}
+
+.chat-requester {
+  justify-self: end;
+  background: #0b0b0b;
+  color: #fff;
+}
+
+.chat-agent {
+  justify-self: start;
+  background: #f7f7f7;
+}
+
+.chat-system {
+  justify-self: center;
+  background: #fff;
+  color: var(--muted);
+  max-width: min(100%, 84%);
+}
+
+.chat-bubble-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.chat-requester .chat-bubble-meta,
+.chat-requester .dashboard-muted {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.task-chat-composer {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--grid);
+  padding-top: 16px;
+}
+
 .rating-block {
   display: grid;
   gap: 12px;

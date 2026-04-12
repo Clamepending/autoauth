@@ -357,6 +357,10 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
     }, OTTOAUTH_LIVE_SNAPSHOT_INTERVAL_MS);
 
     const loopPromise = runAgentLoop(goal, sessionId, {
+      taskChat: {
+        fetchRequesterMessages: () => fetchTaskMessages(task.id),
+        sendAgentMessage: (message) => sendTaskMessage(task.id, message),
+      },
       onEvent: (event) => recorder?.note(event.type, event.payload),
       onModelUsage: (usage) => {
         modelUsages.push(usage);
@@ -550,5 +554,44 @@ async function reportTaskResult(
     });
   } catch (e) {
     console.error('[OttoAuth] Failed to report task result:', e);
+  }
+}
+
+async function fetchTaskMessages(taskId: string): Promise<Array<{ id: string; created_at?: string | null; message: string }>> {
+  const { ottoAuthUrl, ottoAuthToken, ottoAuthDeviceId } = useStore.getState();
+  if (!ottoAuthUrl || !ottoAuthToken) return [];
+
+  const response = await fetch(`${ottoAuthUrl}/api/computeruse/device/tasks/${taskId}/messages`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${ottoAuthToken}`,
+      'X-OttoAuth-Mock-Device': ottoAuthDeviceId || '',
+    },
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | { error?: string; messages?: Array<{ id: string; created_at?: string | null; message: string }> }
+    | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || `Could not fetch OttoAuth chat messages (HTTP ${response.status}).`);
+  }
+  return Array.isArray(payload?.messages) ? payload.messages : [];
+}
+
+async function sendTaskMessage(taskId: string, message: string): Promise<void> {
+  const { ottoAuthUrl, ottoAuthToken, ottoAuthDeviceId } = useStore.getState();
+  if (!ottoAuthUrl || !ottoAuthToken) return;
+
+  const response = await fetch(`${ottoAuthUrl}/api/computeruse/device/tasks/${taskId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${ottoAuthToken}`,
+      'X-OttoAuth-Mock-Device': ottoAuthDeviceId || '',
+    },
+    body: JSON.stringify({ message }),
+  });
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || `Could not send OttoAuth chat message (HTTP ${response.status}).`);
   }
 }

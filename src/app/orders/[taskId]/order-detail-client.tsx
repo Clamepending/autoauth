@@ -108,6 +108,13 @@ type DetailPayload = {
   recent_snapshots: Snapshot[];
 };
 
+type ChatItem = {
+  id: string;
+  role: "requester" | "agent" | "system";
+  text: string;
+  timestamp: string;
+};
+
 function fmtDate(value: string | null | undefined) {
   if (!value) return "Not yet";
   return new Date(value).toLocaleString();
@@ -117,9 +124,127 @@ function fmtRating(value: number | null | undefined) {
   return value == null ? "No ratings yet" : `${value.toFixed(1)} / 5`;
 }
 
+function cleanChatText(value: string | null | undefined, limit = 700) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const withoutFences = raw.replace(/```[\s\S]*?```/g, " ").trim();
+  const withoutJsonTail = withoutFences.replace(/\{[\s\S]*$/, " ").trim();
+  const collapsed = withoutJsonTail.replace(/\n{3,}/g, "\n\n").trim();
+  const finalText = collapsed || raw;
+  return finalText.length > limit ? `${finalText.slice(0, limit)}...` : finalText;
+}
+
+function buildInitialRequestText(task: TaskPayload) {
+  const parts = [task.task_prompt.trim()];
+  if (task.website_url) {
+    parts.push(`Preferred website: ${task.website_url}`);
+  }
+  if (task.shipping_address) {
+    parts.push(`Shipping address:\n${task.shipping_address}`);
+  }
+  return parts.filter(Boolean).join("\n\n");
+}
+
 function displayTaskStatus(status: string) {
   if (status === "awaiting_agent_clarification") return "awaiting clarification";
   return status;
+}
+
+function buildTaskChatItems(data: DetailPayload) {
+  const items: ChatItem[] = [];
+  const push = (item: ChatItem | null) => {
+    if (!item || !item.text.trim()) return;
+    const previous = items[items.length - 1];
+    if (previous && previous.role === item.role && previous.text === item.text) {
+      return;
+    }
+    items.push(item);
+  };
+
+  push({
+    id: `task-request-${data.task.id}`,
+    role: "requester",
+    text: buildInitialRequestText(data.task),
+    timestamp: data.task.created_at,
+  });
+
+  const chronologicalEvents = [...data.run_events].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+
+  for (const event of chronologicalEvents) {
+    switch (event.type) {
+      case "computeruse.chat.human_message":
+        push({
+          id: event.id,
+          role: "requester",
+          text: cleanChatText(
+            typeof event.data.message === "string" ? event.data.message : null,
+          ),
+          timestamp: event.created_at,
+        });
+        break;
+      case "computeruse.chat.agent_message":
+        push({
+          id: event.id,
+          role: "agent",
+          text: cleanChatText(
+            typeof event.data.message === "string" ? event.data.message : null,
+          ),
+          timestamp: event.created_at,
+        });
+        break;
+      case "computeruse.local_agent.clarification_requested":
+        push({
+          id: event.id,
+          role: "agent",
+          text: cleanChatText(
+            typeof event.data.clarification_question === "string"
+              ? event.data.clarification_question
+              : describeEvent(event),
+          ),
+          timestamp: event.created_at,
+        });
+        break;
+      case "computeruse.run.created":
+      case "computeruse.task.queued":
+      case "computeruse.task.delivered":
+      case "computeruse.run.awaiting_agent_clarification":
+      case "computeruse.human_clarification.responded":
+      case "computeruse.human_clarification.timed_out":
+      case "computeruse.agent_clarification.responded":
+      case "computeruse.agent_clarification.timed_out":
+      case "computeruse.local_agent.completed":
+      case "computeruse.local_agent.failed":
+        push({
+          id: event.id,
+          role: "system",
+          text: describeEvent(event),
+          timestamp: event.created_at,
+        });
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (data.task.status === "completed") {
+    push({
+      id: `task-final-${data.task.id}`,
+      role: "agent",
+      text: cleanChatText(displaySummary(data.task)),
+      timestamp: data.task.completed_at || data.task.created_at,
+    });
+  } else if (data.task.status === "failed") {
+    push({
+      id: `task-final-${data.task.id}`,
+      role: "agent",
+      text: cleanChatText(data.task.error || displaySummary(data.task)),
+      timestamp: data.task.completed_at || data.task.created_at,
+    });
+  }
+
+  return items;
 }
 
 function describeEvent(event: RunEvent) {
@@ -134,6 +259,10 @@ function describeEvent(event: RunEvent) {
       return taskId ? `Queued for device pickup as task ${taskId}.` : "Queued for device pickup.";
     case "computeruse.task.delivered":
       return taskId ? `Picked up by the fulfiller device as task ${taskId}.` : "Picked up by the fulfiller device.";
+    case "computeruse.chat.human_message":
+      return "You sent a live message to the browser fulfiller.";
+    case "computeruse.chat.agent_message":
+      return "The browser fulfiller sent a live chat update.";
     case "computeruse.local_agent.clarification_requested":
       return "Browser fulfiller requested clarification before continuing.";
     case "computeruse.run.awaiting_agent_clarification":
@@ -283,9 +412,9 @@ export function OrderDetailClient(props: {
   const [savingRating, setSavingRating] = useState(false);
   const [ratingMessage, setRatingMessage] = useState<string | null>(null);
   const [ratingValue, setRatingValue] = useState<number>(props.initialData.task.requester_rating ?? 0);
-  const [clarificationResponse, setClarificationResponse] = useState("");
-  const [sendingClarification, setSendingClarification] = useState(false);
-  const [clarificationMessage, setClarificationMessage] = useState<string | null>(null);
+  const [chatDraft, setChatDraft] = useState("");
+  const [sendingChat, setSendingChat] = useState(false);
+  const [chatMessage, setChatMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setRatingValue(data.task.requester_rating ?? 0);
@@ -389,45 +518,49 @@ export function OrderDetailClient(props: {
     }
   }
 
-  const canRespondToClarification =
+  const canChatWithAgent =
     data.viewer_role === "requester" &&
-    data.task.status === "awaiting_agent_clarification" &&
-    Boolean(data.task.clarification?.question);
+    data.task.status !== "completed" &&
+    data.task.status !== "failed";
 
-  async function handleSendClarification() {
-    if (!canRespondToClarification || sendingClarification) return;
-    const responseText = clarificationResponse.trim();
+  async function handleSendChatMessage() {
+    if (!canChatWithAgent || sendingChat) return;
+    const responseText = chatDraft.trim();
     if (!responseText) {
-      setClarificationMessage("Please answer the clarification question before sending.");
+      setChatMessage(
+        data.task.status === "awaiting_agent_clarification"
+          ? "Please answer the clarification question before sending."
+          : "Please type a message before sending.",
+      );
       return;
     }
-    setSendingClarification(true);
-    setClarificationMessage(null);
+    setSendingChat(true);
+    setChatMessage(null);
     try {
-      const response = await fetch(`/api/human/tasks/${props.taskId}/clarification`, {
+      const response = await fetch(`/api/human/tasks/${props.taskId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clarification_response: responseText }),
+        body: JSON.stringify({ message: responseText }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { error?: string; task?: TaskPayload }
+        | { error?: string; note?: string; task?: TaskPayload }
         | null;
       if (!response.ok || !payload?.task) {
-        setClarificationMessage(payload?.error || "Could not send clarification.");
+        setChatMessage(payload?.error || "Could not send your message.");
         return;
       }
       setData((current) => ({
         ...current,
         task: payload.task ?? current.task,
       }));
-      setClarificationMessage("Clarification sent. OttoAuth queued the follow-up browser task.");
-      setClarificationResponse("");
+      setChatMessage(payload?.note || "Message sent.");
+      setChatDraft("");
     } catch (error) {
-      setClarificationMessage(
-        error instanceof Error ? error.message : "Could not send clarification.",
+      setChatMessage(
+        error instanceof Error ? error.message : "Could not send your message.",
       );
     } finally {
-      setSendingClarification(false);
+      setSendingChat(false);
     }
   }
 
@@ -442,6 +575,7 @@ export function OrderDetailClient(props: {
     data.latest_snapshot ??
     availableSnapshots[0] ??
     null;
+  const taskChatItems = buildTaskChatItems(data);
 
   return (
     <main className="dashboard-page">
@@ -451,7 +585,7 @@ export function OrderDetailClient(props: {
             <div className="eyebrow">Order Detail</div>
             <h1>{data.task.task_title || `Task #${data.task.id}`}</h1>
             <p className="lede">
-              Watch the latest browser snapshot, follow run events, and inspect final credits once fulfillment finishes.
+              Watch the live browser snapshot, chat with the fulfiller when needed, and inspect the final charges once fulfillment finishes.
             </p>
           </div>
           <div className="dashboard-actions">
@@ -469,46 +603,6 @@ export function OrderDetailClient(props: {
           <div className="auth-error">
             This purchase completed, but the fulfiller did not capture an order number, pickup code, or tracking number.
             Check the recent frames below and the merchant account directly before pickup or delivery.
-          </div>
-        )}
-        {canRespondToClarification && data.task.clarification && (
-          <div className="dashboard-card">
-            <div className="supported-accounts-title">Clarification Needed</div>
-            <div className="dashboard-muted" style={{ marginBottom: "0.75rem" }}>
-              Reply within 30 seconds or OttoAuth will cancel this task.
-            </div>
-            <div className="dashboard-row">
-              <div>
-                <strong>Question</strong>
-                <div className="dashboard-muted dashboard-prewrap">
-                  {data.task.clarification.question}
-                </div>
-              </div>
-            </div>
-            {data.task.clarification.deadline_at && (
-              <div className="dashboard-row">
-                <strong>Reply by</strong>
-                <span>{fmtDate(data.task.clarification.deadline_at)}</span>
-              </div>
-            )}
-            <textarea
-              className="auth-input shipping-textarea"
-              placeholder="Type the answer OttoAuth should use to continue..."
-              value={clarificationResponse}
-              onChange={(event) => setClarificationResponse(event.target.value)}
-              disabled={sendingClarification}
-            />
-            <div className="dashboard-actions">
-              <button
-                type="button"
-                className="auth-button primary"
-                onClick={handleSendClarification}
-                disabled={sendingClarification}
-              >
-                {sendingClarification ? "Sending..." : "Send clarification"}
-              </button>
-            </div>
-            {clarificationMessage && <div className="auth-success">{clarificationMessage}</div>}
           </div>
         )}
 
@@ -685,104 +779,81 @@ export function OrderDetailClient(props: {
           </article>
 
           <article className="dashboard-card">
-            <div className="supported-accounts-title">Task Summary</div>
-            <div className="dashboard-list">
-              <div className="dashboard-row">
-                <div>
-                  <strong>Prompt</strong>
-                  <div className="dashboard-muted">{data.task.task_prompt}</div>
-                </div>
-              </div>
-              {data.task.website_url && (
-                <div className="dashboard-row">
-                  <div>
-                    <strong>Website</strong>
-                    <div className="dashboard-muted">
-                      <a href={data.task.website_url} target="_blank" rel="noreferrer">
-                        {data.task.website_url}
-                      </a>
+            <div className="supported-accounts-title">Task Chat</div>
+            <div className="task-chat-feed">
+              {taskChatItems.length === 0 ? (
+                <div className="dashboard-empty">No messages yet.</div>
+              ) : (
+                taskChatItems.map((item) => (
+                  <div key={item.id} className={`chat-bubble chat-${item.role}`}>
+                    <div className="chat-bubble-meta">
+                      <strong>
+                        {item.role === "requester"
+                          ? "You"
+                          : item.role === "agent"
+                            ? "Browser Agent"
+                            : "OttoAuth"}
+                      </strong>
+                      <span className="dashboard-muted">{fmtDate(item.timestamp)}</span>
                     </div>
+                    <div className="dashboard-prewrap">{item.text}</div>
                   </div>
-                </div>
+                ))
               )}
-              {data.task.shipping_address && (
-                <div className="dashboard-row">
-                  <div>
-                    <strong>Shipping address</strong>
-                    <div className="dashboard-muted dashboard-prewrap">
-                      {data.task.shipping_address}
-                    </div>
-                  </div>
-                </div>
-              )}
-              {data.task.clarification?.question && (
-                <div className="dashboard-row">
-                  <div>
-                    <strong>Clarification</strong>
-                    <div className="dashboard-muted dashboard-prewrap">
-                      {data.task.clarification.question}
-                    </div>
-                    {data.task.clarification.response && (
-                      <div className="dashboard-muted dashboard-prewrap" style={{ marginTop: "0.5rem" }}>
-                        Response: {data.task.clarification.response}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              {data.task.pickup_details && (
-                <div className="dashboard-row">
-                  <div>
-                    <PickupDetailsBlock
-                      details={data.task.pickup_details}
-                      summary={data.task.pickup_summary}
-                    />
-                  </div>
-                </div>
-              )}
-              {data.task.tracking_details && (
-                <div className="dashboard-row">
-                  <div>
-                    <TrackingDetailsBlock
-                      details={data.task.tracking_details}
-                      summary={data.task.tracking_summary}
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="dashboard-row">
-                <div>
-                  <strong>Summary</strong>
-                  <div className="dashboard-muted">{displaySummary(data.task)}</div>
-                </div>
-              </div>
-              {data.task.error && (
-                <div className="dashboard-row">
-                  <div>
-                    <strong>Error</strong>
-                    <div className="dashboard-muted">{data.task.error}</div>
-                  </div>
-                </div>
-              )}
-              <div className="dashboard-row">
-                <div>
-                  <strong>Created</strong>
-                  <div className="dashboard-muted">{fmtDate(data.task.created_at)}</div>
-                </div>
-              </div>
-              <div className="dashboard-row">
-                <div>
-                  <strong>Completed</strong>
-                  <div className="dashboard-muted">{fmtDate(data.task.completed_at)}</div>
-                </div>
-              </div>
             </div>
+            {canChatWithAgent && (
+              <div className="task-chat-composer">
+                {data.task.status === "awaiting_agent_clarification" && data.task.clarification?.deadline_at && (
+                  <div className="dashboard-muted">
+                    Reply by {fmtDate(data.task.clarification.deadline_at)} or OttoAuth will cancel this task.
+                  </div>
+                )}
+                <textarea
+                  className="auth-input shipping-textarea"
+                  placeholder={
+                    data.task.status === "awaiting_agent_clarification"
+                      ? "Type the clarification reply OttoAuth should use to continue..."
+                      : "Send a live message to the browser fulfiller..."
+                  }
+                  value={chatDraft}
+                  onChange={(event) => setChatDraft(event.target.value)}
+                  disabled={sendingChat}
+                />
+                <div className="dashboard-actions">
+                  <button
+                    type="button"
+                    className="auth-button primary"
+                    onClick={handleSendChatMessage}
+                    disabled={sendingChat}
+                  >
+                    {sendingChat
+                      ? "Sending..."
+                      : data.task.status === "awaiting_agent_clarification"
+                        ? "Send reply"
+                        : "Send message"}
+                  </button>
+                </div>
+                {chatMessage && <div className="auth-success">{chatMessage}</div>}
+              </div>
+            )}
+            {data.task.pickup_details && (
+              <PickupDetailsBlock
+                details={data.task.pickup_details}
+                summary={data.task.pickup_summary}
+              />
+            )}
+            {data.task.tracking_details && (
+              <TrackingDetailsBlock
+                details={data.task.tracking_details}
+                summary={data.task.tracking_summary}
+              />
+            )}
           </article>
         </section>
 
         <section className="dashboard-grid wide">
           <article className="dashboard-card">
-            <div className="supported-accounts-title">Run Events</div>
+            <div className="supported-accounts-title">Debug Events</div>
             <div className="dashboard-list">
               {data.run_events.length === 0 ? (
                 <div className="dashboard-empty">No events yet.</div>

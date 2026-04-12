@@ -30,6 +30,10 @@ export interface AgentLoopOptions {
   onEvent?: (event: AgentLoopEvent) => void;
   onModelUsage?: (usage: OttoAuthModelUsage) => void;
   model?: string;
+  taskChat?: {
+    fetchRequesterMessages?: () => Promise<Array<{ id: string; created_at?: string | null; message: string }>>;
+    sendAgentMessage?: (message: string) => Promise<void>;
+  };
 }
 
 function emitAgentLoopEvent(options: AgentLoopOptions | undefined, type: string, payload: Record<string, unknown> = {}): void {
@@ -183,6 +187,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
   const model = options?.model || MODEL;
+  const seenRequesterMessageIds = new Set<string>();
 
   try {
     emitAgentLoopEvent(options, 'agent_loop_started', { sessionId: sid, userPrompt });
@@ -229,12 +234,57 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
         break;
       }
 
+      if (options?.taskChat?.fetchRequesterMessages) {
+        const incomingMessages = await options.taskChat.fetchRequesterMessages().catch((error) => {
+          emitAgentLoopEvent(options, 'requester_message_fetch_failed', {
+            loopCount,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return [];
+        });
+        for (const incoming of incomingMessages) {
+          const messageId = typeof incoming?.id === 'string' ? incoming.id : '';
+          const messageText = typeof incoming?.message === 'string' ? incoming.message.trim() : '';
+          if (!messageId || !messageText || seenRequesterMessageIds.has(messageId)) continue;
+          seenRequesterMessageIds.add(messageId);
+          messages.push({
+            role: 'user',
+            content: `Live requester message${incoming.created_at ? ` at ${incoming.created_at}` : ''}: ${messageText}`,
+          });
+          h.addMessage({
+            id: `ottoauth_user_msg_${messageId}`,
+            role: 'user',
+            blocks: [{ type: 'text', text: messageText }],
+            timestamp: Date.now(),
+          });
+          emitAgentLoopEvent(options, 'requester_message_received', {
+            loopCount,
+            messageId,
+            message: messageText,
+          });
+        }
+      }
+
       tabs = await refreshTabContext();
       const vp = useStore.getState().viewportSize;
       const activeTab = tabs.find((tab) => tab.active);
       const activeUrl = activeTab?.url || '';
       const actionMacros = useStore.getState().actionMacros;
       const tools = getToolDefinitions(vp.width, vp.height, actionMacros, activeUrl);
+      if (options?.taskChat?.sendAgentMessage) {
+        tools.push({
+          name: 'task_chat',
+          description:
+            'Send a short plain-language update or reply to the OttoAuth requester. Never send JSON or secrets.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              message: { type: 'string' },
+            },
+            required: ['message'],
+          },
+        });
+      }
       const quickAccessPrompt = buildQuickAccessPrompt(useStore.getState().quickAccessLinks);
       const systemPrompt = buildSystemPrompt(
         tabs,
@@ -376,7 +426,11 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
           const toolStart = Date.now();
           try {
             result = await withTimeout(
-              executeTool(toolUse.name!, toolInput, apiKey, sid, options?.onModelUsage),
+              toolUse.name === 'task_chat' && options?.taskChat?.sendAgentMessage
+                ? options.taskChat
+                    .sendAgentMessage(typeof toolInput.message === 'string' ? toolInput.message : '')
+                    .then(() => [{ type: 'text', text: 'Sent the requester a chat update.' }])
+                : executeTool(toolUse.name!, toolInput, apiKey, sid, options?.onModelUsage),
               OTTOAUTH_TOOL_TIMEOUT_MS,
               () => new Error(`Tool timed out after ${Math.round(OTTOAUTH_TOOL_TIMEOUT_MS / 1000)}s`),
             );
