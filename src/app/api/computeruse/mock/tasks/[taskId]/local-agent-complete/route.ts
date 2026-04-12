@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { emitAgentEvent } from "@/lib/agent-events";
+import {
+  cancelAgentClarificationTask,
+  resumeAgentClarificationTask,
+  waitForAgentClarificationResolution,
+} from "@/lib/computeruse-agent-clarification";
 import { notifyAgentClarificationRequested } from "@/lib/computeruse-agent-callback";
 import {
   appendComputerUseRunEvent,
@@ -17,6 +22,7 @@ import {
 import { handleAmazonTaskCompletion } from "@/lib/amazon-fulfillment";
 import {
   completeGenericBrowserTaskFromExtension,
+  getGenericBrowserTaskById,
   recordGenericBrowserTaskClarificationCallbackAttempt,
 } from "@/lib/generic-browser-tasks";
 import type { ModelUsageRecord } from "@/lib/model-pricing";
@@ -243,6 +249,8 @@ export async function POST(request: Request, context: Context) {
       "task" in genericTaskOutcome
         ? genericTaskOutcome.task
         : null;
+    let resumedTaskId: string | null = null;
+    let finalClarificationError: string | null = clarificationQuestion;
     if (clarifyingTask?.agent_id) {
       const agent = await getAgentById(clarifyingTask.agent_id).catch(() => null);
       if (agent && clarifyingTask.clarification_request) {
@@ -279,6 +287,140 @@ export async function POST(request: Request, context: Context) {
             },
           });
         }
+
+        if (callback.ok && callback.clarificationResponse) {
+          const resumed = await resumeAgentClarificationTask({
+            task: clarifyingTask,
+            clarificationResponse: callback.clarificationResponse,
+            agentUsernameLower: agent.username_lower,
+          }).catch((resumeError) => {
+            console.error(
+              "[local-agent-complete] Inline clarification resume error:",
+              resumeError,
+            );
+            return null;
+          });
+          if (resumed) {
+            resumedTaskId = resumed.computeruseTaskId;
+            finalClarificationError = null;
+          } else {
+            const inlineResumeReason =
+              "OttoAuth could not resume the task after receiving agent clarification, so the request was canceled.";
+            await cancelAgentClarificationTask({
+              task: clarifyingTask,
+              reason: inlineResumeReason,
+              callbackStatus: "failed",
+            }).catch((cancelError) => {
+              console.error(
+                "[local-agent-complete] Inline clarification cancel error:",
+                cancelError,
+              );
+            });
+            finalClarificationError = inlineResumeReason;
+          }
+        } else if (callback.ok) {
+          const deadlineAtMs = clarifyingTask.clarification_deadline_at
+            ? new Date(clarifyingTask.clarification_deadline_at).getTime()
+            : Date.now();
+          const remainingMs = Math.max(0, deadlineAtMs - Date.now());
+          const resolvedTask =
+            remainingMs > 0
+              ? await waitForAgentClarificationResolution({
+                  taskId: clarifyingTask.id,
+                  timeoutMs: remainingMs,
+                })
+              : clarifyingTask;
+          if (resolvedTask?.status === "queued" && resolvedTask.computeruse_task_id) {
+            resumedTaskId = resolvedTask.computeruse_task_id;
+            finalClarificationError = null;
+          } else {
+            const timeoutReason =
+              "Agent clarification timed out after 30 seconds, so OttoAuth canceled the request.";
+            await cancelAgentClarificationTask({
+              task: clarifyingTask,
+              reason: timeoutReason,
+              callbackStatus: "timed_out",
+            }).catch((timeoutError) => {
+              console.error(
+                "[local-agent-complete] Clarification timeout cancel error:",
+                timeoutError,
+              );
+            });
+            finalClarificationError = timeoutReason;
+          }
+        } else {
+          const callbackFailureReason = callback.error?.trim()
+            ? `Agent clarification callback failed: ${callback.error.trim()}`
+            : "Agent clarification callback failed, so OttoAuth canceled the request.";
+          await cancelAgentClarificationTask({
+            task: clarifyingTask,
+            reason: callbackFailureReason,
+            callbackStatus: "failed",
+            callbackHttpStatus: callback.statusCode,
+            callbackError: callback.error,
+          }).catch((callbackFailureError) => {
+            console.error(
+              "[local-agent-complete] Clarification callback cancel error:",
+              callbackFailureError,
+            );
+          });
+          finalClarificationError = callbackFailureReason;
+        }
+      } else if (clarifyingTask) {
+        const noCallbackReason =
+          "Agent clarification callback is not configured, so OttoAuth canceled the request.";
+        await cancelAgentClarificationTask({
+          task: clarifyingTask,
+          reason: noCallbackReason,
+          callbackStatus: "failed",
+          callbackError: agent ? "Missing clarification question." : "Agent not found for clarification callback.",
+        }).catch((cancelError) => {
+          console.error(
+            "[local-agent-complete] Missing callback cancel error:",
+            cancelError,
+          );
+        });
+        finalClarificationError = noCallbackReason;
+      }
+
+      if (resumedTaskId) {
+        return NextResponse.json(
+          {
+            ok: true,
+            task: {
+              id: task.id,
+              type: task.type,
+              run_id: task.runId,
+            },
+            local_agent: {
+              status: "queued_after_clarification",
+              result,
+              error: null,
+              next_task_id: resumedTaskId,
+            },
+          },
+          { headers: corsHeaders() }
+        );
+      }
+
+      const failedClarificationTask = await getGenericBrowserTaskById(clarifyingTask.id).catch(() => null);
+      if (failedClarificationTask?.status === "failed") {
+        return NextResponse.json(
+          {
+            ok: true,
+            task: {
+              id: task.id,
+              type: task.type,
+              run_id: task.runId,
+            },
+            local_agent: {
+              status: "failed",
+              result,
+              error: finalClarificationError,
+            },
+          },
+          { headers: corsHeaders() }
+        );
       }
     }
   }

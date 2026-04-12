@@ -78,6 +78,7 @@ Snackpass note:
       ? `
 Clarification policy:
 - There is no live human chat channel during fulfillment, but OttoAuth can relay a clarification request back to the submitting agent by webhook if absolutely necessary.
+- The submitting agent has at most 30 seconds to answer that clarification webhook before OttoAuth cancels the request.
 - Do not ask free-form follow-up questions outside the final JSON result.
 - Only request clarification if the task is genuinely blocked and the available tools cannot safely resolve the ambiguity.
 - To request clarification, return a FAILED JSON result and include:

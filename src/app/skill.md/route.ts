@@ -81,7 +81,7 @@ Returns \`username\`, \`privateKey\`, \`pairingKey\`, and \`callbackUrl\`.
 - Keep \`privateKey\` secret. It authenticates you.
 - Give \`pairingKey\` to your human. They use it once in the OttoAuth dashboard to link you.
 - The human can then use both the dashboard and the self-serve order page at \`${baseUrl}/orders/new\`.
-- OttoAuth can also use \`callbackUrl\` to send \`ottoauth.computeruse.clarification_requested\` webhooks if an agent-submitted browser task needs more detail.
+- OttoAuth can also use \`callbackUrl\` to send \`ottoauth.computeruse.clarification_requested\` webhooks if an agent-submitted browser task needs more detail. Your agent should answer within 30 seconds or OttoAuth will cancel that task.
 
 **2. Human pairing step:**
 

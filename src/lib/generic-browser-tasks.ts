@@ -11,6 +11,7 @@ import {
 } from "@/lib/model-pricing";
 import { sendOrderCompletionEmail } from "@/lib/order-completion-email";
 import { getTursoClient } from "@/lib/turso";
+import { makeAgentClarificationDeadline } from "@/lib/computeruse-agent-clarification-config";
 
 export type GenericBrowserTaskStatus =
   | "queued"
@@ -22,7 +23,8 @@ export type GenericBrowserTaskStatus =
 export type GenericBrowserTaskClarificationCallbackStatus =
   | "not_requested"
   | "sent"
-  | "failed";
+  | "failed"
+  | "timed_out";
 
 export type GenericBrowserTaskBillingStatus =
   | "pending"
@@ -78,6 +80,7 @@ export type GenericBrowserTaskRecord = {
   usage_json: string | null;
   clarification_request: string | null;
   clarification_requested_at: string | null;
+  clarification_deadline_at: string | null;
   clarification_response: string | null;
   clarification_responded_at: string | null;
   clarification_callback_status: GenericBrowserTaskClarificationCallbackStatus;
@@ -226,6 +229,10 @@ function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
       row.clarification_requested_at == null
         ? null
         : String(row.clarification_requested_at),
+    clarification_deadline_at:
+      row.clarification_deadline_at == null
+        ? null
+        : String(row.clarification_deadline_at),
     clarification_response:
       row.clarification_response == null ? null : String(row.clarification_response),
     clarification_responded_at:
@@ -674,6 +681,7 @@ export async function ensureGenericBrowserTaskSchema() {
       usage_json TEXT,
       clarification_request TEXT,
       clarification_requested_at TEXT,
+      clarification_deadline_at TEXT,
       clarification_response TEXT,
       clarification_responded_at TEXT,
       clarification_callback_status TEXT NOT NULL DEFAULT 'not_requested',
@@ -770,6 +778,13 @@ export async function ensureGenericBrowserTaskSchema() {
       client,
       "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_requested_at TEXT",
       "clarification_requested_at",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_deadline_at")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_deadline_at TEXT",
+      "clarification_deadline_at",
     );
   }
   if (!columns.some((c) => c.name === "clarification_response")) {
@@ -951,6 +966,7 @@ export async function markGenericBrowserTaskRunningByComputerUseTaskId(computeru
 export async function markGenericBrowserTaskAwaitingAgentClarification(params: {
   computeruseTaskId: string;
   clarificationRequest: string;
+  clarificationDeadlineAt: string;
   result?: Record<string, unknown> | null;
   error?: string | null;
   usages?: ModelUsageRecord[];
@@ -970,6 +986,7 @@ export async function markGenericBrowserTaskAwaitingAgentClarification(params: {
               error = NULL,
               clarification_request = ?,
               clarification_requested_at = ?,
+              clarification_deadline_at = ?,
               clarification_response = NULL,
               clarification_responded_at = NULL,
               clarification_callback_status = 'not_requested',
@@ -985,6 +1002,7 @@ export async function markGenericBrowserTaskAwaitingAgentClarification(params: {
       "Awaiting agent clarification.",
       params.clarificationRequest.trim().slice(0, 2000),
       now,
+      params.clarificationDeadlineAt,
       now,
       existing.id,
     ],
@@ -1042,12 +1060,57 @@ export async function resumeGenericBrowserTaskAfterClarification(params: {
               error = NULL,
               clarification_response = ?,
               clarification_responded_at = ?,
+              clarification_deadline_at = NULL,
               completed_at = NULL,
               updated_at = ?
           WHERE id = ?`,
     args: [
       params.newComputeruseTaskId.trim(),
       params.clarificationResponse.trim().slice(0, 4000),
+      now,
+      now,
+      existing.id,
+    ],
+  });
+  return getGenericBrowserTaskById(existing.id);
+}
+
+export async function cancelGenericBrowserTaskAwaitingClarification(params: {
+  taskId: number;
+  reason: string;
+  callbackStatus?: GenericBrowserTaskClarificationCallbackStatus;
+  callbackHttpStatus?: number | null;
+  callbackError?: string | null;
+}) {
+  await ensureGenericBrowserTaskSchema();
+  const existing = await getGenericBrowserTaskById(params.taskId);
+  if (!existing) return null;
+
+  const now = new Date().toISOString();
+  const client = getTursoClient();
+  await client.execute({
+    sql: `UPDATE generic_browser_tasks
+          SET status = 'failed',
+              billing_status = 'not_charged',
+              payout_cents = 0,
+              payout_status = 'not_charged',
+              payout_credited_at = NULL,
+              summary = ?,
+              error = ?,
+              clarification_callback_status = ?,
+              clarification_callback_http_status = ?,
+              clarification_callback_error = ?,
+              clarification_callback_last_attempt_at = ?,
+              completed_at = ?,
+              updated_at = ?
+          WHERE id = ?`,
+    args: [
+      params.reason.trim().slice(0, 2000),
+      params.reason.trim().slice(0, 2000),
+      params.callbackStatus ?? existing.clarification_callback_status,
+      params.callbackHttpStatus ?? existing.clarification_callback_http_status,
+      params.callbackError?.trim() || existing.clarification_callback_error,
+      now,
       now,
       now,
       existing.id,
@@ -1279,6 +1342,7 @@ export async function completeGenericBrowserTaskFromExtension(params: {
     const updated = await markGenericBrowserTaskAwaitingAgentClarification({
       computeruseTaskId: params.computeruseTaskId,
       clarificationRequest,
+      clarificationDeadlineAt: makeAgentClarificationDeadline(),
       result: params.result,
       error: params.error,
       usages: params.usages,
@@ -1518,6 +1582,7 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
       ? {
           question: task.clarification_request,
           requested_at: task.clarification_requested_at,
+          deadline_at: task.clarification_deadline_at,
           response: task.clarification_response,
           responded_at: task.clarification_responded_at,
           callback_status: task.clarification_callback_status,

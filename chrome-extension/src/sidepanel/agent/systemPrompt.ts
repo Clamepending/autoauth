@@ -55,6 +55,7 @@ ${quickAccessPrompt}
 - After clicking or scrolling, a screenshot is taken automatically so you can see the result.
 - If a page shows a "press and hold" verification or button, use the computer tool with action "press_and_hold" and a duration in seconds.
 - If a visible verification step can be attempted safely with the available tools, try it instead of stopping to ask for permission.
+- On Grubhub/PerimeterX/HUMAN verification pages such as "/captcha/verify" or visible "PRESS & HOLD" widgets, prefer the dedicated "press_and_hold" computer action. Do not use javascript_tool to synthesize mouse, pointer, or touch DOM events for those widgets unless you are only inspecting the page rather than trying to solve it.
 - Use keyboard shortcuts when efficient (e.g., Cmd+A, Cmd+C on Mac; Ctrl+A, Ctrl+C on other platforms).
 - If a page hasn't loaded yet, use the computer tool with action "wait".
 - For the computer tool, always use the ACTIVE tab shown above. For other tools, specify the tabId.

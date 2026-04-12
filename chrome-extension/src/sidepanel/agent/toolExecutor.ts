@@ -20,6 +20,9 @@ import Anthropic from '@anthropic-ai/sdk';
 const screenshotStore = new Map<string, string>();
 let screenshotCounter = 0;
 let _screenshotSessionId: string | undefined;
+const HOLD_KEEPALIVE_INTERVAL_MS = 200;
+const HOLD_POST_SETTLE_MS = 700;
+const PX_CAPTCHA_PATH_FRAGMENT = '/captcha/verify';
 
 function textResult(text: string): ToolResultContent[] {
   return [{ type: 'text', text }];
@@ -80,6 +83,76 @@ function isRestrictedUrl(url: string): boolean {
     url.startsWith('chrome-search://') ||
     url.startsWith('devtools://') ||
     url === ''
+  );
+}
+
+async function sendCdpCommand(
+  tabId: number,
+  method: string,
+  params: Record<string, unknown> = {},
+): Promise<void> {
+  const response = await sendToBackground({
+    type: 'cdp-send',
+    tabId,
+    method,
+    params,
+  });
+
+  if (!response.success) {
+    throw new Error(response.error || `${method} failed.`);
+  }
+}
+
+type VerificationState = {
+  url: string;
+  hasPxCaptchaRoot: boolean;
+  showsPressAndHoldLabel: boolean;
+};
+
+async function getVerificationState(tabId: number): Promise<VerificationState> {
+  const url = await getTabUrl(tabId);
+  let hasPxCaptchaRoot = false;
+  let showsPressAndHoldLabel = false;
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: () => {
+        const root = document.querySelector('#px-captcha');
+        const bodyText = document.body?.innerText || '';
+        return {
+          hasPxCaptchaRoot: Boolean(root),
+          showsPressAndHoldLabel: /press\s*&\s*hold/i.test(bodyText) || /press\s+and\s+hold/i.test(bodyText),
+        };
+      },
+    });
+
+    const state = results?.[0]?.result as Partial<VerificationState> | undefined;
+    hasPxCaptchaRoot = Boolean(state?.hasPxCaptchaRoot);
+    showsPressAndHoldLabel = Boolean(state?.showsPressAndHoldLabel);
+  } catch {
+    // If DOM inspection fails, fall back to URL-based detection only.
+  }
+
+  return {
+    url,
+    hasPxCaptchaRoot,
+    showsPressAndHoldLabel,
+  };
+}
+
+function isVerificationBarrierVisible(state: VerificationState): boolean {
+  return (
+    state.url.includes(PX_CAPTCHA_PATH_FRAGMENT) ||
+    state.hasPxCaptchaRoot ||
+    state.showsPressAndHoldLabel
+  );
+}
+
+function isSyntheticPointerJavascript(code: string): boolean {
+  return /(dispatchEvent|MouseEvent|PointerEvent|TouchEvent|mousedown|mouseup|pointerdown|pointerup|touchstart|touchend)/i.test(
+    code,
   );
 }
 
@@ -251,34 +324,156 @@ async function performPressAndHold(
   const holdMs = Math.round(
     Math.max(0.2, Math.min(30, Number(durationSeconds) || 2)) * 1000,
   );
+  const beforeState = await getVerificationState(tabId);
 
-  await sendToBackground({
-    type: 'cdp-send',
-    tabId,
-    method: 'Input.dispatchMouseEvent',
-    params: { type: 'mouseMoved', x, y },
-  });
-  await delay(CLICK_DELAY_MS);
-  await sendToBackground({
-    type: 'cdp-send',
-    tabId,
-    method: 'Input.dispatchMouseEvent',
-    params: { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 },
-  });
-  await delay(holdMs);
-  await sendToBackground({
-    type: 'cdp-send',
-    tabId,
-    method: 'Input.dispatchMouseEvent',
-    params: { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 },
-  });
-  await delay(300);
+  const performMouseHoldAttempt = async () => {
+    await sendCdpCommand(tabId, 'Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x,
+      y,
+      pointerType: 'mouse',
+    });
+    await delay(CLICK_DELAY_MS);
+    await sendCdpCommand(tabId, 'Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x,
+      y,
+      button: 'left',
+      buttons: 1,
+      clickCount: 1,
+      force: 1,
+      pointerType: 'mouse',
+    });
 
+    let remainingMs = holdMs;
+    while (remainingMs > 0) {
+      const waitMs = Math.min(HOLD_KEEPALIVE_INTERVAL_MS, remainingMs);
+      await delay(waitMs);
+      remainingMs -= waitMs;
+      if (remainingMs > 0) {
+        await sendCdpCommand(tabId, 'Input.dispatchMouseEvent', {
+          type: 'mouseMoved',
+          x,
+          y,
+          buttons: 1,
+          force: 1,
+          pointerType: 'mouse',
+        });
+      }
+    }
+
+    await sendCdpCommand(tabId, 'Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x,
+      y,
+      button: 'left',
+      buttons: 0,
+      clickCount: 1,
+      pointerType: 'mouse',
+    });
+  };
+
+  const performTouchHoldAttempt = async () => {
+    await sendToBackground({
+      type: 'cdp-send',
+      tabId,
+      method: 'Emulation.setTouchEmulationEnabled',
+      params: { enabled: true, maxTouchPoints: 1 },
+    }).catch(() => {});
+
+    try {
+      await sendCdpCommand(tabId, 'Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{
+          x,
+          y,
+          id: 1,
+          radiusX: 1,
+          radiusY: 1,
+          force: 1,
+        }],
+      });
+
+      let remainingMs = holdMs;
+      while (remainingMs > 0) {
+        const waitMs = Math.min(HOLD_KEEPALIVE_INTERVAL_MS, remainingMs);
+        await delay(waitMs);
+        remainingMs -= waitMs;
+        if (remainingMs > 0) {
+          await sendCdpCommand(tabId, 'Input.dispatchTouchEvent', {
+            type: 'touchMove',
+            touchPoints: [{
+              x,
+              y,
+              id: 1,
+              radiusX: 1,
+              radiusY: 1,
+              force: 1,
+            }],
+          });
+        }
+      }
+
+      await sendCdpCommand(tabId, 'Input.dispatchTouchEvent', {
+        type: 'touchEnd',
+        touchPoints: [],
+      });
+    } finally {
+      await sendToBackground({
+        type: 'cdp-send',
+        tabId,
+        method: 'Emulation.setTouchEmulationEnabled',
+        params: { enabled: false, maxTouchPoints: 1 },
+      }).catch(() => {});
+    }
+  };
+
+  try {
+    await performMouseHoldAttempt();
+  } catch (error) {
+    return textResult(`Error: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  await delay(HOLD_POST_SETTLE_MS);
+  const afterMouseState = await getVerificationState(tabId);
+
+  if (!isVerificationBarrierVisible(beforeState) || !isVerificationBarrierVisible(afterMouseState)) {
+    const screenshot = await takeScreenshot(tabId);
+    return [
+      {
+        type: 'text',
+        text: `Pressed and held for ${(holdMs / 1000).toFixed(1)}s using native mouse input.`,
+      },
+      ...screenshot,
+    ];
+  }
+
+  try {
+    await performTouchHoldAttempt();
+  } catch (error) {
+    const screenshot = await takeScreenshot(tabId);
+    return [
+      {
+        type: 'text',
+        text: `Pressed and held for ${(holdMs / 1000).toFixed(1)}s using native mouse input, then touch fallback failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      },
+      ...screenshot,
+    ];
+  }
+
+  await delay(HOLD_POST_SETTLE_MS);
+  const afterTouchState = await getVerificationState(tabId);
   const screenshot = await takeScreenshot(tabId);
+  const barrierStillVisible = isVerificationBarrierVisible(afterTouchState);
+
   return [
     {
       type: 'text',
-      text: `Pressed and held for ${(holdMs / 1000).toFixed(1)}s.`,
+      text: barrierStillVisible
+        ? `Pressed and held for ${(holdMs / 1000).toFixed(1)}s using native mouse input plus touch fallback, but the verification barrier is still visible at ${afterTouchState.url}.`
+        : `Pressed and held for ${(holdMs / 1000).toFixed(1)}s using native mouse input plus touch fallback.`,
     },
     ...screenshot,
   ];
@@ -919,6 +1114,13 @@ async function executeJavascript(input: Record<string, unknown>): Promise<ToolRe
   const blocked = await checkTabAccess(tabId, 'javascript_tool');
   if (blocked) return textResult(blocked);
   const code = input.text as string;
+  const verificationState = await getVerificationState(tabId);
+
+  if (isVerificationBarrierVisible(verificationState) && isSyntheticPointerJavascript(code)) {
+    return textResult(
+      'Error: Synthetic DOM mouse/touch events are unreliable on this verification page. Use the computer tool with action "press_and_hold" instead.',
+    );
+  }
 
   const results = await chrome.scripting.executeScript({
     target: { tabId },
