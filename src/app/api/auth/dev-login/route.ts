@@ -24,6 +24,12 @@ export async function POST(request: Request) {
       : typeof payload.displayName === "string"
         ? payload.displayName.trim()
         : "";
+  const referralCode =
+    typeof payload.ref === "string"
+      ? payload.ref.trim()
+      : typeof payload.referral_code === "string"
+        ? payload.referral_code.trim()
+        : "";
 
   if (!email || !email.includes("@")) {
     return NextResponse.json(
@@ -35,6 +41,7 @@ export async function POST(request: Request) {
   const { user } = await upsertHumanUserDev({
     email,
     displayName: displayName || email,
+    referralCode,
   });
 
   const response = NextResponse.json({

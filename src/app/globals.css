@@ -326,6 +326,27 @@ footer {
   color: var(--muted);
 }
 
+.referral-login-card,
+.referral-banner {
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, #0b0b0b 0%, #191919 58%, #2b2b2b 100%);
+  color: #fff;
+}
+
+.referral-login-card {
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.referral-login-card .supported-accounts-title,
+.referral-login-card .dashboard-muted,
+.referral-banner .supported-accounts-title,
+.referral-banner .dashboard-muted {
+  color: rgba(255, 255, 255, 0.78);
+}
+
 .dashboard-header {
   display: flex;
   justify-content: space-between;
@@ -367,6 +388,44 @@ footer {
 
 .dashboard-card.highlight {
   background: linear-gradient(135deg, #fff, #f0f0f0);
+}
+
+.referral-banner {
+  padding: 22px;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.referral-banner-copy {
+  display: grid;
+  gap: 10px;
+  max-width: 580px;
+}
+
+.referral-banner-title {
+  font-size: clamp(24px, 3.5vw, 34px);
+  line-height: 1;
+}
+
+.referral-banner-actions {
+  display: grid;
+  gap: 12px;
+  min-width: min(100%, 360px);
+  justify-items: start;
+}
+
+.referral-link {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-balance {
@@ -1078,6 +1137,16 @@ footer {
     box-shadow: 8px 8px 0 var(--shadow);
   }
 
+  .referral-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .referral-banner-actions {
+    min-width: 0;
+    width: 100%;
+  }
+
   .dashboard-header {
     flex-direction: column;
   }
@@ -1139,6 +1208,11 @@ footer {
   .pay-card {
     padding: 24px 18px;
     box-shadow: 6px 6px 0 var(--shadow);
+  }
+
+  .referral-banner {
+    padding: 18px 16px;
+    gap: 16px;
   }
 
   .dashboard-header {

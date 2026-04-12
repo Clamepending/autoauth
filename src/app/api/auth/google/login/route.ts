@@ -10,5 +10,6 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("returnTo")?.trim() || "/dashboard";
-  return createGoogleLoginRedirect(returnTo);
+  const referralCode = url.searchParams.get("ref")?.trim() || null;
+  return createGoogleLoginRedirect(returnTo, referralCode);
 }

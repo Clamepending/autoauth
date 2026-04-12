@@ -51,6 +51,7 @@ export async function GET(request: Request) {
       emailVerified: Boolean(profile.email_verified),
       displayName: profile.name,
       pictureUrl: profile.picture,
+      referralCode: stateResult.referralCode,
     });
 
     const response = NextResponse.redirect(

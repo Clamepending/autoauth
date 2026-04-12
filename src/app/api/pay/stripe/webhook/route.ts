@@ -2,7 +2,11 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getBaseUrl } from "@/lib/base-url";
-import { addCreditLedgerEntry, findCreditLedgerEntry } from "@/lib/human-accounts";
+import {
+  addCreditLedgerEntry,
+  findCreditLedgerEntry,
+  qualifyHumanReferralAfterDeposit,
+} from "@/lib/human-accounts";
 import { notifySlackAmazonFulfillment, notifySlackSnackpassFulfillment } from "@/lib/slack";
 import { getOrderById, updateOrderStatus } from "@/services/amazon/orders";
 import { getSnackpassOrderById, updateSnackpassOrderStatus } from "@/services/snackpass/orders";
@@ -97,6 +101,12 @@ export async function POST(request: Request) {
             },
           });
         }
+
+        await qualifyHumanReferralAfterDeposit({
+          referredHumanUserId: humanUserId,
+          qualifyingReferenceType: "stripe_checkout_session",
+          qualifyingReferenceId: session.id,
+        });
       }
     } else {
       const orderId = parseOrderId(session);

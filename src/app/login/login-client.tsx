@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 
-export function DevLoginForm() {
+export function DevLoginForm(props: { referralCode?: string | null }) {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -18,6 +18,7 @@ export function DevLoginForm() {
         body: JSON.stringify({
           email: data.get("email"),
           display_name: data.get("display_name"),
+          ref: props.referralCode ?? null,
         }),
       });
       if (response.ok) {

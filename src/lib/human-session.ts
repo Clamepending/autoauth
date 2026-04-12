@@ -5,12 +5,14 @@ import {
   createHumanSession,
   deleteHumanSession,
   getHumanUserBySessionToken,
+  parseHumanReferralCode,
   type HumanUserRecord,
 } from "@/lib/human-accounts";
 
 const SESSION_COOKIE_NAME = "ottoauth_human_session";
 const GOOGLE_STATE_COOKIE_NAME = "ottoauth_google_state";
 const GOOGLE_RETURN_TO_COOKIE_NAME = "ottoauth_google_return_to";
+const GOOGLE_REFERRAL_COOKIE_NAME = "ottoauth_google_ref";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -108,7 +110,10 @@ export async function clearHumanSessionCookie(response: NextResponse) {
   });
 }
 
-export async function createGoogleLoginRedirect(returnTo = "/dashboard") {
+export async function createGoogleLoginRedirect(
+  returnTo = "/dashboard",
+  referralCode?: string | null,
+) {
   if (!isGoogleAuthConfigured()) {
     throw new Error("Google auth is not configured.");
   }
@@ -142,6 +147,28 @@ export async function createGoogleLoginRedirect(returnTo = "/dashboard") {
     path: "/",
     maxAge: 10 * 60,
   });
+  const normalizedReferralCode = parseHumanReferralCode(referralCode);
+  if (normalizedReferralCode) {
+    response.cookies.set({
+      name: GOOGLE_REFERRAL_COOKIE_NAME,
+      value: String(normalizedReferralCode),
+      httpOnly: true,
+      sameSite: "lax",
+      secure: cookieSecure(),
+      path: "/",
+      maxAge: 10 * 60,
+    });
+  } else {
+    response.cookies.set({
+      name: GOOGLE_REFERRAL_COOKIE_NAME,
+      value: "",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: cookieSecure(),
+      path: "/",
+      expires: new Date(0),
+    });
+  }
   return response;
 }
 
@@ -153,12 +180,18 @@ export async function consumeGoogleLoginState(params: {
   const returnTo = sanitizeReturnTo(
     cookieStore.get(GOOGLE_RETURN_TO_COOKIE_NAME)?.value?.trim() || "/dashboard",
   );
+  const referralCode = parseHumanReferralCode(
+    cookieStore.get(GOOGLE_REFERRAL_COOKIE_NAME)?.value,
+  );
 
   if (!expectedState || expectedState !== params.state.trim()) {
     return null;
   }
 
-  return { returnTo };
+  return {
+    returnTo,
+    referralCode: referralCode ? String(referralCode) : null,
+  };
 }
 
 export function clearGoogleLoginCookies(response: NextResponse) {
@@ -173,6 +206,15 @@ export function clearGoogleLoginCookies(response: NextResponse) {
   });
   response.cookies.set({
     name: GOOGLE_RETURN_TO_COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: cookieSecure(),
+    path: "/",
+    expires: new Date(0),
+  });
+  response.cookies.set({
+    name: GOOGLE_REFERRAL_COOKIE_NAME,
     value: "",
     httpOnly: true,
     sameSite: "lax",
