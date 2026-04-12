@@ -197,6 +197,9 @@ export function DashboardClient(props: {
             <Link className="auth-button primary" href="/orders/new">
               New order
             </Link>
+            <Link className="auth-button" href="/orders">
+              Orders
+            </Link>
             <button className="auth-button" onClick={handleLogout}>
               Sign out
             </button>
