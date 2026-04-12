@@ -556,6 +556,27 @@ export class BrowserRuntime {
         const shot = await this.takeScreenshot(page);
         return imageResult(shot.base64);
       }
+      case 'press_and_hold': {
+        let coords = Array.isArray(input.coordinate) ? input.coordinate : null;
+        if (!coords && input.ref) {
+          coords = await this.#resolveRefToCoordinate(page, input.ref);
+        }
+        if (!coords) return textResult('Error: No coordinate or ref provided for press_and_hold.');
+        const [x, y] = coords.map((value) => Math.round(Number(value)));
+        const holdMs = Math.round(
+          Math.max(0.2, Math.min(30, Number(input.duration) || 2)) * 1000,
+        );
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.waitForTimeout(holdMs);
+        await page.mouse.up();
+        await page.waitForTimeout(300);
+        const shot = await this.takeScreenshot(page);
+        return [
+          { type: 'text', text: `Pressed and held for ${(holdMs / 1000).toFixed(1)}s.` },
+          ...imageResult(shot.base64),
+        ];
+      }
       case 'zoom': {
         const region = Array.isArray(input.region) ? input.region : null;
         if (!region || region.length < 4) {

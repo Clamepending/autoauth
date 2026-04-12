@@ -50,6 +50,7 @@ ${quickAccessPrompt}
 - If the receipt screen omits the operational info the human needs, switch to the order-status or history view before finishing.
 - For Snackpass specifically, the Order tab is often more useful than the Receipt tab for pickup details. Check it before you stop.
 - After clicking or scrolling, a screenshot is taken automatically so you can see the result.
+- If a page shows a "press and hold" verification or button, use the computer tool with action "press_and_hold" and a duration in seconds.
 - Use keyboard shortcuts when efficient (e.g., Cmd+A, Cmd+C on Mac; Ctrl+A, Ctrl+C on other platforms).
 - If a page hasn't loaded yet, use the computer tool with action "wait".
 - For the computer tool, always use the ACTIVE tab shown above. For other tools, specify the tabId.

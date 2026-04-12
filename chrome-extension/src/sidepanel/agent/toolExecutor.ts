@@ -229,6 +229,61 @@ async function performClick(
   return [{ type: 'text', text: fallbackNote }, ...screenshot];
 }
 
+async function performPressAndHold(
+  tabId: number,
+  coordinate: [number, number] | undefined,
+  durationSeconds: number | undefined,
+  ref?: string,
+): Promise<ToolResultContent[]> {
+  let coords = coordinate;
+  if (!coords && ref) {
+    const resolved = await resolveRefToCoordinate(tabId, ref);
+    if (!resolved) return textResult(`Error: ref ${ref} not found. Run read_page first.`);
+    coords = resolved;
+  }
+  if (!coords) return textResult('Error: No coordinate or ref provided for press_and_hold.');
+
+  const x = Math.round(coords[0]);
+  const y = Math.round(coords[1]);
+  const coordError = validateCoordinateInViewport(x, y);
+  if (coordError) return textResult(coordError);
+
+  const holdMs = Math.round(
+    Math.max(0.2, Math.min(30, Number(durationSeconds) || 2)) * 1000,
+  );
+
+  await sendToBackground({
+    type: 'cdp-send',
+    tabId,
+    method: 'Input.dispatchMouseEvent',
+    params: { type: 'mouseMoved', x, y },
+  });
+  await delay(CLICK_DELAY_MS);
+  await sendToBackground({
+    type: 'cdp-send',
+    tabId,
+    method: 'Input.dispatchMouseEvent',
+    params: { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 },
+  });
+  await delay(holdMs);
+  await sendToBackground({
+    type: 'cdp-send',
+    tabId,
+    method: 'Input.dispatchMouseEvent',
+    params: { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 },
+  });
+  await delay(300);
+
+  const screenshot = await takeScreenshot(tabId);
+  return [
+    {
+      type: 'text',
+      text: `Pressed and held for ${(holdMs / 1000).toFixed(1)}s.`,
+    },
+    ...screenshot,
+  ];
+}
+
 async function performHover(tabId: number, coordinate: [number, number]): Promise<ToolResultContent[]> {
   const x = Math.round(coordinate[0]);
   const y = Math.round(coordinate[1]);
@@ -475,7 +530,7 @@ async function performScrollTo(tabId: number, ref: string): Promise<ToolResultCo
 }
 
 const MUTATING_TOOLS = new Set(['computer', 'form_input', 'javascript_tool', 'file_upload', 'upload_image']);
-const MUTATING_ACTIONS = new Set(['left_click', 'right_click', 'double_click', 'triple_click', 'type', 'key', 'left_click_drag']);
+const MUTATING_ACTIONS = new Set(['left_click', 'right_click', 'double_click', 'triple_click', 'type', 'key', 'left_click_drag', 'press_and_hold']);
 
 async function verifyDomainUnchanged(tabId: number, originalDomain: string): Promise<string | null> {
   const normalizeDomain = (value: string) => value.trim().toLowerCase().replace(/\.+$/, '');
@@ -712,6 +767,13 @@ async function executeComputer(input: Record<string, unknown>, sessionId?: strin
         tabId,
         input.start_coordinate as [number, number],
         input.coordinate as [number, number],
+      );
+    case 'press_and_hold':
+      return performPressAndHold(
+        tabId,
+        input.coordinate as [number, number] | undefined,
+        input.duration as number | undefined,
+        input.ref as string | undefined,
       );
     case 'zoom':
       return performZoom(tabId, input.region as [number, number, number, number]);

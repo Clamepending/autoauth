@@ -141,6 +141,15 @@ const PRIMITIVE_ACTIONS: PrimitiveActionDefinition[] = [
     { permissionType: 'CLICK', isMutating: true },
   ),
   primitive(
+    'press_and_hold',
+    'Press & Hold',
+    'Press and hold on an element or coordinate for a specified duration in seconds.',
+    'Mouse',
+    'computer',
+    { action: 'press_and_hold', ref: '', duration: 2 },
+    { permissionType: 'CLICK', isMutating: true },
+  ),
+  primitive(
     'type',
     'Type',
     'Type freeform text into the focused element.',

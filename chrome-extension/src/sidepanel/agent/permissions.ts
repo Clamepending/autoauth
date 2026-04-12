@@ -92,6 +92,7 @@ class PermissionManager {
         case 'right_click':
         case 'double_click':
         case 'triple_click':
+        case 'press_and_hold':
         case 'hover':
         case 'left_click_drag':
           return 'CLICK';
