@@ -51,17 +51,23 @@ export async function resumeAgentClarificationTask(params: {
   task: GenericBrowserTaskRecord;
   clarificationResponse: string;
   agentUsernameLower: string;
+  clarificationMode?: "agent_webhook" | "human_reply_window";
+  eventActor?: "agent" | "human";
+  emitAgentEvents?: boolean;
 }) {
   if (!params.task.clarification_request) {
     throw new Error("Task is missing clarification request.");
   }
+  const clarificationMode = params.clarificationMode ?? "agent_webhook";
+  const eventActor = params.eventActor ?? "agent";
+  const emitAgentEvents = params.emitAgentEvents ?? (eventActor === "agent");
 
   const resumedPrompt = buildGenericTaskGoal({
     originalPrompt: params.task.task_prompt,
     maxChargeCents: params.task.max_charge_cents ?? 0,
     websiteUrl: params.task.website_url,
     shippingAddress: params.task.shipping_address,
-    clarificationMode: "agent_webhook",
+    clarificationMode,
     clarificationQuestion: params.task.clarification_request,
     clarificationResponse: params.clarificationResponse,
   });
@@ -91,7 +97,7 @@ export async function resumeAgentClarificationTask(params: {
     });
     await appendComputerUseRunEvent({
       runId: params.task.run_id,
-      type: "computeruse.agent_clarification.responded",
+      type: `computeruse.${eventActor}_clarification.responded`,
       data: {
         task_id: queued.task.id,
         generic_task_id: params.task.id,
@@ -110,18 +116,20 @@ export async function resumeAgentClarificationTask(params: {
     });
   }
 
-  emitAgentEvent({
-    type: "computeruse.agent_clarification.responded",
-    agentUsername: params.agentUsernameLower,
-    deviceId: params.task.device_id,
-    data: {
-      task_id: queued.task.id,
-      generic_task_id: params.task.id,
-      clarification_question: params.task.clarification_request,
-      clarification_response: params.clarificationResponse,
-      resumed_after_clarification: true,
-    },
-  });
+  if (emitAgentEvents) {
+    emitAgentEvent({
+      type: `computeruse.${eventActor}_clarification.responded`,
+      agentUsername: params.agentUsernameLower,
+      deviceId: params.task.device_id,
+      data: {
+        task_id: queued.task.id,
+        generic_task_id: params.task.id,
+        clarification_question: params.task.clarification_request,
+        clarification_response: params.clarificationResponse,
+        resumed_after_clarification: true,
+      },
+    });
+  }
 
   return {
     task: updatedTask,
@@ -136,7 +144,11 @@ export async function cancelAgentClarificationTask(params: {
   callbackStatus?: GenericBrowserTaskClarificationCallbackStatus;
   callbackHttpStatus?: number | null;
   callbackError?: string | null;
+  eventActor?: "agent" | "human";
+  emitAgentEvents?: boolean;
 }) {
+  const eventActor = params.eventActor ?? "agent";
+  const emitAgentEvents = params.emitAgentEvents ?? (eventActor === "agent");
   const updatedTask = await cancelGenericBrowserTaskAwaitingClarification({
     taskId: params.task.id,
     reason: params.reason,
@@ -158,7 +170,7 @@ export async function cancelAgentClarificationTask(params: {
     });
     await appendComputerUseRunEvent({
       runId: params.task.run_id,
-      type: "computeruse.agent_clarification.timed_out",
+      type: `computeruse.${eventActor}_clarification.timed_out`,
       data: {
         task_id: params.task.computeruse_task_id,
         generic_task_id: params.task.id,
@@ -178,17 +190,19 @@ export async function cancelAgentClarificationTask(params: {
     });
   }
 
-  emitAgentEvent({
-    type: "computeruse.agent_clarification.timed_out",
-    agentUsername: params.task.agent_username_lower,
-    deviceId: params.task.device_id,
-    data: {
-      task_id: params.task.computeruse_task_id,
-      generic_task_id: params.task.id,
-      clarification_question: params.task.clarification_request,
-      reason: params.reason,
-    },
-  });
+  if (emitAgentEvents) {
+    emitAgentEvent({
+      type: `computeruse.${eventActor}_clarification.timed_out`,
+      agentUsername: params.task.agent_username_lower,
+      deviceId: params.task.device_id,
+      data: {
+        task_id: params.task.computeruse_task_id,
+        generic_task_id: params.task.id,
+        clarification_question: params.task.clarification_request,
+        reason: params.reason,
+      },
+    });
+  }
 
   return updatedTask;
 }

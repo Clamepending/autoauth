@@ -1335,7 +1335,7 @@ export async function completeGenericBrowserTaskFromExtension(params: {
   }
 
   const clarificationRequest =
-    existing.submission_source === "agent" && params.status === "failed"
+    params.status === "failed"
       ? extractClarificationRequest(params.result ?? null, params.error)
       : null;
   if (clarificationRequest) {

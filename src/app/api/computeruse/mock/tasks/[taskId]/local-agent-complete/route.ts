@@ -251,7 +251,39 @@ export async function POST(request: Request, context: Context) {
         : null;
     let resumedTaskId: string | null = null;
     let finalClarificationError: string | null = clarificationQuestion;
-    if (clarifyingTask?.agent_id) {
+    if (clarifyingTask?.submission_source === "human") {
+      const deadlineAtMs = clarifyingTask.clarification_deadline_at
+        ? new Date(clarifyingTask.clarification_deadline_at).getTime()
+        : Date.now();
+      const remainingMs = Math.max(0, deadlineAtMs - Date.now());
+      const resolvedTask =
+        remainingMs > 0
+          ? await waitForAgentClarificationResolution({
+              taskId: clarifyingTask.id,
+              timeoutMs: remainingMs,
+            })
+          : clarifyingTask;
+      if (resolvedTask?.status === "queued" && resolvedTask.computeruse_task_id) {
+        resumedTaskId = resolvedTask.computeruse_task_id;
+        finalClarificationError = null;
+      } else {
+        const timeoutReason =
+          "Human clarification timed out after 30 seconds, so OttoAuth canceled the request.";
+        await cancelAgentClarificationTask({
+          task: clarifyingTask,
+          reason: timeoutReason,
+          callbackStatus: "timed_out",
+          eventActor: "human",
+          emitAgentEvents: false,
+        }).catch((timeoutError) => {
+          console.error(
+            "[local-agent-complete] Human clarification timeout cancel error:",
+            timeoutError,
+          );
+        });
+        finalClarificationError = timeoutReason;
+      }
+    } else if (clarifyingTask?.agent_id) {
       const agent = await getAgentById(clarifyingTask.agent_id).catch(() => null);
       if (agent && clarifyingTask.clarification_request) {
         const callback = await notifyAgentClarificationRequested({
@@ -383,26 +415,29 @@ export async function POST(request: Request, context: Context) {
         finalClarificationError = noCallbackReason;
       }
 
-      if (resumedTaskId) {
-        return NextResponse.json(
-          {
-            ok: true,
-            task: {
-              id: task.id,
-              type: task.type,
-              run_id: task.runId,
-            },
-            local_agent: {
-              status: "queued_after_clarification",
-              result,
-              error: null,
-              next_task_id: resumedTaskId,
-            },
-          },
-          { headers: corsHeaders() }
-        );
-      }
+    }
 
+    if (resumedTaskId) {
+      return NextResponse.json(
+        {
+          ok: true,
+          task: {
+            id: task.id,
+            type: task.type,
+            run_id: task.runId,
+          },
+          local_agent: {
+            status: "queued_after_clarification",
+            result,
+            error: null,
+            next_task_id: resumedTaskId,
+          },
+        },
+        { headers: corsHeaders() }
+      );
+    }
+
+    if (clarifyingTask) {
       const failedClarificationTask = await getGenericBrowserTaskById(clarifyingTask.id).catch(() => null);
       if (failedClarificationTask?.status === "failed") {
         return NextResponse.json(

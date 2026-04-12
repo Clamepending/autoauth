@@ -36,7 +36,7 @@ export function buildGenericTaskGoal(params: {
   maxChargeCents: number;
   websiteUrl?: string | null;
   shippingAddress?: string | null;
-  clarificationMode?: "no_reply_channel" | "agent_webhook";
+  clarificationMode?: "no_reply_channel" | "agent_webhook" | "human_reply_window";
   clarificationQuestion?: string | null;
   clarificationResponse?: string | null;
 }) {
@@ -85,6 +85,17 @@ Clarification policy:
   - "clarification_requested": true
   - "clarification_question": "<precise question for the agent>"
 - If you can proceed safely with defaults or with the visible verification tools, do that instead of requesting clarification.`
+      : clarificationMode === "human_reply_window"
+        ? `
+Clarification policy:
+- OttoAuth can relay a clarification request back to the human requester through the order page if absolutely necessary.
+- The human requester has at most 30 seconds to answer that clarification request before OttoAuth cancels the task.
+- Do not ask free-form follow-up questions outside the final JSON result.
+- Only request clarification if the task is genuinely blocked and the available tools cannot safely resolve the ambiguity.
+- To request clarification, return a FAILED JSON result and include:
+  - "clarification_requested": true
+  - "clarification_question": "<precise question for the human requester>"
+- If you can proceed safely with defaults or with the visible verification tools, do that instead of requesting clarification.`
       : `
 Clarification policy:
 - There is no live clarification or chat reply channel back to the human during fulfillment.
@@ -94,10 +105,10 @@ Clarification policy:
   const clarificationContext =
     params.clarificationQuestion && params.clarificationResponse
       ? `
-Resolved agent clarification:
+Resolved clarification:
 - Previous clarification question: ${params.clarificationQuestion}
-- Agent response: ${params.clarificationResponse}
-- Treat the agent response as authoritative and continue the task using it.`
+- Response: ${params.clarificationResponse}
+- Treat this response as authoritative and continue the task using it.`
       : "";
   return `You are OttoAuth's browser fulfillment agent for a human-backed task.
 
@@ -206,7 +217,7 @@ If the task fails or would exceed the cap:
   }
 }
 
-If OttoAuth is allowed to relay clarification back to the submitting agent and you truly need it, include these additional fields in that failed JSON object:
+If OttoAuth is allowed to relay clarification back to the requester and you truly need it, include these additional fields in that failed JSON object:
 - "clarification_requested": true
-- "clarification_question": "<precise question for the agent>"`;
+- "clarification_question": "<precise question for the requester>"`;
 }

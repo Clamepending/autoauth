@@ -36,6 +36,17 @@ type TaskPayload = {
   } | null;
   tracking_summary: string | null;
   fulfillment_details_missing: boolean;
+  clarification: {
+    question: string;
+    requested_at: string | null;
+    deadline_at: string | null;
+    response: string | null;
+    responded_at: string | null;
+    callback_status: string | null;
+    callback_http_status: number | null;
+    callback_error: string | null;
+    callback_last_attempt_at: string | null;
+  } | null;
   summary: string | null;
   error: string | null;
   requester_rating: number | null;
@@ -106,6 +117,11 @@ function fmtRating(value: number | null | undefined) {
   return value == null ? "No ratings yet" : `${value.toFixed(1)} / 5`;
 }
 
+function displayTaskStatus(status: string) {
+  if (status === "awaiting_agent_clarification") return "awaiting clarification";
+  return status;
+}
+
 function describeEvent(event: RunEvent) {
   const taskId =
     typeof event.data.task_id === "string" || typeof event.data.task_id === "number"
@@ -118,6 +134,18 @@ function describeEvent(event: RunEvent) {
       return taskId ? `Queued for device pickup as task ${taskId}.` : "Queued for device pickup.";
     case "computeruse.task.delivered":
       return taskId ? `Picked up by the fulfiller device as task ${taskId}.` : "Picked up by the fulfiller device.";
+    case "computeruse.local_agent.clarification_requested":
+      return "Browser fulfiller requested clarification before continuing.";
+    case "computeruse.run.awaiting_agent_clarification":
+      return "OttoAuth is waiting for clarification before continuing the run.";
+    case "computeruse.human_clarification.responded":
+      return "Your clarification reply was received and OttoAuth resumed the task.";
+    case "computeruse.human_clarification.timed_out":
+      return "The clarification window expired before OttoAuth received a reply.";
+    case "computeruse.agent_clarification.responded":
+      return "The submitting agent replied to the clarification request and OttoAuth resumed the task.";
+    case "computeruse.agent_clarification.timed_out":
+      return "The submitting agent did not answer the clarification request before the deadline.";
     case "computeruse.local_agent.completed":
       return "Browser fulfiller reported completion.";
     case "computeruse.local_agent.failed":
@@ -141,6 +169,9 @@ function displaySummary(task: TaskPayload) {
   }
   if (task.status === "completed") {
     return "Completed successfully, but the fulfiller did not return a written summary.";
+  }
+  if (task.status === "awaiting_agent_clarification" && task.clarification?.question) {
+    return "OttoAuth is waiting for a clarification reply before the browser fulfiller can continue.";
   }
   if (task.status === "failed") {
     return task.error || "This task failed before the fulfiller returned a written summary.";
@@ -252,6 +283,9 @@ export function OrderDetailClient(props: {
   const [savingRating, setSavingRating] = useState(false);
   const [ratingMessage, setRatingMessage] = useState<string | null>(null);
   const [ratingValue, setRatingValue] = useState<number>(props.initialData.task.requester_rating ?? 0);
+  const [clarificationResponse, setClarificationResponse] = useState("");
+  const [sendingClarification, setSendingClarification] = useState(false);
+  const [clarificationMessage, setClarificationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setRatingValue(data.task.requester_rating ?? 0);
@@ -355,6 +389,48 @@ export function OrderDetailClient(props: {
     }
   }
 
+  const canRespondToClarification =
+    data.viewer_role === "requester" &&
+    data.task.status === "awaiting_agent_clarification" &&
+    Boolean(data.task.clarification?.question);
+
+  async function handleSendClarification() {
+    if (!canRespondToClarification || sendingClarification) return;
+    const responseText = clarificationResponse.trim();
+    if (!responseText) {
+      setClarificationMessage("Please answer the clarification question before sending.");
+      return;
+    }
+    setSendingClarification(true);
+    setClarificationMessage(null);
+    try {
+      const response = await fetch(`/api/human/tasks/${props.taskId}/clarification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clarification_response: responseText }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; task?: TaskPayload }
+        | null;
+      if (!response.ok || !payload?.task) {
+        setClarificationMessage(payload?.error || "Could not send clarification.");
+        return;
+      }
+      setData((current) => ({
+        ...current,
+        task: payload.task ?? current.task,
+      }));
+      setClarificationMessage("Clarification sent. OttoAuth queued the follow-up browser task.");
+      setClarificationResponse("");
+    } catch (error) {
+      setClarificationMessage(
+        error instanceof Error ? error.message : "Could not send clarification.",
+      );
+    } finally {
+      setSendingClarification(false);
+    }
+  }
+
   const availableSnapshots =
     data.recent_snapshots.length > 0
       ? data.recent_snapshots
@@ -395,13 +471,53 @@ export function OrderDetailClient(props: {
             Check the recent frames below and the merchant account directly before pickup or delivery.
           </div>
         )}
+        {canRespondToClarification && data.task.clarification && (
+          <div className="dashboard-card">
+            <div className="supported-accounts-title">Clarification Needed</div>
+            <div className="dashboard-muted" style={{ marginBottom: "0.75rem" }}>
+              Reply within 30 seconds or OttoAuth will cancel this task.
+            </div>
+            <div className="dashboard-row">
+              <div>
+                <strong>Question</strong>
+                <div className="dashboard-muted dashboard-prewrap">
+                  {data.task.clarification.question}
+                </div>
+              </div>
+            </div>
+            {data.task.clarification.deadline_at && (
+              <div className="dashboard-row">
+                <strong>Reply by</strong>
+                <span>{fmtDate(data.task.clarification.deadline_at)}</span>
+              </div>
+            )}
+            <textarea
+              className="auth-input shipping-textarea"
+              placeholder="Type the answer OttoAuth should use to continue..."
+              value={clarificationResponse}
+              onChange={(event) => setClarificationResponse(event.target.value)}
+              disabled={sendingClarification}
+            />
+            <div className="dashboard-actions">
+              <button
+                type="button"
+                className="auth-button primary"
+                onClick={handleSendClarification}
+                disabled={sendingClarification}
+              >
+                {sendingClarification ? "Sending..." : "Send clarification"}
+              </button>
+            </div>
+            {clarificationMessage && <div className="auth-success">{clarificationMessage}</div>}
+          </div>
+        )}
 
         <section className="dashboard-grid metrics-grid">
           <article className="dashboard-card">
             <div className="supported-accounts-title">Status</div>
             <div className="dashboard-row">
               <strong>Task</strong>
-              <span className={`status-chip status-${data.task.status}`}>{data.task.status}</span>
+              <span className={`status-chip status-${data.task.status}`}>{displayTaskStatus(data.task.status)}</span>
             </div>
             <div className="dashboard-row">
               <strong>Billing</strong>
@@ -596,6 +712,21 @@ export function OrderDetailClient(props: {
                     <div className="dashboard-muted dashboard-prewrap">
                       {data.task.shipping_address}
                     </div>
+                  </div>
+                </div>
+              )}
+              {data.task.clarification?.question && (
+                <div className="dashboard-row">
+                  <div>
+                    <strong>Clarification</strong>
+                    <div className="dashboard-muted dashboard-prewrap">
+                      {data.task.clarification.question}
+                    </div>
+                    {data.task.clarification.response && (
+                      <div className="dashboard-muted dashboard-prewrap" style={{ marginTop: "0.5rem" }}>
+                        Response: {data.task.clarification.response}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
