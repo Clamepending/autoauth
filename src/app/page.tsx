@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getCurrentHumanUser } from "@/lib/human-session";
 import { getBaseUrl } from "@/lib/base-url";
 import { HomeCommandBox } from "@/app/home-command-box";
+import { TweetEmbed } from "@/app/tweet-embed";
 
 const SERVICE_ICONS: Record<string, React.ReactNode> = {
   other: (
@@ -15,10 +16,12 @@ const SERVICE_ICONS: Record<string, React.ReactNode> = {
 
 const IMAGE_ICONS: Record<string, { src: string; alt: string }> = {
   amazon: { src: "/amazonlogo.png", alt: "Amazon" },
+  ebay: { src: "/ebaylogo.png", alt: "eBay" },
   grubhub: { src: "/grubhublogo.png", alt: "Grubhub" },
   instacart: { src: "/instacartlogo.jpg", alt: "Instacart" },
   snackpass: { src: "/snackpasslogo.png", alt: "Snackpass" },
   uber: { src: "/uber.svg", alt: "Uber" },
+  ubereats: { src: "/ubereatslogo.png", alt: "Uber Eats" },
 };
 
 const SUPPORTED_ACCOUNTS = [
@@ -40,6 +43,8 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const curlCommand = `curl -s ${getBaseUrl()}/skill.md`;
   const humanUser = await getCurrentHumanUser();
+  const founderPostEmbedHtml =
+    '<blockquote class="twitter-tweet"><p lang="en" dir="ltr">First boba ordered by my agent! <a href="https://t.co/jzQI4xOp0a">pic.twitter.com/jzQI4xOp0a</a></p>&mdash; Mark (@clamepending) <a href="https://twitter.com/clamepending/status/2043109349967667560?ref_src=twsrc%5Etfw">April 11, 2026</a></blockquote>';
 
   return (
     <main>
@@ -58,7 +63,7 @@ export default async function HomePage() {
           </div>
           <div className="card">
             <strong>For humans</strong>
-            <div>Sign in and start orders yourself. Linking an agent is optional.</div>
+            <div>Sign in and request orders yourself. Linking an agent is optional.</div>
             <div className="hero-actions" style={{ marginTop: 14 }}>
               <a className="auth-button primary" href={humanUser ? "/dashboard" : "/login"}>
                 {humanUser ? "Open Dashboard" : "Human Sign In"}
@@ -85,6 +90,10 @@ export default async function HomePage() {
               );
             })}
           </ul>
+        </div>
+        <div className="homepage-social">
+          <div className="homepage-social-title">From X</div>
+          <TweetEmbed html={founderPostEmbedHtml} />
         </div>
         <footer>Powered by Next.js + Turso. No fluff, just auth.</footer>
       </section>

@@ -213,6 +213,34 @@ h1 {
   padding-top: 8px;
 }
 
+.homepage-social {
+  display: grid;
+  gap: 12px;
+}
+
+.homepage-social-title {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tweet-embed-shell {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.tweet-embed-shell .twitter-tweet {
+  margin: 0 auto !important;
+}
+
+.tweet-embed-shell iframe {
+  width: min(100%, 550px) !important;
+}
+
 .supported-accounts-title {
   font-size: 12px;
   letter-spacing: 0.15em;

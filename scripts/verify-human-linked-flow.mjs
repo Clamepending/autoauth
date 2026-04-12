@@ -241,7 +241,10 @@ async function main() {
   assert(taskStatusRes.data.task.status === 'completed', `Expected completed task, got ${taskStatusRes.data.task.status}`);
   assert(taskStatusRes.data.task.billing_status === 'debited', `Expected debited task, got ${taskStatusRes.data.task.billing_status}`);
   assert(taskStatusRes.data.task.total_debited === '$15.06', `Expected $15.06 debit, got ${taskStatusRes.data.task.total_debited}`);
-  assert(taskStatusRes.data.task.payout_status === 'credited', `Expected credited payout, got ${taskStatusRes.data.task.payout_status}`);
+  assert(
+    taskStatusRes.data.task.payout_status === 'self_fulfilled',
+    `Expected self_fulfilled payout, got ${taskStatusRes.data.task.payout_status}`,
+  );
   assert(taskStatusRes.data.task.payout_total === '$15.06', `Expected $15.06 payout, got ${taskStatusRes.data.task.payout_total}`);
   assert(taskStatusRes.data.task.website_url === 'https://example.com/store', `Expected normalized website URL, got ${taskStatusRes.data.task.website_url}`);
   assert(taskStatusRes.data.task.shipping_address === 'Jane Doe\n123 Market St\nSan Francisco, CA 94110', `Expected shipping address to round-trip, got ${taskStatusRes.data.task.shipping_address}`);
