@@ -70,8 +70,8 @@ function collectLastAssistantText(messages) {
   return null;
 }
 
-function buildOttoAuthFailureResult(summary, error) {
-  return {
+function buildOttoAuthFailureResult(summary, error, clarificationQuestion = null) {
+  const result = {
     status: 'failed',
     summary,
     error,
@@ -106,6 +106,11 @@ function buildOttoAuthFailureResult(summary, error) {
       currency: 'usd',
     },
   };
+  if (clarificationQuestion) {
+    result.clarification_requested = true;
+    result.clarification_question = clarificationQuestion;
+  }
+  return result;
 }
 
 function normalizeOttoAuthCompletion(result, messages) {
@@ -126,11 +131,13 @@ function normalizeOttoAuthCompletion(result, messages) {
   if (looksLikeClarificationRequest(summaryText)) {
     const error =
       'OttoAuth does not support live clarification replies. The fulfiller asked for more direction instead of returning a final result.';
+    const clarificationQuestion = truncate(summaryText, 1200);
     return {
       status: 'failed',
       result: buildOttoAuthFailureResult(
         'Task blocked because the fulfiller requested clarification.',
         `${error} Final assistant message: ${truncate(summaryText, 800)}`,
+        clarificationQuestion,
       ),
       error,
     };

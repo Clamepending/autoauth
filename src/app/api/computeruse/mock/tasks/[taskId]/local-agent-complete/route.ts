@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { emitAgentEvent } from "@/lib/agent-events";
+import { notifyAgentClarificationRequested } from "@/lib/computeruse-agent-callback";
 import {
   appendComputerUseRunEvent,
+  markComputerUseRunAwaitingAgentClarification,
   markComputerUseRunFinalState,
 } from "@/lib/computeruse-runs";
 import { normalizeMockDeviceId } from "@/lib/computeruse-mock";
@@ -13,8 +15,12 @@ import {
   verifyComputerUseDeviceToken,
 } from "@/lib/computeruse-store";
 import { handleAmazonTaskCompletion } from "@/lib/amazon-fulfillment";
-import { completeGenericBrowserTaskFromExtension } from "@/lib/generic-browser-tasks";
+import {
+  completeGenericBrowserTaskFromExtension,
+  recordGenericBrowserTaskClarificationCallbackAttempt,
+} from "@/lib/generic-browser-tasks";
 import type { ModelUsageRecord } from "@/lib/model-pricing";
+import { getAgentById } from "@/lib/db";
 
 type Context = {
   params: {
@@ -114,76 +120,180 @@ export async function POST(request: Request, context: Context) {
     error,
   });
 
-  if (task.runId) {
-    const run = await markComputerUseRunFinalState({
-      runId: task.runId,
-      taskId: task.id,
-      status,
-      result,
-      error,
-    });
-    await appendComputerUseRunEvent({
-      runId: task.runId,
-      type: status === "completed" ? "computeruse.local_agent.completed" : "computeruse.local_agent.failed",
-      data: {
-        task_id: task.id,
-        status,
-        result,
-        error,
-      },
-    });
-    if (run) {
-      await appendComputerUseRunEvent({
-        runId: task.runId,
-        type: status === "completed" ? "computeruse.run.completed" : "computeruse.run.failed",
-        data: {
-          run_id: run.id,
-          task_id: task.id,
-          status: run.status,
-          result: run.result,
-          error: run.error,
-        },
-      });
-    }
-  }
-
-  if (task.agentUsername) {
-    emitAgentEvent({
-      type: status === "completed" ? "computeruse.local_agent.completed" : "computeruse.local_agent.failed",
-      agentUsername: task.agentUsername,
-      deviceId: task.deviceId,
-      data: {
-        task_id: task.id,
-        run_id: task.runId,
-        status,
-        result,
-        error,
-        executor: "local_browser_agent",
-      },
-    });
-  }
+  let clarificationRequested = false;
+  let clarificationQuestion: string | null = null;
+  let genericTaskOutcome:
+    | Awaited<ReturnType<typeof completeGenericBrowserTaskFromExtension>>
+    | null = null;
 
   try {
-    await handleAmazonTaskCompletion({
-      taskId: task.id,
-      status,
-      result,
-      error,
-    });
-  } catch (e) {
-    console.error("[local-agent-complete] Amazon fulfillment hook error:", e);
-  }
-
-  try {
-    await completeGenericBrowserTaskFromExtension({
+    genericTaskOutcome = await completeGenericBrowserTaskFromExtension({
       computeruseTaskId: task.id,
       status,
       result,
       error,
       usages,
     });
+    clarificationRequested = Boolean(
+      genericTaskOutcome &&
+        typeof genericTaskOutcome === "object" &&
+        "clarificationRequested" in genericTaskOutcome &&
+        genericTaskOutcome.clarificationRequested,
+    );
+    clarificationQuestion =
+      clarificationRequested &&
+      genericTaskOutcome &&
+      typeof genericTaskOutcome === "object" &&
+      "clarificationRequest" in genericTaskOutcome
+        ? String(genericTaskOutcome.clarificationRequest || "")
+        : null;
   } catch (e) {
     console.error("[local-agent-complete] Generic browser task billing hook error:", e);
+  }
+
+  if (task.runId) {
+    if (clarificationRequested) {
+      const run = await markComputerUseRunAwaitingAgentClarification({
+        runId: task.runId,
+        taskId: task.id,
+        result,
+        error: clarificationQuestion,
+      });
+      await appendComputerUseRunEvent({
+        runId: task.runId,
+        type: "computeruse.local_agent.clarification_requested",
+        data: {
+          task_id: task.id,
+          status: "awaiting_agent_clarification",
+          clarification_question: clarificationQuestion,
+          result,
+        },
+      });
+      if (run) {
+        await appendComputerUseRunEvent({
+          runId: task.runId,
+          type: "computeruse.run.awaiting_agent_clarification",
+          data: {
+            run_id: run.id,
+            task_id: task.id,
+            status: run.status,
+            clarification_question: clarificationQuestion,
+          },
+        });
+      }
+    } else {
+      const run = await markComputerUseRunFinalState({
+        runId: task.runId,
+        taskId: task.id,
+        status,
+        result,
+        error,
+      });
+      await appendComputerUseRunEvent({
+        runId: task.runId,
+        type: status === "completed" ? "computeruse.local_agent.completed" : "computeruse.local_agent.failed",
+        data: {
+          task_id: task.id,
+          status,
+          result,
+          error,
+        },
+      });
+      if (run) {
+        await appendComputerUseRunEvent({
+          runId: task.runId,
+          type: status === "completed" ? "computeruse.run.completed" : "computeruse.run.failed",
+          data: {
+            run_id: run.id,
+            task_id: task.id,
+            status: run.status,
+            result: run.result,
+            error: run.error,
+          },
+        });
+      }
+    }
+  }
+
+  if (task.agentUsername) {
+    emitAgentEvent({
+      type: clarificationRequested
+        ? "computeruse.local_agent.clarification_requested"
+        : status === "completed"
+          ? "computeruse.local_agent.completed"
+          : "computeruse.local_agent.failed",
+      agentUsername: task.agentUsername,
+      deviceId: task.deviceId,
+      data: {
+        task_id: task.id,
+        run_id: task.runId,
+        status: clarificationRequested ? "awaiting_agent_clarification" : status,
+        result,
+        error: clarificationRequested ? clarificationQuestion : error,
+        clarification_question: clarificationRequested ? clarificationQuestion : null,
+        executor: "local_browser_agent",
+      },
+    });
+  }
+
+  if (clarificationRequested) {
+    const clarifyingTask =
+      genericTaskOutcome &&
+      typeof genericTaskOutcome === "object" &&
+      "task" in genericTaskOutcome
+        ? genericTaskOutcome.task
+        : null;
+    if (clarifyingTask?.agent_id) {
+      const agent = await getAgentById(clarifyingTask.agent_id).catch(() => null);
+      if (agent && clarifyingTask.clarification_request) {
+        const callback = await notifyAgentClarificationRequested({
+          agent,
+          task: clarifyingTask,
+          question: clarifyingTask.clarification_request,
+          baseUrl: new URL(request.url).origin,
+        });
+        await recordGenericBrowserTaskClarificationCallbackAttempt({
+          taskId: clarifyingTask.id,
+          ok: callback.ok,
+          httpStatus: callback.statusCode,
+          error: callback.error,
+        }).catch((callbackUpdateError) => {
+          console.error(
+            "[local-agent-complete] Clarification callback bookkeeping error:",
+            callbackUpdateError,
+          );
+        });
+        if (task.runId) {
+          await appendComputerUseRunEvent({
+            runId: task.runId,
+            type: callback.ok
+              ? "computeruse.agent_clarification.callback_sent"
+              : "computeruse.agent_clarification.callback_failed",
+            data: {
+              task_id: task.id,
+              generic_task_id: clarifyingTask.id,
+              clarification_question: clarifyingTask.clarification_request,
+              callback_url: agent.callback_url,
+              callback_status_code: callback.statusCode,
+              callback_error: callback.error,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  try {
+    if (!clarificationRequested) {
+      await handleAmazonTaskCompletion({
+        taskId: task.id,
+        status,
+        result,
+        error,
+      });
+    }
+  } catch (e) {
+    console.error("[local-agent-complete] Amazon fulfillment hook error:", e);
   }
 
   return NextResponse.json(
@@ -195,9 +305,9 @@ export async function POST(request: Request, context: Context) {
         run_id: task.runId,
       },
       local_agent: {
-        status,
+        status: clarificationRequested ? "awaiting_agent_clarification" : status,
         result,
-        error,
+        error: clarificationRequested ? clarificationQuestion : error,
       },
     },
     { headers: corsHeaders() }

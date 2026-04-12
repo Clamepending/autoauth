@@ -91,11 +91,13 @@ export function extractOttoAuthTaskCompletion(sessionId: string): OttoAuthTaskCo
     if (looksLikeClarificationRequest(lastAssistantText)) {
       const error =
         'OttoAuth does not support live clarification replies. The fulfiller asked for more direction instead of returning a final result.';
+      const clarificationQuestion = truncate(lastAssistantText, 1200);
       return {
         status: 'failed',
         result: buildOttoAuthFailureResult(
           'Task blocked because the fulfiller requested clarification.',
           `${error} Final assistant message: ${truncate(lastAssistantText, 800)}`,
+          clarificationQuestion,
         ),
         error,
         rawText: lastAssistantText,
@@ -204,11 +206,13 @@ function normalizeStructuredOttoAuthResult(
   if (looksLikeClarificationRequest(summaryText)) {
     const error =
       'OttoAuth does not support live clarification replies. The fulfiller asked for more direction instead of returning a final result.';
+    const clarificationQuestion = truncate(summaryText, 1200);
     return {
       status: 'failed',
       result: buildOttoAuthFailureResult(
         'Task blocked because the fulfiller requested clarification.',
         `${error} Final assistant message: ${truncate(summaryText, 800)}`,
+        clarificationQuestion,
       ),
       error,
       rawText,
@@ -249,8 +253,12 @@ function normalizeStructuredOttoAuthResult(
   };
 }
 
-function buildOttoAuthFailureResult(summary: string, error: string): Record<string, unknown> {
-  return {
+function buildOttoAuthFailureResult(
+  summary: string,
+  error: string,
+  clarificationQuestion: string | null = null,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {
     status: 'failed',
     summary,
     error,
@@ -285,6 +293,11 @@ function buildOttoAuthFailureResult(summary: string, error: string): Record<stri
       currency: 'usd',
     },
   };
+  if (clarificationQuestion) {
+    result.clarification_requested = true;
+    result.clarification_question = clarificationQuestion;
+  }
+  return result;
 }
 
 function looksLikeClarificationRequest(text: string): boolean {

@@ -15,7 +15,13 @@ import { getTursoClient } from "@/lib/turso";
 export type GenericBrowserTaskStatus =
   | "queued"
   | "running"
+  | "awaiting_agent_clarification"
   | "completed"
+  | "failed";
+
+export type GenericBrowserTaskClarificationCallbackStatus =
+  | "not_requested"
+  | "sent"
   | "failed";
 
 export type GenericBrowserTaskBillingStatus =
@@ -70,6 +76,14 @@ export type GenericBrowserTaskRecord = {
   tracking_summary: string | null;
   fulfillment_details_missing: boolean;
   usage_json: string | null;
+  clarification_request: string | null;
+  clarification_requested_at: string | null;
+  clarification_response: string | null;
+  clarification_responded_at: string | null;
+  clarification_callback_status: GenericBrowserTaskClarificationCallbackStatus;
+  clarification_callback_http_status: number | null;
+  clarification_callback_error: string | null;
+  clarification_callback_last_attempt_at: string | null;
   summary: string | null;
   error: string | null;
   requester_rating: number | null;
@@ -105,6 +119,26 @@ export type GenericBrowserTaskSnapshotRecord = {
   }>;
   created_at: string;
 };
+
+function isDuplicateColumnError(error: unknown, columnName: string) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return message.toLowerCase().includes(`duplicate column name: ${columnName}`.toLowerCase());
+}
+
+async function safeAddColumn(
+  client: ReturnType<typeof getTursoClient>,
+  sql: string,
+  columnName: string,
+) {
+  try {
+    await client.execute(sql);
+  } catch (error) {
+    if (isDuplicateColumnError(error, columnName)) {
+      return;
+    }
+    throw error;
+  }
+}
 
 export type GenericBrowserTaskPickupDetails = {
   order_number: string | null;
@@ -186,6 +220,34 @@ function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
       trackingDetails,
     }),
     usage_json: row.usage_json == null ? null : String(row.usage_json),
+    clarification_request:
+      row.clarification_request == null ? null : String(row.clarification_request),
+    clarification_requested_at:
+      row.clarification_requested_at == null
+        ? null
+        : String(row.clarification_requested_at),
+    clarification_response:
+      row.clarification_response == null ? null : String(row.clarification_response),
+    clarification_responded_at:
+      row.clarification_responded_at == null
+        ? null
+        : String(row.clarification_responded_at),
+    clarification_callback_status: String(
+      row.clarification_callback_status || "not_requested",
+    ) as GenericBrowserTaskClarificationCallbackStatus,
+    clarification_callback_http_status:
+      row.clarification_callback_http_status == null ||
+      row.clarification_callback_http_status === ""
+        ? null
+        : Number(row.clarification_callback_http_status),
+    clarification_callback_error:
+      row.clarification_callback_error == null
+        ? null
+        : String(row.clarification_callback_error),
+    clarification_callback_last_attempt_at:
+      row.clarification_callback_last_attempt_at == null
+        ? null
+        : String(row.clarification_callback_last_attempt_at),
     summary: row.summary == null ? null : String(row.summary),
     error: row.error == null ? null : String(row.error),
     requester_rating:
@@ -512,6 +574,67 @@ function buildFallbackTaskSummary(args: {
     : "Completed successfully, but the fulfiller did not return a written summary.";
 }
 
+function looksLikeClarificationRequest(text: string | null) {
+  const normalized = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  if (!normalized) return false;
+
+  const strongMarkers = [
+    "how would you like me to proceed",
+    "how should i proceed",
+    "please clarify",
+    "could you clarify",
+    "can you clarify",
+    "i need clarification",
+    "i need more information",
+    "i need more detail",
+    "what would you like me to do",
+    "which option would you like",
+    "please let me know how to proceed",
+    "tell me how to proceed",
+    "waiting for clarification",
+    "clarification_requested",
+  ];
+  if (strongMarkers.some((marker) => normalized.includes(marker))) {
+    return true;
+  }
+
+  if (!normalized.includes("?")) {
+    return false;
+  }
+
+  return /(would you like|how should i|how would you like|can you clarify|could you clarify|should i proceed|what should i do|which .* should i)/.test(
+    normalized,
+  );
+}
+
+function extractClarificationRequest(
+  result: Record<string, unknown> | null,
+  error?: string | null,
+) {
+  const explicitFlag =
+    result?.clarification_requested === true ||
+    result?.needs_agent_clarification === true;
+  const question = firstString(
+    [
+      result?.clarification_question,
+      result?.clarification_request,
+      result?.question,
+      result?.error,
+      result?.summary,
+      error,
+    ],
+    2000,
+  );
+  if (!question) return null;
+  if (explicitFlag || looksLikeClarificationRequest(question)) {
+    return question;
+  }
+  return null;
+}
+
 export async function ensureGenericBrowserTaskSchema() {
   if (schemaReady) return;
   await ensureSchema();
@@ -549,6 +672,14 @@ export async function ensureGenericBrowserTaskSchema() {
       computeruse_task_id TEXT,
       result_json TEXT,
       usage_json TEXT,
+      clarification_request TEXT,
+      clarification_requested_at TEXT,
+      clarification_response TEXT,
+      clarification_responded_at TEXT,
+      clarification_callback_status TEXT NOT NULL DEFAULT 'not_requested',
+      clarification_callback_http_status INTEGER,
+      clarification_callback_error TEXT,
+      clarification_callback_last_attempt_at TEXT,
       summary TEXT,
       error TEXT,
       requester_rating INTEGER,
@@ -565,48 +696,122 @@ export async function ensureGenericBrowserTaskSchema() {
   });
   const columns = (tableInfo.rows ?? []) as unknown as { name: string }[];
   if (!columns.some((c) => c.name === "submission_source")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN submission_source TEXT NOT NULL DEFAULT 'agent'"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN submission_source TEXT NOT NULL DEFAULT 'agent'",
+      "submission_source",
     );
   }
   if (!columns.some((c) => c.name === "fulfiller_human_user_id")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN fulfiller_human_user_id INTEGER"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN fulfiller_human_user_id INTEGER",
+      "fulfiller_human_user_id",
     );
   }
   if (!columns.some((c) => c.name === "payout_cents")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN payout_cents INTEGER NOT NULL DEFAULT 0"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN payout_cents INTEGER NOT NULL DEFAULT 0",
+      "payout_cents",
     );
   }
   if (!columns.some((c) => c.name === "payout_status")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN payout_status TEXT NOT NULL DEFAULT 'pending'"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN payout_status TEXT NOT NULL DEFAULT 'pending'",
+      "payout_status",
     );
   }
   if (!columns.some((c) => c.name === "payout_credited_at")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN payout_credited_at TEXT"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN payout_credited_at TEXT",
+      "payout_credited_at",
     );
   }
   if (!columns.some((c) => c.name === "requester_rating")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN requester_rating INTEGER"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN requester_rating INTEGER",
+      "requester_rating",
     );
   }
   if (!columns.some((c) => c.name === "requester_rating_at")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN requester_rating_at TEXT"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN requester_rating_at TEXT",
+      "requester_rating_at",
     );
   }
   if (!columns.some((c) => c.name === "website_url")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN website_url TEXT"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN website_url TEXT",
+      "website_url",
     );
   }
   if (!columns.some((c) => c.name === "shipping_address")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_tasks ADD COLUMN shipping_address TEXT"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN shipping_address TEXT",
+      "shipping_address",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_request")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_request TEXT",
+      "clarification_request",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_requested_at")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_requested_at TEXT",
+      "clarification_requested_at",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_response")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_response TEXT",
+      "clarification_response",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_responded_at")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_responded_at TEXT",
+      "clarification_responded_at",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_callback_status")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_callback_status TEXT NOT NULL DEFAULT 'not_requested'",
+      "clarification_callback_status",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_callback_http_status")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_callback_http_status INTEGER",
+      "clarification_callback_http_status",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_callback_error")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_callback_error TEXT",
+      "clarification_callback_error",
+    );
+  }
+  if (!columns.some((c) => c.name === "clarification_callback_last_attempt_at")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN clarification_callback_last_attempt_at TEXT",
+      "clarification_callback_last_attempt_at",
     );
   }
   await client.execute(
@@ -644,8 +849,10 @@ export async function ensureGenericBrowserTaskSchema() {
   });
   const snapshotColumns = (snapshotTableInfo.rows ?? []) as unknown as { name: string }[];
   if (!snapshotColumns.some((c) => c.name === "tabs_json")) {
-    await client.execute(
-      "ALTER TABLE generic_browser_task_snapshots ADD COLUMN tabs_json TEXT"
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_task_snapshots ADD COLUMN tabs_json TEXT",
+      "tabs_json",
     );
   }
   await client.execute(
@@ -739,6 +946,114 @@ export async function markGenericBrowserTaskRunningByComputerUseTaskId(computeru
     args: [now, computeruseTaskId.trim()],
   });
   return getGenericBrowserTaskByComputerUseTaskId(computeruseTaskId);
+}
+
+export async function markGenericBrowserTaskAwaitingAgentClarification(params: {
+  computeruseTaskId: string;
+  clarificationRequest: string;
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+  usages?: ModelUsageRecord[];
+}) {
+  await ensureGenericBrowserTaskSchema();
+  const existing = await getGenericBrowserTaskByComputerUseTaskId(params.computeruseTaskId);
+  if (!existing) return null;
+
+  const now = new Date().toISOString();
+  const client = getTursoClient();
+  await client.execute({
+    sql: `UPDATE generic_browser_tasks
+          SET status = 'awaiting_agent_clarification',
+              result_json = ?,
+              usage_json = ?,
+              summary = ?,
+              error = NULL,
+              clarification_request = ?,
+              clarification_requested_at = ?,
+              clarification_response = NULL,
+              clarification_responded_at = NULL,
+              clarification_callback_status = 'not_requested',
+              clarification_callback_http_status = NULL,
+              clarification_callback_error = NULL,
+              clarification_callback_last_attempt_at = NULL,
+              completed_at = NULL,
+              updated_at = ?
+          WHERE id = ?`,
+    args: [
+      params.result ? JSON.stringify(params.result) : null,
+      params.usages && params.usages.length > 0 ? JSON.stringify(params.usages) : null,
+      "Awaiting agent clarification.",
+      params.clarificationRequest.trim().slice(0, 2000),
+      now,
+      now,
+      existing.id,
+    ],
+  });
+  return getGenericBrowserTaskById(existing.id);
+}
+
+export async function recordGenericBrowserTaskClarificationCallbackAttempt(params: {
+  taskId: number;
+  ok: boolean;
+  httpStatus?: number | null;
+  error?: string | null;
+}) {
+  await ensureGenericBrowserTaskSchema();
+  const now = new Date().toISOString();
+  const client = getTursoClient();
+  await client.execute({
+    sql: `UPDATE generic_browser_tasks
+          SET clarification_callback_status = ?,
+              clarification_callback_http_status = ?,
+              clarification_callback_error = ?,
+              clarification_callback_last_attempt_at = ?,
+              updated_at = ?
+          WHERE id = ?`,
+    args: [
+      params.ok ? "sent" : "failed",
+      params.httpStatus ?? null,
+      params.error?.trim() || null,
+      now,
+      now,
+      params.taskId,
+    ],
+  });
+  return getGenericBrowserTaskById(params.taskId);
+}
+
+export async function resumeGenericBrowserTaskAfterClarification(params: {
+  taskId: number;
+  clarificationResponse: string;
+  newComputeruseTaskId: string;
+}) {
+  await ensureGenericBrowserTaskSchema();
+  const existing = await getGenericBrowserTaskById(params.taskId);
+  if (!existing) return null;
+
+  const now = new Date().toISOString();
+  const client = getTursoClient();
+  await client.execute({
+    sql: `UPDATE generic_browser_tasks
+          SET status = 'queued',
+              computeruse_task_id = ?,
+              result_json = NULL,
+              usage_json = NULL,
+              summary = 'Queued after agent clarification.',
+              error = NULL,
+              clarification_response = ?,
+              clarification_responded_at = ?,
+              completed_at = NULL,
+              updated_at = ?
+          WHERE id = ?`,
+    args: [
+      params.newComputeruseTaskId.trim(),
+      params.clarificationResponse.trim().slice(0, 4000),
+      now,
+      now,
+      existing.id,
+    ],
+  });
+  return getGenericBrowserTaskById(existing.id);
 }
 
 export async function listGenericBrowserTasksForHuman(humanUserId: number, limit = 50) {
@@ -954,6 +1269,27 @@ export async function completeGenericBrowserTaskFromExtension(params: {
   if (!existing) return null;
   if (existing.completed_at) {
     return existing;
+  }
+
+  const clarificationRequest =
+    existing.submission_source === "agent" && params.status === "failed"
+      ? extractClarificationRequest(params.result ?? null, params.error)
+      : null;
+  if (clarificationRequest) {
+    const updated = await markGenericBrowserTaskAwaitingAgentClarification({
+      computeruseTaskId: params.computeruseTaskId,
+      clarificationRequest,
+      result: params.result,
+      error: params.error,
+      usages: params.usages,
+    });
+    return updated
+      ? {
+          task: updated,
+          clarificationRequested: true as const,
+          clarificationRequest,
+        }
+      : null;
   }
 
   const billing = extractBillingFields(params.result ?? null);
@@ -1178,6 +1514,18 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
     tracking_details: task.tracking_details,
     tracking_summary: task.tracking_summary,
     fulfillment_details_missing: task.fulfillment_details_missing,
+    clarification: task.clarification_request
+      ? {
+          question: task.clarification_request,
+          requested_at: task.clarification_requested_at,
+          response: task.clarification_response,
+          responded_at: task.clarification_responded_at,
+          callback_status: task.clarification_callback_status,
+          callback_http_status: task.clarification_callback_http_status,
+          callback_error: task.clarification_callback_error,
+          callback_last_attempt_at: task.clarification_callback_last_attempt_at,
+        }
+      : null,
     summary: task.summary,
     error: task.error,
     requester_rating: task.requester_rating,

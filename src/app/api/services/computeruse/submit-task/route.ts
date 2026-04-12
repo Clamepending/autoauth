@@ -136,6 +136,7 @@ export async function POST(request: Request) {
     maxChargeCents: effectiveMaxCharge,
     websiteUrl,
     shippingAddress,
+    clarificationMode: "agent_webhook",
   });
 
   const run = await createComputerUseRun({

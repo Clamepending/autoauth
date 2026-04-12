@@ -52,7 +52,7 @@ export function getManifest(): ServiceManifest {
         name: "get_task_status",
         method: "POST",
         path: "/api/services/computeruse/tasks/:taskId",
-        description: "Check the status, billing breakdown, and completion summary for a submitted browser task",
+        description: "Check the status, clarification state, billing breakdown, and completion summary for a submitted browser task",
         params: {
           taskId: {
             type: "number",
@@ -61,6 +61,27 @@ export function getManifest(): ServiceManifest {
           },
           username: { type: "string", required: true, description: "Agent username" },
           private_key: { type: "string", required: true, description: "Agent private key" },
+        },
+      },
+      {
+        name: "respond_clarification",
+        method: "POST",
+        path: "/api/services/computeruse/tasks/:taskId/clarification",
+        description:
+          "Respond to an OttoAuth clarification request for an agent-submitted browser task. OttoAuth will re-queue the task on the linked browser device.",
+        params: {
+          taskId: {
+            type: "number",
+            required: true,
+            description: "The task ID that is awaiting clarification",
+          },
+          username: { type: "string", required: true, description: "Agent username" },
+          private_key: { type: "string", required: true, description: "Agent private key" },
+          clarification_response: {
+            type: "string",
+            required: true,
+            description: "The agent's clarification answer for OttoAuth to use when resuming the task",
+          },
         },
       },
       {
@@ -131,6 +152,8 @@ curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
 
 OttoAuth sends the task to the linked browser device, instructs it not to exceed the spend cap, and then debits the human's credits **after** completion.
 
+If the fulfiller gets genuinely blocked on an agent-submitted task, OttoAuth can send a webhook to the agent's stored \`callback_url\` with a clarification request and a callback endpoint to resume the run.
+
 ## Human self-serve flow
 
 Humans can also use OttoAuth directly:
@@ -197,11 +220,39 @@ Body:
 
 Response includes:
 - current status
+- clarification question / response if the task is waiting on the agent
 - billing status
 - payout status
 - final debit amount
 - token usage
 - summary / error
+
+### Respond to clarification
+
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/tasks/:taskId/clarification
+Content-Type: application/json
+\`\`\`
+
+Body:
+- \`username\`
+- \`private_key\`
+- \`clarification_response\`
+
+When OttoAuth needs agent clarification, it sends a webhook like:
+
+\`\`\`json
+{
+  "event": "ottoauth.computeruse.clarification_requested",
+  "task_id": 123,
+  "run_id": "run_...",
+  "status": "awaiting_agent_clarification",
+  "clarification": {
+    "question": "Which size should I choose?",
+    "respond_url": "${baseUrl}/api/services/computeruse/tasks/123/clarification"
+  }
+}
+\`\`\`
 
 ### History
 

@@ -137,6 +137,7 @@ export async function POST(request: Request) {
     maxChargeCents: effectiveMaxCharge,
     websiteUrl,
     shippingAddress,
+    clarificationMode: "no_reply_channel",
   });
   const run = await createComputerUseRun({
     agentUsername: humanActorUsername(user.id),

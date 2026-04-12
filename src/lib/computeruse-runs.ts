@@ -6,6 +6,7 @@ export type ComputerUseRunStatus =
   | "queued"
   | "waiting_for_device"
   | "running"
+  | "awaiting_agent_clarification"
   | "completed"
   | "failed";
 
@@ -266,6 +267,22 @@ export async function markComputerUseRunRunning(params: {
     runId: params.runId,
     status: "running",
     currentTaskId: params.taskId.trim(),
+  });
+}
+
+export async function markComputerUseRunAwaitingAgentClarification(params: {
+  runId: string;
+  taskId?: string | null;
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+}) {
+  return updateRun({
+    runId: params.runId,
+    status: "awaiting_agent_clarification",
+    currentTaskId:
+      typeof params.taskId === "undefined" ? undefined : (params.taskId ?? null),
+    result: typeof params.result === "undefined" ? undefined : (params.result ?? null),
+    error: typeof params.error === "undefined" ? undefined : (params.error ?? null),
   });
 }
 
