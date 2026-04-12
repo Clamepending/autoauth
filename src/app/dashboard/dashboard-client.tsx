@@ -38,6 +38,8 @@ export function DashboardClient(props: {
   const [deviceLabel, setDeviceLabel] = useState("raspberry-pi-browser");
   const [creatingCode, setCreatingCode] = useState(false);
   const [togglingDeviceId, setTogglingDeviceId] = useState<string | null>(null);
+  const [removingAgentLinkId, setRemovingAgentLinkId] = useState<number | null>(null);
+  const [removingDeviceId, setRemovingDeviceId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const activeCode = props.pairingCodes[0] ?? null;
 
@@ -116,6 +118,54 @@ export function DashboardClient(props: {
       window.location.reload();
     } finally {
       setTogglingDeviceId(null);
+    }
+  }
+
+  async function handleRemoveAgent(linkId: number, usernameDisplay: string) {
+    const confirmed = window.confirm(
+      `Remove ${usernameDisplay} from your OttoAuth account? The agent will no longer be able to spend from your credits until you pair it again.`,
+    );
+    if (!confirmed) return;
+
+    setRemovingAgentLinkId(linkId);
+    setStatusMessage(null);
+    try {
+      const response = await fetch(`/api/human/agents/${linkId}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStatusMessage(payload?.error || "Could not remove linked agent.");
+        return;
+      }
+      setStatusMessage(`Removed linked agent ${payload?.agent?.username_display || usernameDisplay}.`);
+      window.location.reload();
+    } finally {
+      setRemovingAgentLinkId(null);
+    }
+  }
+
+  async function handleRemoveDevice(deviceId: string, label: string) {
+    const confirmed = window.confirm(
+      `Remove ${label} from your OttoAuth account? That device will stop receiving tasks until it is claimed again.`,
+    );
+    if (!confirmed) return;
+
+    setRemovingDeviceId(deviceId);
+    setStatusMessage(null);
+    try {
+      const response = await fetch(`/api/human/devices/${encodeURIComponent(deviceId)}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStatusMessage(payload?.error || "Could not remove device.");
+        return;
+      }
+      setStatusMessage(`Removed device ${payload?.device?.label || label}.`);
+      window.location.reload();
+    } finally {
+      setRemovingDeviceId(null);
     }
   }
 
@@ -225,8 +275,17 @@ export function DashboardClient(props: {
                       <strong>{agent.username_display}</strong>
                       <div className="dashboard-muted mono">@{agent.username_lower}</div>
                     </div>
-                    <div className="dashboard-muted">
-                      Linked {new Date(agent.linked_at).toLocaleString()}
+                    <div className="dashboard-device-actions">
+                      <div className="dashboard-muted">
+                        Linked {new Date(agent.linked_at).toLocaleString()}
+                      </div>
+                      <button
+                        className="auth-button"
+                        onClick={() => handleRemoveAgent(agent.id, agent.username_display)}
+                        disabled={removingAgentLinkId === agent.id}
+                      >
+                        {removingAgentLinkId === agent.id ? "Removing..." : "Remove agent"}
+                      </button>
                     </div>
                   </div>
                 ))
@@ -285,13 +344,31 @@ export function DashboardClient(props: {
                         onClick={() =>
                           handleToggleMarketplace(device.device_id, !device.marketplace_enabled)
                         }
-                        disabled={togglingDeviceId === device.device_id}
+                        disabled={
+                          togglingDeviceId === device.device_id ||
+                          removingDeviceId === device.device_id
+                        }
                       >
                         {togglingDeviceId === device.device_id
                           ? "Saving..."
                           : device.marketplace_enabled
                             ? "Disable marketplace"
                             : "Enable marketplace"}
+                      </button>
+                      <button
+                        className="auth-button"
+                        onClick={() =>
+                          handleRemoveDevice(
+                            device.device_id,
+                            device.label || device.device_id,
+                          )
+                        }
+                        disabled={
+                          togglingDeviceId === device.device_id ||
+                          removingDeviceId === device.device_id
+                        }
+                      >
+                        {removingDeviceId === device.device_id ? "Removing..." : "Remove device"}
                       </button>
                     </div>
                   </div>

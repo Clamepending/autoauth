@@ -526,6 +526,59 @@ export async function getLinkedAgentsForHuman(humanUserId: number): Promise<Huma
   }));
 }
 
+export async function removeLinkedAgentForHuman(params: {
+  humanUserId: number;
+  linkId: number;
+}) {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: `SELECT
+            l.id,
+            l.human_user_id,
+            l.agent_id,
+            l.pairing_key_used,
+            l.linked_at,
+            l.created_at,
+            l.updated_at,
+            a.username_lower,
+            a.username_display,
+            a.callback_url,
+            a.description
+          FROM human_agent_links l
+          JOIN agents a ON a.id = l.agent_id
+          WHERE l.id = ?
+          LIMIT 1`,
+    args: [params.linkId],
+  });
+  const row = result.rows?.[0] as Record<string, unknown> | undefined;
+  if (!row) {
+    throw new Error("Linked agent not found.");
+  }
+  if (Number(row.human_user_id) !== params.humanUserId) {
+    throw new Error("You do not own this linked agent.");
+  }
+
+  await client.execute({
+    sql: "DELETE FROM human_agent_links WHERE id = ?",
+    args: [params.linkId],
+  });
+
+  return {
+    id: Number(row.id),
+    human_user_id: Number(row.human_user_id),
+    agent_id: Number(row.agent_id),
+    pairing_key_used: String(row.pairing_key_used),
+    linked_at: String(row.linked_at),
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+    username_lower: String(row.username_lower),
+    username_display: String(row.username_display),
+    callback_url: row.callback_url == null ? null : String(row.callback_url),
+    description: row.description == null ? null : String(row.description),
+  } satisfies HumanAgentLinkWithAgentRecord;
+}
+
 export async function linkAgentToHumanByPairingKey(params: {
   humanUserId: number;
   pairingKey: string;

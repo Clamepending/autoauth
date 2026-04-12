@@ -355,6 +355,44 @@ export async function setComputerUseDeviceMarketplaceEnabled(params: {
   return getComputerUseDeviceById(params.deviceId);
 }
 
+export async function removeComputerUseDeviceForHuman(params: {
+  deviceId: string;
+  humanUserId: number;
+}) {
+  await ensureComputerUseTransportSchema();
+  const client = getTursoClient();
+  const device = await getComputerUseDeviceById(params.deviceId);
+  if (!device) {
+    throw new Error("Device not found.");
+  }
+  if (device.human_user_id !== params.humanUserId) {
+    throw new Error("You do not own this device.");
+  }
+
+  const activeTaskCountResult = await client.execute({
+    sql: `SELECT COUNT(*) AS count
+          FROM computeruse_tasks
+          WHERE device_id = ?
+            AND status IN ('queued', 'delivered')`,
+    args: [params.deviceId.trim()],
+  });
+  const activeTaskCountRow = activeTaskCountResult.rows?.[0] as
+    | { count?: number | bigint | string }
+    | undefined;
+  const activeTaskCount =
+    activeTaskCountRow?.count != null ? Number(activeTaskCountRow.count) : 0;
+  if (activeTaskCount > 0) {
+    throw new Error("This device still has an active OttoAuth task. Wait for it to finish before removing it.");
+  }
+
+  await client.execute({
+    sql: "DELETE FROM computeruse_devices WHERE device_id = ?",
+    args: [params.deviceId.trim()],
+  });
+
+  return device;
+}
+
 export async function listMarketplaceComputerUseDevices(params?: {
   excludeHumanUserId?: number | null;
   onlySeenSinceMinutes?: number;
