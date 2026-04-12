@@ -26,6 +26,7 @@ Common flags:
   --headful
   --headless
   --keep-tabs
+  --strict-human-input
   --model claude-sonnet-4-5-20250929
   --wait-ms 25000
 `);
@@ -159,6 +160,16 @@ function resolveHeadlessMode(flags, defaultValue = true) {
   return defaultValue;
 }
 
+function resolveStrictHumanInput(flags, defaultValue = false) {
+  if (flags['strict-human-input'] != null) {
+    return boolFromFlag(flags['strict-human-input'], defaultValue);
+  }
+  if (process.env.OTTOAUTH_STRICT_HUMAN_INPUT != null) {
+    return boolFromFlag(process.env.OTTOAUTH_STRICT_HUMAN_INPUT, defaultValue);
+  }
+  return defaultValue;
+}
+
 function resolveLoginUrls(flags) {
   const explicitUrls = splitCsvFlag(flags.url);
   if (explicitUrls.length > 0) {
@@ -223,6 +234,7 @@ async function commandLogin(flags) {
     flags['keep-tabs'] != null
       ? boolFromFlag(flags['keep-tabs'], true)
       : boolFromFlag(process.env.OTTOAUTH_KEEP_TABS, true);
+  const strictHumanInput = resolveStrictHumanInput(flags, false);
   const urls = resolveLoginUrls(flags);
   const autoCloseMs = intFromFlag(flags['auto-close-ms'], 0);
 
@@ -231,6 +243,7 @@ async function commandLogin(flags) {
     browserPath,
     headless,
     keepTabs,
+    strictHumanInput,
   });
 
   console.log(`[ottoauth-headless] Opening worker browser profile for ${urls.length} login target(s).`);
@@ -269,6 +282,7 @@ async function commandRun(flags, once) {
     flags['keep-tabs'] != null
       ? boolFromFlag(flags['keep-tabs'], false)
       : boolFromFlag(process.env.OTTOAUTH_KEEP_TABS, false);
+  const strictHumanInput = resolveStrictHumanInput(flags, false);
   const waitMs = intFromFlag(flags['wait-ms'] ?? process.env.OTTOAUTH_WAIT_MS, 25000);
   const model = typeof flags.model === 'string' && flags.model.trim() ? flags.model.trim() : null;
 
@@ -282,6 +296,7 @@ async function commandRun(flags, once) {
     headless,
     browserPath,
     keepTabs,
+    strictHumanInput,
     waitMs,
     model,
     logger: console,

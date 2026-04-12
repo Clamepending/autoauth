@@ -73,6 +73,16 @@ function stringifyError(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function randomBetween(min, max) {
+  const lower = Math.min(min, max);
+  const upper = Math.max(min, max);
+  return lower + Math.random() * (upper - lower);
+}
+
 function nativeNavigatorPlatform() {
   if (process.platform === 'darwin') return 'MacIntel';
   if (process.platform === 'win32') return 'Win32';
@@ -202,6 +212,7 @@ export class BrowserRuntime {
     this.browserPath = options.browserPath || null;
     this.headless = options.headless !== false;
     this.keepTabs = Boolean(options.keepTabs);
+    this.strictHumanInput = Boolean(options.strictHumanInput);
     this.viewport = options.viewport || DEFAULT_VIEWPORT;
     this.context = null;
     this.browserExecutablePath = null;
@@ -211,6 +222,10 @@ export class BrowserRuntime {
     this.activePageId = null;
     this.currentTracePath = null;
     this.stealthProfile = null;
+    this.mousePosition = {
+      x: Math.round(this.viewport.width / 2),
+      y: Math.round(this.viewport.height / 2),
+    };
   }
 
   async start() {
@@ -271,8 +286,10 @@ export class BrowserRuntime {
     }
     if (!this.keepTabs) {
       const existingPages = [...this.context.pages()];
+      const reusablePage = existingPages[0] || null;
+      const pagesToClose = reusablePage ? existingPages.slice(1) : existingPages;
       await Promise.all(
-        existingPages.map((page) =>
+        pagesToClose.map((page) =>
           page.close().catch(() => {}),
         ),
       );
@@ -280,14 +297,36 @@ export class BrowserRuntime {
       this.pageIds = new WeakMap();
       this.activePageId = null;
       this.nextPageId = 1;
+      if (reusablePage && !reusablePage.isClosed()) {
+        const id = this.#registerPage(reusablePage);
+        this.activePageId = id;
+        await reusablePage.bringToFront().catch(() => {});
+        try {
+          await reusablePage.goto('about:blank', { waitUntil: 'domcontentloaded' });
+        } catch {
+          // about:blank is best-effort only
+        }
+        return { id, page: reusablePage };
+      }
     }
-    const tab = await this.createTab();
     try {
-      await tab.page.goto('about:blank', { waitUntil: 'domcontentloaded' });
-    } catch {
-      // about:blank is best-effort only
+      const tab = await this.createTab();
+      try {
+        await tab.page.goto('about:blank', { waitUntil: 'domcontentloaded' });
+      } catch {
+        // about:blank is best-effort only
+      }
+      return tab;
+    } catch (error) {
+      const page = await this.getActivePage();
+      const id = this.#getPageId(page);
+      try {
+        await page.goto('about:blank', { waitUntil: 'domcontentloaded' });
+      } catch {
+        // about:blank is best-effort only
+      }
+      return { id, page };
     }
-    return tab;
   }
 
   async startTaskTrace(tracePath) {
@@ -359,7 +398,7 @@ export class BrowserRuntime {
   }
 
   getToolDefinitions() {
-    return [
+    const tools = [
       {
         name: 'computer',
         type: 'computer_20250124',
@@ -395,19 +434,6 @@ export class BrowserRuntime {
         },
       },
       {
-        name: 'form_input',
-        description: 'Set the value of a form field by reference id.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            ref: { type: 'string' },
-            value: {},
-            tabId: { type: 'number' },
-          },
-          required: ['ref', 'value'],
-        },
-      },
-      {
         name: 'find',
         description: 'Search the page tree in natural language and return matching refs.',
         input_schema: {
@@ -429,19 +455,6 @@ export class BrowserRuntime {
             max_chars: { type: 'number' },
           },
           required: [],
-        },
-      },
-      {
-        name: 'javascript_tool',
-        description: 'Execute JavaScript in the current page context.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            action: { type: 'string' },
-            text: { type: 'string' },
-            tabId: { type: 'number' },
-          },
-          required: ['text'],
         },
       },
       {
@@ -487,6 +500,37 @@ export class BrowserRuntime {
         },
       },
     ];
+
+    if (!this.strictHumanInput) {
+      tools.splice(3, 0, {
+        name: 'form_input',
+        description: 'Set the value of a form field by reference id.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            ref: { type: 'string' },
+            value: {},
+            tabId: { type: 'number' },
+          },
+          required: ['ref', 'value'],
+        },
+      });
+      tools.splice(6, 0, {
+        name: 'javascript_tool',
+        description: 'Execute JavaScript in the current page context.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            action: { type: 'string' },
+            text: { type: 'string' },
+            tabId: { type: 'number' },
+          },
+          required: ['text'],
+        },
+      });
+    }
+
+    return tools;
   }
 
   async executeTool(name, input, context = {}) {
@@ -498,12 +542,18 @@ export class BrowserRuntime {
       case 'read_page':
         return this.#executeReadPage(input);
       case 'form_input':
+        if (this.strictHumanInput) {
+          return textResult('form_input is unavailable in strict human-input mode.');
+        }
         return this.#executeFormInput(input);
       case 'find':
         return this.#executeFind(input, context);
       case 'get_page_text':
         return this.#executeGetPageText(input);
       case 'javascript_tool':
+        if (this.strictHumanInput) {
+          return textResult('javascript_tool is unavailable in strict human-input mode.');
+        }
         return this.#executeJavascript(input);
       case 'tabs_context':
         return this.#executeTabsContext();
@@ -602,6 +652,59 @@ export class BrowserRuntime {
         Math.round(rect.y + rect.height / 2),
       ];
     }, refId);
+  }
+
+  async #moveMouseHuman(page, x, y) {
+    const startX = Number.isFinite(this.mousePosition?.x)
+      ? this.mousePosition.x
+      : Math.round(this.viewport.width / 2);
+    const startY = Number.isFinite(this.mousePosition?.y)
+      ? this.mousePosition.y
+      : Math.round(this.viewport.height / 2);
+    const distance = Math.hypot(x - startX, y - startY);
+    const steps = Math.max(6, Math.min(30, Math.round(distance / 40)));
+    await page.mouse.move(x, y, { steps });
+    this.mousePosition = { x, y };
+    await sleep(randomBetween(40, 120));
+  }
+
+  async #moveMouse(page, x, y) {
+    if (this.strictHumanInput) {
+      await this.#moveMouseHuman(page, x, y);
+      return;
+    }
+    await page.mouse.move(x, y);
+    this.mousePosition = { x, y };
+  }
+
+  async #clickMouse(page, x, y, { button = 'left', clickCount = 1 } = {}) {
+    if (this.strictHumanInput) {
+      await this.#moveMouseHuman(page, x, y);
+      for (let index = 0; index < clickCount; index += 1) {
+        await page.mouse.down({ button, clickCount: 1 });
+        await sleep(randomBetween(25, 80));
+        await page.mouse.up({ button, clickCount: 1 });
+        if (index < clickCount - 1) {
+          await sleep(randomBetween(40, 100));
+        }
+      }
+      return;
+    }
+    await page.mouse.click(x, y, { button, clickCount });
+    this.mousePosition = { x, y };
+  }
+
+  async #typeText(page, text) {
+    const value = String(text || '');
+    if (!this.strictHumanInput) {
+      await page.keyboard.type(value);
+      return;
+    }
+    for (const character of value) {
+      await page.keyboard.type(character, {
+        delay: Math.round(randomBetween(35, 120)),
+      });
+    }
   }
 
   async #readVerificationState(page) {
@@ -825,7 +928,7 @@ export class BrowserRuntime {
         const button = action === 'right_click' ? 'right' : 'left';
         const clickCount =
           action === 'double_click' ? 2 : action === 'triple_click' ? 3 : 1;
-        await page.mouse.click(x, y, { button, clickCount });
+        await this.#clickMouse(page, x, y, { button, clickCount });
         await page.waitForTimeout(300);
         const shot = await this.takeScreenshot(page);
         return imageResult(shot.base64);
@@ -837,13 +940,13 @@ export class BrowserRuntime {
         }
         if (!coords) return textResult('Error: No coordinate or ref provided for hover.');
         const [x, y] = coords.map((value) => Math.round(Number(value)));
-        await page.mouse.move(x, y);
+        await this.#moveMouse(page, x, y);
         await page.waitForTimeout(200);
         const shot = await this.takeScreenshot(page);
         return imageResult(shot.base64);
       }
       case 'type': {
-        await page.keyboard.type(String(input.text || ''));
+        await this.#typeText(page, input.text);
         return textResult(`Typed ${String(input.text || '').length} characters.`);
       }
       case 'key': {

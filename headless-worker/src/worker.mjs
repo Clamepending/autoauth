@@ -242,13 +242,17 @@ async function handleTask({
     deviceId: task.deviceId,
   });
 
-  await runtime.prepareTaskWorkspace();
-  await runtime.startTaskTrace(recorder.playwrightTracePath);
-  await safeSnapshotUpload({ runtime, config, taskId: task.id, logger });
-
   let snapshotIntervalId = null;
   let completedTaskPayload = null;
   try {
+    await recorder.note('task_workspace_preparing');
+    await runtime.prepareTaskWorkspace();
+    await recorder.note('task_workspace_ready');
+    await runtime.startTaskTrace(recorder.playwrightTracePath);
+    await recorder.note('task_trace_started');
+    await safeSnapshotUpload({ runtime, config, taskId: task.id, logger });
+    await recorder.note('task_initial_snapshot_uploaded');
+
     snapshotIntervalId = setInterval(() => {
       safeSnapshotUpload({ runtime, config, taskId: task.id, logger }).catch(() => {});
     }, 4000);
@@ -343,6 +347,7 @@ export async function runWorker({
   headless = true,
   browserPath = null,
   keepTabs = false,
+  strictHumanInput = false,
   waitMs = 25000,
   model = null,
   logger = console,
@@ -352,6 +357,7 @@ export async function runWorker({
     browserPath: browserPath || config.browserPath || null,
     headless,
     keepTabs,
+    strictHumanInput,
   });
   await runtime.start();
 
