@@ -328,6 +328,11 @@ export function DashboardClient(props: {
                         Pickup details: {task.pickup_summary}
                       </div>
                     )}
+                    {task.tracking_summary && (
+                      <div className="dashboard-muted">
+                        Tracking details: {task.tracking_summary}
+                      </div>
+                    )}
                     <div className="dashboard-task-meta">
                       <span>Role: {getTaskRoleLabel(task)}</span>
                       <span>Source: {task.submission_source}</span>
@@ -339,6 +344,15 @@ export function DashboardClient(props: {
                       )}
                       {task.pickup_details?.ready_time && (
                         <span>Ready {task.pickup_details.ready_time}</span>
+                      )}
+                      {task.tracking_details?.tracking_number && (
+                        <span>Tracking {task.tracking_details.tracking_number}</span>
+                      )}
+                      {task.tracking_details?.carrier && (
+                        <span>{task.tracking_details.carrier}</span>
+                      )}
+                      {task.tracking_details?.delivery_eta && (
+                        <span>ETA {task.tracking_details.delivery_eta}</span>
                       )}
                       <span>Total debited: {fmtUsd(task.total_cents)}</span>
                       <span>Payout: {fmtUsd(task.payout_cents)}</span>

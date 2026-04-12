@@ -47,6 +47,7 @@ function buildEmailContent(params: SendOrderCompletionEmailParams) {
   const merchant = params.task.merchant?.trim() || "Not specified";
   const subject = `OttoAuth completed: ${title}`;
   const pickup = params.task.pickup_details;
+  const tracking = params.task.tracking_details;
 
   const websiteLine = params.task.website_url
     ? `Preferred website: ${params.task.website_url}\n`
@@ -69,7 +70,21 @@ function buildEmailContent(params: SendOrderCompletionEmailParams) {
         .filter((line): line is string => Boolean(line))
         .join("\n")
     : "";
+  const trackingLines = tracking
+    ? [
+        tracking.tracking_number ? `Tracking number: ${tracking.tracking_number}` : null,
+        tracking.tracking_url ? `Tracking URL: ${tracking.tracking_url}` : null,
+        tracking.carrier ? `Carrier: ${tracking.carrier}` : null,
+        tracking.status ? `Tracking status: ${tracking.status}` : null,
+        tracking.delivery_eta ? `Delivery ETA: ${tracking.delivery_eta}` : null,
+        tracking.delivery_window ? `Delivery window: ${tracking.delivery_window}` : null,
+        tracking.instructions ? `Delivery instructions: ${tracking.instructions}` : null,
+      ]
+        .filter((line): line is string => Boolean(line))
+        .join("\n")
+    : "";
   const pickupTextSection = pickupLines ? `${pickupLines}\n\n` : "";
+  const trackingTextSection = trackingLines ? `${trackingLines}\n\n` : "";
   const pickupHtmlRows = pickup
     ? [
         pickup.order_number
@@ -103,6 +118,33 @@ function buildEmailContent(params: SendOrderCompletionEmailParams) {
         .filter(Boolean)
         .join("")
     : "";
+  const trackingHtmlRows = tracking
+    ? [
+        tracking.tracking_number
+          ? `<strong>Tracking number:</strong> ${escapeHtml(tracking.tracking_number)}<br />`
+          : "",
+        tracking.tracking_url
+          ? `<strong>Tracking URL:</strong> <a href="${escapeHtml(tracking.tracking_url)}">${escapeHtml(tracking.tracking_url)}</a><br />`
+          : "",
+        tracking.carrier
+          ? `<strong>Carrier:</strong> ${escapeHtml(tracking.carrier)}<br />`
+          : "",
+        tracking.status
+          ? `<strong>Tracking status:</strong> ${escapeHtml(tracking.status)}<br />`
+          : "",
+        tracking.delivery_eta
+          ? `<strong>Delivery ETA:</strong> ${escapeHtml(tracking.delivery_eta)}<br />`
+          : "",
+        tracking.delivery_window
+          ? `<strong>Delivery window:</strong> ${escapeHtml(tracking.delivery_window)}<br />`
+          : "",
+        tracking.instructions
+          ? `<strong>Delivery instructions:</strong> ${escapeHtml(tracking.instructions)}<br />`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("")
+    : "";
 
   const text = `Hi ${recipientName},
 
@@ -113,7 +155,7 @@ Summary: ${summary}
 Merchant: ${merchant}
 Total debited: ${totalDebited}
 Remaining credits: ${remainingCredits}
-${websiteLine}${shippingLine}${pickupTextSection}View the full run and live screenshots here:
+${websiteLine}${shippingLine}${pickupTextSection}${trackingTextSection}View the full run and live screenshots here:
 ${orderUrl}
 `;
 
@@ -127,6 +169,7 @@ ${orderUrl}
 ${params.task.website_url ? `<p><strong>Preferred website:</strong> <a href="${escapeHtml(params.task.website_url)}">${escapeHtml(params.task.website_url)}</a></p>` : ""}
 ${params.task.shipping_address ? `<p><strong>Shipping address used:</strong><br />${escapeHtml(params.task.shipping_address).replace(/\n/g, "<br />")}</p>` : ""}
 ${pickupHtmlRows ? `<p>${pickupHtmlRows}</p>` : ""}
+${trackingHtmlRows ? `<p>${trackingHtmlRows}</p>` : ""}
 <p><a href="${escapeHtml(orderUrl)}">Open the OttoAuth order page</a></p>`;
 
   return {

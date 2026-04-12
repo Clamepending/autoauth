@@ -71,7 +71,7 @@ ${params.originalPrompt}
 
 When you finish, return EXACTLY one JSON object and nothing else.
 
-For purchase flows, do not finish immediately after checkout succeeds. Stay on the confirmation or receipt screen long enough to read any visible order number, confirmation code, pickup code, ready time, receipt URL, and receipt text.
+For purchase flows, do not finish immediately after checkout succeeds. Stay on the confirmation or receipt screen long enough to read any visible order number, confirmation code, pickup code, tracking number, tracking URL, carrier, ready time, delivery ETA, receipt URL, and receipt text.
 
 For a successful completion:
 {
@@ -85,6 +85,15 @@ For a successful completion:
     "ready_time": "<estimated ready time / pickup ETA, or null if not shown>",
     "pickup_name": "<pickup name or label to use, or null if not shown>",
     "instructions": "<brief pickup instructions, or null if not shown>"
+  },
+  "tracking_details": {
+    "tracking_number": "<tracking number, or null if not shown>",
+    "tracking_url": "<tracking URL, or null if not shown>",
+    "carrier": "<carrier name, or null if not shown>",
+    "status": "<shipment or delivery status, or null if not shown>",
+    "delivery_eta": "<estimated delivery or arrival time, or null if not shown>",
+    "delivery_window": "<delivery window text, or null if not shown>",
+    "instructions": "<brief delivery instructions, or null if not shown>"
   },
   "receipt_details": {
     "order_reference": "<other merchant reference, or null if not shown>",
@@ -114,6 +123,15 @@ If the task fails or would exceed the cap:
     "pickup_code": null,
     "ready_time": null,
     "pickup_name": null,
+    "instructions": null
+  },
+  "tracking_details": {
+    "tracking_number": null,
+    "tracking_url": null,
+    "carrier": null,
+    "status": null,
+    "delivery_eta": null,
+    "delivery_window": null,
     "instructions": null
   },
   "receipt_details": {

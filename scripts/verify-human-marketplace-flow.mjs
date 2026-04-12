@@ -213,6 +213,15 @@ async function main() {
           pickup_name: 'Requester Human',
           instructions: 'Show the pickup code at the front desk.',
         },
+        tracking_details: {
+          tracking_number: '9400110200881357000000',
+          tracking_url: 'https://example.com/track/9400110200881357000000',
+          carrier: 'USPS',
+          status: 'In transit',
+          delivery_eta: 'Friday by 6 PM',
+          delivery_window: 'Friday afternoon',
+          instructions: 'Leave at front desk.',
+        },
         receipt_details: {
           order_reference: 'Marketplace Receipt 204',
           receipt_url: 'https://example.com/receipt/MK-204',
@@ -275,6 +284,18 @@ async function main() {
   assert(
     requesterDetail.data.task.pickup_summary?.includes('Order MK-204'),
     `Expected pickup summary to include order number, got ${requesterDetail.data.task.pickup_summary}`,
+  );
+  assert(
+    requesterDetail.data.task.tracking_details?.tracking_number === '9400110200881357000000',
+    `Expected USPS tracking number, got ${JSON.stringify(requesterDetail.data.task.tracking_details)}`,
+  );
+  assert(
+    requesterDetail.data.task.tracking_details?.carrier === 'USPS',
+    `Expected USPS carrier, got ${JSON.stringify(requesterDetail.data.task.tracking_details)}`,
+  );
+  assert(
+    requesterDetail.data.task.tracking_summary?.includes('Tracking 9400110200881357000000'),
+    `Expected tracking summary, got ${requesterDetail.data.task.tracking_summary}`,
   );
 
   const requesterMe = await request('/api/human/me', { cookieJar: requesterJar });

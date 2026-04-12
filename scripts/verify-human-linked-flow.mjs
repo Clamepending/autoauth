@@ -191,6 +191,15 @@ async function main() {
           pickup_name: 'Jane Doe',
           instructions: 'Tell the counter you are here for order A-1024.',
         },
+        tracking_details: {
+          tracking_number: '1Z999AA10123456784',
+          tracking_url: 'https://example.com/track/1Z999AA10123456784',
+          carrier: 'UPS',
+          status: 'Label created',
+          delivery_eta: 'Tomorrow by 8 PM',
+          delivery_window: 'Tomorrow 2 PM - 8 PM',
+          instructions: 'Signature not required.',
+        },
         receipt_details: {
           order_reference: 'Receipt #8831',
           receipt_url: 'https://example.com/receipt/A-1024',
@@ -240,6 +249,9 @@ async function main() {
   assert(taskStatusRes.data.task.pickup_details?.pickup_code === 'PICK-88', `Expected pickup code PICK-88, got ${JSON.stringify(taskStatusRes.data.task.pickup_details)}`);
   assert(taskStatusRes.data.task.pickup_details?.receipt_url === 'https://example.com/receipt/A-1024', `Expected receipt URL to round-trip, got ${taskStatusRes.data.task.pickup_details?.receipt_url}`);
   assert(taskStatusRes.data.task.pickup_summary?.includes('Order A-1024'), `Expected pickup summary to include order number, got ${taskStatusRes.data.task.pickup_summary}`);
+  assert(taskStatusRes.data.task.tracking_details?.tracking_number === '1Z999AA10123456784', `Expected tracking number, got ${JSON.stringify(taskStatusRes.data.task.tracking_details)}`);
+  assert(taskStatusRes.data.task.tracking_details?.carrier === 'UPS', `Expected UPS carrier, got ${JSON.stringify(taskStatusRes.data.task.tracking_details)}`);
+  assert(taskStatusRes.data.task.tracking_summary?.includes('Tracking 1Z999AA10123456784'), `Expected tracking summary, got ${taskStatusRes.data.task.tracking_summary}`);
 
   const forbiddenStatusRes = await request(`/api/services/computeruse/tasks/${taskId}`, {
     json: {

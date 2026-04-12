@@ -25,6 +25,16 @@ type TaskPayload = {
     receipt_text: string | null;
   } | null;
   pickup_summary: string | null;
+  tracking_details: {
+    tracking_number: string | null;
+    tracking_url: string | null;
+    carrier: string | null;
+    status: string | null;
+    delivery_eta: string | null;
+    delivery_window: string | null;
+    instructions: string | null;
+  } | null;
+  tracking_summary: string | null;
   summary: string | null;
   error: string | null;
   requester_rating: number | null;
@@ -124,6 +134,9 @@ function displaySummary(task: TaskPayload) {
   if (task.status === "completed" && task.pickup_summary) {
     return `Completed successfully. ${task.pickup_summary}.`;
   }
+  if (task.status === "completed" && task.tracking_summary) {
+    return `Completed successfully. ${task.tracking_summary}.`;
+  }
   if (task.status === "completed") {
     return "Completed successfully, but the fulfiller did not return a written summary.";
   }
@@ -170,6 +183,51 @@ function PickupDetailsBlock(props: {
               <div className="dashboard-muted">
                 <a href={props.details.receipt_url} target="_blank" rel="noreferrer">
                   {props.details.receipt_url}
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TrackingDetailsBlock(props: {
+  details: NonNullable<TaskPayload["tracking_details"]>;
+  summary: string | null;
+}) {
+  const rows = [
+    { label: "Tracking number", value: props.details.tracking_number, mono: true },
+    { label: "Carrier", value: props.details.carrier },
+    { label: "Status", value: props.details.status },
+    { label: "Delivery ETA", value: props.details.delivery_eta },
+    { label: "Delivery window", value: props.details.delivery_window, prewrap: true },
+    { label: "Instructions", value: props.details.instructions, prewrap: true },
+  ].filter((row) => Boolean(row.value));
+
+  return (
+    <div className="pickup-details-block">
+      <div className="supported-accounts-title">Tracking &amp; Delivery</div>
+      {props.summary && <div><strong>{props.summary}</strong></div>}
+      <div className="dashboard-list">
+        {rows.map((row) => (
+          <div className="dashboard-row" key={row.label}>
+            <div>
+              <strong>{row.label}</strong>
+              <div className={`dashboard-muted ${row.prewrap ? "dashboard-prewrap" : ""} ${row.mono ? "mono" : ""}`}>
+                {row.value}
+              </div>
+            </div>
+          </div>
+        ))}
+        {props.details.tracking_url && (
+          <div className="dashboard-row">
+            <div>
+              <strong>Tracking URL</strong>
+              <div className="dashboard-muted">
+                <a href={props.details.tracking_url} target="_blank" rel="noreferrer">
+                  {props.details.tracking_url}
                 </a>
               </div>
             </div>
@@ -494,6 +552,16 @@ export function OrderDetailClient(props: {
                     <PickupDetailsBlock
                       details={data.task.pickup_details}
                       summary={data.task.pickup_summary}
+                    />
+                  </div>
+                </div>
+              )}
+              {data.task.tracking_details && (
+                <div className="dashboard-row">
+                  <div>
+                    <TrackingDetailsBlock
+                      details={data.task.tracking_details}
+                      summary={data.task.tracking_summary}
                     />
                   </div>
                 </div>

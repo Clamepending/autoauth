@@ -66,6 +66,8 @@ export type GenericBrowserTaskRecord = {
   result_json: string | null;
   pickup_details: GenericBrowserTaskPickupDetails | null;
   pickup_summary: string | null;
+  tracking_details: GenericBrowserTaskTrackingDetails | null;
+  tracking_summary: string | null;
   usage_json: string | null;
   summary: string | null;
   error: string | null;
@@ -115,12 +117,23 @@ export type GenericBrowserTaskPickupDetails = {
   receipt_text: string | null;
 };
 
+export type GenericBrowserTaskTrackingDetails = {
+  tracking_number: string | null;
+  tracking_url: string | null;
+  carrier: string | null;
+  status: string | null;
+  delivery_eta: string | null;
+  delivery_window: string | null;
+  instructions: string | null;
+};
+
 let schemaReady = false;
 
 function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
   const resultJson = row.result_json == null ? null : String(row.result_json);
   const parsedResult = parseJsonObject(resultJson);
   const pickupDetails = extractPickupDetails(parsedResult);
+  const trackingDetails = extractTrackingDetails(parsedResult);
   return {
     id: Number(row.id),
     agent_id: Number(row.agent_id),
@@ -163,6 +176,8 @@ function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
     result_json: resultJson,
     pickup_details: pickupDetails,
     pickup_summary: formatPickupSummary(pickupDetails),
+    tracking_details: trackingDetails,
+    tracking_summary: formatTrackingSummary(trackingDetails),
     usage_json: row.usage_json == null ? null : String(row.usage_json),
     summary: row.summary == null ? null : String(row.summary),
     error: row.error == null ? null : String(row.error),
@@ -361,6 +376,67 @@ function formatPickupSummary(details: GenericBrowserTaskPickupDetails | null) {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+function extractTrackingDetails(
+  result: Record<string, unknown> | null,
+): GenericBrowserTaskTrackingDetails | null {
+  const tracking =
+    extractObject(result?.tracking_details) ??
+    extractObject(result?.tracking) ??
+    extractObject(result?.delivery_details);
+  const details: GenericBrowserTaskTrackingDetails = {
+    tracking_number: firstString([
+      tracking?.tracking_number,
+      tracking?.number,
+      result?.tracking_number,
+    ]),
+    tracking_url: firstString([
+      tracking?.tracking_url,
+      tracking?.url,
+      result?.tracking_url,
+    ], 2000),
+    carrier: firstString([
+      tracking?.carrier,
+      tracking?.shipping_carrier,
+      result?.carrier,
+    ]),
+    status: firstString([
+      tracking?.status,
+      tracking?.delivery_status,
+      result?.tracking_status,
+      result?.delivery_status,
+    ]),
+    delivery_eta: firstString([
+      tracking?.delivery_eta,
+      tracking?.estimated_delivery,
+      result?.delivery_eta,
+      result?.estimated_delivery,
+      result?.est_delivery,
+    ]),
+    delivery_window: firstString([
+      tracking?.delivery_window,
+      tracking?.delivery_window_text,
+      result?.delivery_window,
+    ]),
+    instructions: firstString([
+      tracking?.instructions,
+      tracking?.delivery_instructions,
+      result?.delivery_instructions,
+    ], 1000),
+  };
+  return Object.values(details).some(Boolean) ? details : null;
+}
+
+function formatTrackingSummary(details: GenericBrowserTaskTrackingDetails | null) {
+  if (!details) return null;
+  const parts = [
+    formatReference("Tracking", details.tracking_number),
+    details.carrier,
+    details.status ? `Status ${details.status}` : null,
+    details.delivery_eta ? `ETA ${details.delivery_eta}` : null,
+  ].filter((value): value is string => Boolean(value));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 function extractBillingFields(result: Record<string, unknown> | null) {
   const nestedCharges =
     result?.charges && typeof result.charges === "object"
@@ -394,6 +470,7 @@ function buildFallbackTaskSummary(args: {
   const extracted = extractBillingFields(args.result ?? null).summary;
   if (extracted) return extracted;
   const pickupSummary = formatPickupSummary(extractPickupDetails(args.result ?? null));
+  const trackingSummary = formatTrackingSummary(extractTrackingDetails(args.result ?? null));
   if (args.status === "failed") {
     return extractString(args.error) || "Task failed before the fulfiller returned a written summary.";
   }
@@ -401,6 +478,11 @@ function buildFallbackTaskSummary(args: {
     return extractString(args.existingTaskTitle)
       ? `Completed ${extractString(args.existingTaskTitle)}. ${pickupSummary}.`
       : `Completed successfully. ${pickupSummary}.`;
+  }
+  if (trackingSummary) {
+    return extractString(args.existingTaskTitle)
+      ? `Completed ${extractString(args.existingTaskTitle)}. ${trackingSummary}.`
+      : `Completed successfully. ${trackingSummary}.`;
   }
   return extractString(args.existingTaskTitle)
     ? `Completed: ${extractString(args.existingTaskTitle)}. The fulfiller did not return a written summary.`
@@ -1070,6 +1152,8 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
     shipping_address: task.shipping_address,
     pickup_details: task.pickup_details,
     pickup_summary: task.pickup_summary,
+    tracking_details: task.tracking_details,
+    tracking_summary: task.tracking_summary,
     summary: task.summary,
     error: task.error,
     requester_rating: task.requester_rating,
