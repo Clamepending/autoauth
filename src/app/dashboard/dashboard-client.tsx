@@ -213,8 +213,11 @@ export function DashboardClient(props: {
             <div className="supported-accounts-title">Credits</div>
             <div className="dashboard-balance">{fmtUsd(props.balanceCents)}</div>
             <p className="dashboard-muted">
-              New human accounts start with $20. Top-ups can be added later; for now the starter balance and debits are fully wired up.
+              New human accounts start with $20. You can refill your balance any time and OttoAuth will add the credits after Stripe confirms payment.
             </p>
+            <Link className="auth-button primary" href="/credits/refill">
+              Refill credits
+            </Link>
           </article>
 
           <article className="dashboard-card">

@@ -435,6 +435,30 @@ export async function addCreditLedgerEntry(params: {
   });
 }
 
+export async function findCreditLedgerEntry(params: {
+  humanUserId: number;
+  entryType?: string | null;
+  referenceType: string;
+  referenceId: string;
+}) {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: `SELECT * FROM credit_ledger
+          WHERE human_user_id = ?
+            AND reference_type = ?
+            AND reference_id = ?
+            ${params.entryType ? "AND entry_type = ?" : ""}
+          ORDER BY created_at DESC
+          LIMIT 1`,
+    args: params.entryType
+      ? [params.humanUserId, params.referenceType, params.referenceId, params.entryType]
+      : [params.humanUserId, params.referenceType, params.referenceId],
+  });
+  const row = result.rows?.[0] as Record<string, unknown> | undefined;
+  return row ? mapLedgerRow(row) : null;
+}
+
 export async function getHumanCreditBalance(humanUserId: number) {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
