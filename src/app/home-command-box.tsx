@@ -9,6 +9,7 @@ type HomeCommandBoxProps = {
 export function HomeCommandBox({ command }: HomeCommandBoxProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<number | null>(null);
+  const displayedText = `Please follow the instructions to join ottoauth: ${command}`;
 
   useEffect(() => {
     return () => {
@@ -20,7 +21,7 @@ export function HomeCommandBox({ command }: HomeCommandBoxProps) {
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(command);
+      await navigator.clipboard.writeText(displayedText);
       setCopied(true);
       if (timeoutRef.current != null) {
         window.clearTimeout(timeoutRef.current);
@@ -40,8 +41,8 @@ export function HomeCommandBox({ command }: HomeCommandBoxProps) {
         type="button"
         className="commandline-copy"
         onClick={handleCopy}
-        aria-label={copied ? "Command copied" : "Copy command"}
-        title={copied ? "Copied" : "Copy command"}
+        aria-label={copied ? "Text copied" : "Copy full text"}
+        title={copied ? "Copied" : "Copy full text"}
         data-copied={copied ? "true" : "false"}
       >
         {copied ? (
