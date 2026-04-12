@@ -34,6 +34,11 @@ function TrashIcon() {
 
 export function DashboardClient(props: {
   user: HumanUserRecord;
+  referralLink: string;
+  referralStats: {
+    successful_referrals: number;
+    total_bonus_cents: number;
+  };
   balanceCents: number;
   linkedAgents: HumanAgentLinkWithAgentRecord[];
   devices: ComputerUseDeviceRecord[];
@@ -41,6 +46,7 @@ export function DashboardClient(props: {
   ledger: CreditLedgerRecord[];
   fulfillmentStats: HumanFulfillmentRatingStats;
 }) {
+  const [copiedReferralLink, setCopiedReferralLink] = useState(false);
   const [pairingKey, setPairingKey] = useState("");
   const [pairingAgent, setPairingAgent] = useState(false);
   const [deviceLabel, setDeviceLabel] = useState("raspberry-pi-browser");
@@ -184,9 +190,44 @@ export function DashboardClient(props: {
     return `/orders/${taskId}`;
   }
 
+  async function handleCopyReferralLink() {
+    try {
+      await navigator.clipboard.writeText(props.referralLink);
+      setCopiedReferralLink(true);
+      window.setTimeout(() => setCopiedReferralLink(false), 1400);
+    } catch {
+      setCopiedReferralLink(false);
+      setStatusMessage("Could not copy your referral link.");
+    }
+  }
+
   return (
     <main className="dashboard-page">
       <section className="dashboard-shell">
+        <section className="referral-banner">
+          <div className="referral-banner-copy">
+            <div className="supported-accounts-title">Referrals</div>
+            <strong className="referral-banner-title">Give $5, get $5.</strong>
+            <p className="dashboard-muted">
+              When a friend creates a new OttoAuth account through your link and makes their first deposit, they get $5 in credits and you get $5 too. Existing accounts do not qualify.
+            </p>
+          </div>
+          <div className="referral-banner-actions">
+            <div className="referral-link">{props.referralLink}</div>
+            <button
+              type="button"
+              className="auth-button"
+              onClick={handleCopyReferralLink}
+            >
+              {copiedReferralLink ? "Copied" : "Copy referral link"}
+            </button>
+            <div className="dashboard-muted">
+              Successful referrals: {props.referralStats.successful_referrals} · Earned{" "}
+              {fmtUsd(props.referralStats.total_bonus_cents)}
+            </div>
+          </div>
+        </section>
+
         <div className="dashboard-header">
           <div>
             <div className="eyebrow">Human Dashboard</div>

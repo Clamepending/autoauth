@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { Client, Transaction } from "@libsql/client";
 import { normalizePairingKey } from "@/lib/agent-auth";
 import {
   ensureSchema,
@@ -69,9 +70,17 @@ export type CreditLedgerRecord = {
   created_at: string;
 };
 
+export type HumanReferralStats = {
+  successful_referrals: number;
+  total_bonus_cents: number;
+};
+
 let schemaReady = false;
 
 const STARTER_CREDIT_CENTS = 2000;
+export const REFERRAL_BONUS_CENTS = 500;
+
+type SqlExecutor = Pick<Client, "execute"> | Pick<Transaction, "execute">;
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -120,6 +129,189 @@ function mapLedgerRow(row: Record<string, unknown>): CreditLedgerRecord {
     metadata_json: row.metadata_json == null ? null : String(row.metadata_json),
     created_at: String(row.created_at),
   };
+}
+
+export function parseHumanReferralCode(
+  value: string | number | null | undefined,
+) {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+  const normalized = value?.trim() ?? "";
+  if (!/^[1-9]\d*$/.test(normalized)) {
+    return null;
+  }
+  return Number(normalized);
+}
+
+async function addCreditLedgerEntryWithExecutor(
+  executor: SqlExecutor,
+  params: {
+    humanUserId: number;
+    amountCents: number;
+    entryType: string;
+    description?: string | null;
+    referenceType?: string | null;
+    referenceId?: string | null;
+    metadata?: Record<string, unknown> | null;
+  },
+) {
+  const now = new Date().toISOString();
+  await executor.execute({
+    sql: `INSERT INTO credit_ledger
+          (human_user_id, amount_cents, entry_type, description, reference_type, reference_id, metadata_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      params.humanUserId,
+      Math.trunc(params.amountCents),
+      params.entryType.trim(),
+      params.description ?? null,
+      params.referenceType ?? null,
+      params.referenceId ?? null,
+      params.metadata ? JSON.stringify(params.metadata) : null,
+      now,
+    ],
+  });
+}
+
+async function createPendingReferralWithExecutor(
+  executor: SqlExecutor,
+  params: {
+    referrerHumanUserId: number | null;
+    referredHumanUserId: number;
+  },
+) {
+  if (
+    !params.referrerHumanUserId ||
+    params.referrerHumanUserId === params.referredHumanUserId
+  ) {
+    return;
+  }
+
+  const referrerResult = await executor.execute({
+    sql: `SELECT id
+          FROM human_users
+          WHERE id = ?
+          LIMIT 1`,
+    args: [params.referrerHumanUserId],
+  });
+  if (!referrerResult.rows?.[0]) {
+    return;
+  }
+
+  await executor.execute({
+    sql: `INSERT OR IGNORE INTO human_referrals
+          (referrer_human_user_id, referred_human_user_id, referrer_reward_cents, referred_reward_cents, created_at, qualified_at, qualifying_reference_type, qualifying_reference_id)
+          VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)`,
+    args: [
+      params.referrerHumanUserId,
+      params.referredHumanUserId,
+      REFERRAL_BONUS_CENTS,
+      REFERRAL_BONUS_CENTS,
+      new Date().toISOString(),
+    ],
+  });
+}
+
+export async function qualifyHumanReferralAfterDeposit(params: {
+  referredHumanUserId: number;
+  qualifyingReferenceType: string;
+  qualifyingReferenceId: string;
+}) {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+  const transaction = await client.transaction("write");
+
+  try {
+    const referralResult = await transaction.execute({
+      sql: `SELECT
+              r.id,
+              r.referrer_human_user_id,
+              r.referred_human_user_id,
+              r.referrer_reward_cents,
+              r.referred_reward_cents,
+              r.created_at,
+              r.qualified_at,
+              u.email,
+              u.display_name
+            FROM human_referrals r
+            JOIN human_users u ON u.id = r.referred_human_user_id
+            WHERE r.referred_human_user_id = ?
+            LIMIT 1`,
+      args: [params.referredHumanUserId],
+    });
+    const row = referralResult.rows?.[0] as Record<string, unknown> | undefined;
+    if (!row) {
+      await transaction.commit();
+      return { status: "no_referral" as const };
+    }
+
+    if (row.qualified_at != null) {
+      await transaction.commit();
+      return { status: "already_qualified" as const };
+    }
+
+    const referralId = Number(row.id);
+    const referrerHumanUserId = Number(row.referrer_human_user_id);
+    const referredHumanUserId = Number(row.referred_human_user_id);
+    const referrerRewardCents = Number(row.referrer_reward_cents);
+    const referredRewardCents = Number(row.referred_reward_cents);
+    const qualifiedAt = new Date().toISOString();
+    const referredLabel =
+      (row.display_name == null ? "" : String(row.display_name).trim()) ||
+      String(row.email);
+
+    const updateResult = await transaction.execute({
+      sql: `UPDATE human_referrals
+            SET qualified_at = ?, qualifying_reference_type = ?, qualifying_reference_id = ?
+            WHERE id = ?
+              AND qualified_at IS NULL`,
+      args: [
+        qualifiedAt,
+        params.qualifyingReferenceType,
+        params.qualifyingReferenceId,
+        referralId,
+      ],
+    });
+
+    if (updateResult.rowsAffected === 0) {
+      await transaction.commit();
+      return { status: "already_qualified" as const };
+    }
+
+    await addCreditLedgerEntryWithExecutor(transaction, {
+      humanUserId: referrerHumanUserId,
+      amountCents: referrerRewardCents,
+      entryType: "referral_bonus",
+      description: `Referral bonus after ${referredLabel}'s first deposit`,
+      referenceType: "human_referral",
+      referenceId: String(referredHumanUserId),
+      metadata: {
+        referred_human_user_id: referredHumanUserId,
+        qualifying_reference_type: params.qualifyingReferenceType,
+        qualifying_reference_id: params.qualifyingReferenceId,
+      },
+    });
+
+    await addCreditLedgerEntryWithExecutor(transaction, {
+      humanUserId: referredHumanUserId,
+      amountCents: referredRewardCents,
+      entryType: "referred_deposit_bonus",
+      description: "Referral bonus after your first deposit",
+      referenceType: "human_referral",
+      referenceId: String(referredHumanUserId),
+      metadata: {
+        referrer_human_user_id: referrerHumanUserId,
+        qualifying_reference_type: params.qualifyingReferenceType,
+        qualifying_reference_id: params.qualifyingReferenceId,
+      },
+    });
+
+    await transaction.commit();
+    return { status: "qualified" as const };
+  } finally {
+    transaction.close();
+  }
 }
 
 export async function ensureHumanAccountSchema() {
@@ -212,6 +404,54 @@ export async function ensureHumanAccountSchema() {
     "CREATE INDEX IF NOT EXISTS idx_credit_ledger_reference ON credit_ledger(reference_type, reference_id)",
   );
 
+  await client.execute(
+    `CREATE TABLE IF NOT EXISTS human_referrals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      referrer_human_user_id INTEGER NOT NULL,
+      referred_human_user_id INTEGER NOT NULL UNIQUE,
+      referrer_reward_cents INTEGER NOT NULL,
+      referred_reward_cents INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      qualified_at TEXT,
+      qualifying_reference_type TEXT,
+      qualifying_reference_id TEXT
+    )`,
+  );
+  const humanReferralsTableInfo = await client.execute({
+    sql: "PRAGMA table_info(human_referrals)",
+    args: [],
+  });
+  const humanReferralColumns = (humanReferralsTableInfo.rows ?? []) as unknown as {
+    name: string;
+  }[];
+  const hadQualifiedAt = humanReferralColumns.some((c) => c.name === "qualified_at");
+  if (!hadQualifiedAt) {
+    await client.execute("ALTER TABLE human_referrals ADD COLUMN qualified_at TEXT");
+  }
+  if (!humanReferralColumns.some((c) => c.name === "qualifying_reference_type")) {
+    await client.execute(
+      "ALTER TABLE human_referrals ADD COLUMN qualifying_reference_type TEXT",
+    );
+  }
+  if (!humanReferralColumns.some((c) => c.name === "qualifying_reference_id")) {
+    await client.execute(
+      "ALTER TABLE human_referrals ADD COLUMN qualifying_reference_id TEXT",
+    );
+  }
+  if (!hadQualifiedAt) {
+    await client.execute(
+      `UPDATE human_referrals
+        SET qualified_at = created_at
+        WHERE qualified_at IS NULL`,
+    );
+  }
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_human_referrals_referrer ON human_referrals(referrer_human_user_id)",
+  );
+  await client.execute(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_human_referrals_referred ON human_referrals(referred_human_user_id)",
+  );
+
   schemaReady = true;
 }
 
@@ -243,6 +483,7 @@ export async function upsertHumanUserFromGoogle(params: {
   emailVerified?: boolean;
   displayName?: string | null;
   pictureUrl?: string | null;
+  referralCode?: string | number | null;
 }) {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
@@ -279,29 +520,42 @@ export async function upsertHumanUserFromGoogle(params: {
     return { user, created: false as const };
   }
 
-  const insertResult = await client.execute({
-    sql: `INSERT INTO human_users
-          (email, email_verified, google_sub, auth_provider, display_name, picture_url, created_at, updated_at)
-          VALUES (?, ?, ?, 'google', ?, ?, ?, ?)`,
-    args: [
-      email,
-      params.emailVerified ? 1 : 0,
-      params.googleSub.trim(),
-      params.displayName?.trim() || null,
-      params.pictureUrl?.trim() || null,
-      now,
-      now,
-    ],
-  });
-  const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
-  const userId = rawId != null ? Number(rawId) : 0;
-  if (!userId) throw new Error("Failed to create human user.");
-  await addCreditLedgerEntry({
-    humanUserId: userId,
-    amountCents: STARTER_CREDIT_CENTS,
-    entryType: "starter_credit",
-    description: "Starter credits",
-  });
+  const transaction = await client.transaction("write");
+  let userId = 0;
+  try {
+    const insertResult = await transaction.execute({
+      sql: `INSERT INTO human_users
+            (email, email_verified, google_sub, auth_provider, display_name, picture_url, created_at, updated_at)
+            VALUES (?, ?, ?, 'google', ?, ?, ?, ?)`,
+      args: [
+        email,
+        params.emailVerified ? 1 : 0,
+        params.googleSub.trim(),
+        params.displayName?.trim() || null,
+        params.pictureUrl?.trim() || null,
+        now,
+        now,
+      ],
+    });
+    const rawId = (insertResult as { lastInsertRowid?: bigint | number })
+      .lastInsertRowid;
+    userId = rawId != null ? Number(rawId) : 0;
+    if (!userId) throw new Error("Failed to create human user.");
+    await addCreditLedgerEntryWithExecutor(transaction, {
+      humanUserId: userId,
+      amountCents: STARTER_CREDIT_CENTS,
+      entryType: "starter_credit",
+      description: "Starter credits",
+    });
+    await createPendingReferralWithExecutor(transaction, {
+      referrerHumanUserId: parseHumanReferralCode(params.referralCode),
+      referredHumanUserId: userId,
+    });
+    await transaction.commit();
+  } finally {
+    transaction.close();
+  }
+
   const user = await getHumanUserById(userId);
   if (!user) throw new Error("Failed to load created human user.");
   return { user, created: true as const };
@@ -310,6 +564,7 @@ export async function upsertHumanUserFromGoogle(params: {
 export async function upsertHumanUserDev(params: {
   email: string;
   displayName?: string | null;
+  referralCode?: string | number | null;
 }) {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
@@ -328,21 +583,34 @@ export async function upsertHumanUserDev(params: {
     return { user, created: false as const };
   }
 
-  const insertResult = await client.execute({
-    sql: `INSERT INTO human_users
-          (email, email_verified, google_sub, auth_provider, display_name, picture_url, created_at, updated_at)
-          VALUES (?, 1, NULL, 'dev', ?, NULL, ?, ?)`,
-    args: [email, params.displayName?.trim() || email, now, now],
-  });
-  const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
-  const userId = rawId != null ? Number(rawId) : 0;
-  if (!userId) throw new Error("Failed to create dev user.");
-  await addCreditLedgerEntry({
-    humanUserId: userId,
-    amountCents: STARTER_CREDIT_CENTS,
-    entryType: "starter_credit",
-    description: "Starter credits",
-  });
+  const transaction = await client.transaction("write");
+  let userId = 0;
+  try {
+    const insertResult = await transaction.execute({
+      sql: `INSERT INTO human_users
+            (email, email_verified, google_sub, auth_provider, display_name, picture_url, created_at, updated_at)
+            VALUES (?, 1, NULL, 'dev', ?, NULL, ?, ?)`,
+      args: [email, params.displayName?.trim() || email, now, now],
+    });
+    const rawId = (insertResult as { lastInsertRowid?: bigint | number })
+      .lastInsertRowid;
+    userId = rawId != null ? Number(rawId) : 0;
+    if (!userId) throw new Error("Failed to create dev user.");
+    await addCreditLedgerEntryWithExecutor(transaction, {
+      humanUserId: userId,
+      amountCents: STARTER_CREDIT_CENTS,
+      entryType: "starter_credit",
+      description: "Starter credits",
+    });
+    await createPendingReferralWithExecutor(transaction, {
+      referrerHumanUserId: parseHumanReferralCode(params.referralCode),
+      referredHumanUserId: userId,
+    });
+    await transaction.commit();
+  } finally {
+    transaction.close();
+  }
+
   const user = await getHumanUserById(userId);
   if (!user) throw new Error("Failed to load created dev user.");
   return { user, created: true as const };
@@ -417,22 +685,7 @@ export async function addCreditLedgerEntry(params: {
 }) {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
-  const now = new Date().toISOString();
-  await client.execute({
-    sql: `INSERT INTO credit_ledger
-          (human_user_id, amount_cents, entry_type, description, reference_type, reference_id, metadata_json, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      params.humanUserId,
-      Math.trunc(params.amountCents),
-      params.entryType.trim(),
-      params.description ?? null,
-      params.referenceType ?? null,
-      params.referenceId ?? null,
-      params.metadata ? JSON.stringify(params.metadata) : null,
-      now,
-    ],
-  });
+  await addCreditLedgerEntryWithExecutor(client, params);
 }
 
 export async function findCreditLedgerEntry(params: {
@@ -481,6 +734,37 @@ export async function listCreditLedgerEntries(humanUserId: number, limit = 25) {
     args: [humanUserId, Math.max(1, Math.min(limit, 200))],
   });
   return ((result.rows ?? []) as Record<string, unknown>[]).map(mapLedgerRow);
+}
+
+export async function getHumanReferralStats(
+  humanUserId: number,
+): Promise<HumanReferralStats> {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: `SELECT
+            COUNT(*) AS successful_referrals,
+            COALESCE(SUM(referrer_reward_cents), 0) AS total_bonus_cents
+          FROM human_referrals
+          WHERE referrer_human_user_id = ?
+            AND qualified_at IS NOT NULL`,
+    args: [humanUserId],
+  });
+  const row = result.rows?.[0] as
+    | {
+        successful_referrals?: number | bigint | string;
+        total_bonus_cents?: number | bigint | string;
+      }
+    | undefined;
+
+  return {
+    successful_referrals:
+      row?.successful_referrals != null
+        ? Number(row.successful_referrals)
+        : 0,
+    total_bonus_cents:
+      row?.total_bonus_cents != null ? Number(row.total_bonus_cents) : 0,
+  };
 }
 
 export async function getHumanLinkForAgentUsername(usernameLower: string) {

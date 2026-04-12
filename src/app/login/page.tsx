@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { parseHumanReferralCode } from "@/lib/human-accounts";
 import {
   getCurrentHumanUser,
   isDevHumanLoginEnabled,
@@ -35,8 +36,15 @@ export default async function LoginPage({
   const params = await searchParams;
   const error =
     typeof params.error === "string" ? errorMessage(params.error) : null;
+  const referralCode =
+    typeof params.ref === "string"
+      ? parseHumanReferralCode(params.ref)
+      : null;
   const googleEnabled = isGoogleAuthConfigured();
   const devLoginEnabled = isDevHumanLoginEnabled();
+  const googleLoginHref = referralCode
+    ? `/api/auth/google/login?ref=${referralCode}`
+    : "/api/auth/google/login";
 
   return (
     <main className="auth-page">
@@ -47,11 +55,21 @@ export default async function LoginPage({
           Link your agents, manage credits, and link the fulfillment agent that will handle orders on your behalf.
         </p>
 
+        {referralCode && (
+          <div className="referral-login-card">
+            <div className="supported-accounts-title">Referral Offer</div>
+            <strong>Sign up, make your first deposit, and you both get $5.</strong>
+            <p className="dashboard-muted">
+              Referral credits only apply to a brand-new human account after its first paid credit refill.
+            </p>
+          </div>
+        )}
+
         {error && <div className="auth-error">{error}</div>}
 
         <div className="auth-actions">
           {googleEnabled ? (
-            <a className="auth-button primary" href="/api/auth/google/login">
+            <a className="auth-button primary" href={googleLoginHref}>
               Continue with Google
             </a>
           ) : (
@@ -64,7 +82,7 @@ export default async function LoginPage({
         {devLoginEnabled && (
           <div className="dev-login-block">
             <div className="supported-accounts-title">Developer Login</div>
-            <DevLoginForm />
+            <DevLoginForm referralCode={referralCode ? String(referralCode) : null} />
           </div>
         )}
 
