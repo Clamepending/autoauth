@@ -116,6 +116,31 @@ function collectTextFromContent(content) {
     .trim();
 }
 
+async function callWithRetry(
+  fn,
+  maxRetries = 5,
+  onRetry,
+) {
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const is429 = message.includes('429') || message.includes('rate_limit');
+      const isOverloaded = message.includes('529') || message.toLowerCase().includes('overloaded');
+      if ((is429 || isOverloaded) && attempt < maxRetries) {
+        const base = is429 ? 15000 : 5000;
+        const waitMs = Math.round(base * Math.pow(1.5, attempt) + Math.random() * 2000);
+        onRetry?.(attempt + 1, waitMs, message);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 export async function runAgentLoop({
   runtime,
   prompt,
@@ -141,14 +166,25 @@ export async function runAgentLoop({
     compactMessages(messages);
     onEvent?.('loop_started', { loop: loop + 1, tabCount: tabs.length });
 
-    const response = await client.beta.messages.create({
-      model: selectedModel,
-      max_tokens: MAX_TOKENS,
-      system: buildSystemPrompt(tabs),
-      tools: runtime.getToolDefinitions(),
-      betas: BETAS,
-      messages,
-    });
+    const response = await callWithRetry(
+      () => client.beta.messages.create({
+        model: selectedModel,
+        max_tokens: MAX_TOKENS,
+        system: buildSystemPrompt(tabs),
+        tools: runtime.getToolDefinitions(),
+        betas: BETAS,
+        messages,
+      }),
+      5,
+      (attempt, waitMs, message) => {
+        onEvent?.('model_retry', {
+          attempt,
+          waitMs,
+          message,
+          loop: loop + 1,
+        });
+      },
+    );
 
     if ((response.usage?.input_tokens || 0) > 0 || (response.usage?.output_tokens || 0) > 0) {
       const usage = {
@@ -188,7 +224,20 @@ export async function runAgentLoop({
       const content = await runtime.executeTool(toolUse.name, toolUse.input || {}, {
         anthropicClient: {
           messages: {
-            create: (...args) => client.messages.create(...args),
+            create: (...args) =>
+              callWithRetry(
+                () => client.messages.create(...args),
+                5,
+                (attempt, waitMs, message) => {
+                  onEvent?.('model_retry', {
+                    attempt,
+                    waitMs,
+                    message,
+                    loop: loop + 1,
+                    source: 'tool',
+                  });
+                },
+              ),
           },
         },
         findModel: FIND_MODEL,
