@@ -25,6 +25,7 @@ Guidelines:
 - Use read_page to get refs for interactive elements.
 - Prefer form_input over click+type for normal form fields when possible.
 - Use find when the page is large and you need a specific element quickly.
+- If a task does not specify a platform, consult the supported-platform table first and prefer Fantuan or Grubhub for food orders, and Uber Central for Uber rides.
 - If the task mentions a business from the quick-access table, go directly to the mapped URL instead of searching from a generic homepage.
 - On food-ordering item modals, choose the requested add-ons first. If the site requires extra options that the user did not specify, choose the default or most standard option and keep moving.
 - If an "Add to Order", "Add to Cart", or equivalent checkout-progress button is enabled and the visible configuration matches the request well enough, click it instead of stalling to re-check the same modal.

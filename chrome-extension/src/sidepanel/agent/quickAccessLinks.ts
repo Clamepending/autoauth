@@ -32,6 +32,24 @@ export const DEFAULT_QUICK_ACCESS_LINKS: QuickAccessLink[] = [
   },
 ];
 
+export const DEFAULT_SUPPORTED_PLATFORM_LINKS: QuickAccessLink[] = [
+  {
+    id: 'platform-fantuan',
+    label: 'Fantuan',
+    url: 'https://www.fantuanorder.com/',
+  },
+  {
+    id: 'platform-grubhub',
+    label: 'Grubhub',
+    url: 'https://www.grubhub.com/',
+  },
+  {
+    id: 'platform-uber-central',
+    label: 'Uber Central',
+    url: 'https://central.uber.com/',
+  },
+];
+
 function normalizeUrl(rawUrl: string): string {
   const trimmed = rawUrl.trim();
   const candidate = URL_SCHEME_PATTERN.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -96,15 +114,33 @@ export async function resetQuickAccessLinks(): Promise<QuickAccessLink[]> {
 }
 
 export function buildQuickAccessPrompt(links: QuickAccessLink[]): string {
-  if (!links.length) return '';
-  const rows = links
+  const quickAccessRows = links
+    .map((link) => `- ${link.label} | ${link.url}`)
+    .join('\n');
+  const supportedPlatformRows = DEFAULT_SUPPORTED_PLATFORM_LINKS
     .map((link) => `- ${link.label} | ${link.url}`)
     .join('\n');
 
-  return `<quick_access_links>
+  const sections: string[] = [];
+  sections.push(`<supported_platforms>
+Use this built-in supported-platform table when the task does not specify which platform to use.
+- If a food order or restaurant task does not name a platform, prefer Fantuan or Grubhub before falling back to generic search.
+- If a ride task does not name a platform, prefer Uber rides through Uber Central at central.uber.com.
+- If the task explicitly names a platform, follow the task instead of these defaults.
+
+${supportedPlatformRows}
+</supported_platforms>`);
+
+  if (!links.length) {
+    return sections.join('\n\n');
+  }
+
+  sections.push(`<quick_access_links>
 Use this locally maintained quick-access table for websites that often do not show up reliably in search.
 If a task mentions one of these businesses or a close variant of its name, navigate directly to the mapped URL instead of relying on Google/search results.
 
-${rows}
-</quick_access_links>`;
+${quickAccessRows}
+</quick_access_links>`);
+
+  return sections.join('\n\n');
 }

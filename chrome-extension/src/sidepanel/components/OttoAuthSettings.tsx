@@ -16,6 +16,7 @@ import { OTTOAUTH_HEADLESS_STORAGE_KEYS, readOttoAuthHeadlessState, writeOttoAut
 import type { OttoAuthHeadlessState, QuickAccessLink } from '../../shared/types';
 import {
   DEFAULT_QUICK_ACCESS_LINKS,
+  DEFAULT_SUPPORTED_PLATFORM_LINKS,
   resetQuickAccessLinks,
   saveQuickAccessLinks,
 } from '../agent/quickAccessLinks';
@@ -484,6 +485,23 @@ export default function OttoAuthSettings() {
 
   const quickAccessPanel = (
     <div className="rounded border border-gray-200 bg-white px-2 py-2 space-y-2">
+      <div>
+        <div className="text-xs font-medium text-gray-700">Supported Platforms</div>
+        <div className="text-[11px] text-gray-500">
+          This built-in table is always included in the agent prompt. If a task does not specify a platform,
+          agents should prefer Fantuan or Grubhub for food ordering and Uber Central for Uber rides before generic search.
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {DEFAULT_SUPPORTED_PLATFORM_LINKS.map((entry) => (
+          <div key={entry.id} className="rounded border border-gray-200 bg-gray-50 px-2 py-2 space-y-1">
+            <div className="text-xs font-medium text-gray-800">{entry.label}</div>
+            <div className="text-[11px] text-gray-500 break-all">{entry.url}</div>
+          </div>
+        ))}
+      </div>
+
       <div>
         <div className="text-xs font-medium text-gray-700">Quick Access Sites</div>
         <div className="text-[11px] text-gray-500">

@@ -34,6 +34,7 @@ ${quickAccessPrompt}
 - After form_input, you usually need to submit the form: press Enter via computer key action, or click the submit button.
 - Use the find tool to locate elements by natural language description when the accessibility tree is too large.
 - Use navigate for direct URL navigation rather than trying to click links.
+- If a task does not specify a platform, consult the supported-platform table first and prefer Fantuan or Grubhub for food orders, and Uber Central for Uber rides.
 - If the task mentions a business from the quick-access table, go straight to the mapped URL instead of searching for it first.
 - On food-ordering item modals, choose the requested add-ons first. If the site requires extra options that the user did not specify, choose the default or most standard option and keep moving.
 - If an "Add to Order", "Add to Cart", or equivalent button is enabled and the visible configuration matches the request well enough, click it instead of stalling on repeated screenshots.
