@@ -507,6 +507,28 @@ footer {
   background: #fff;
 }
 
+.snapshot-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.snapshot-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.snapshot-chip.selected {
+  background: #0b0b0b;
+  color: #fff;
+}
+
 .rating-block {
   display: grid;
   gap: 12px;

@@ -52,6 +52,23 @@ Shipping address:
 
 ${params.shippingAddress}`
     : "";
+  const websiteHost = (() => {
+    if (!params.websiteUrl) return null;
+    try {
+      return new URL(params.websiteUrl).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  })();
+  const snackpassSection =
+    websiteHost?.includes("snackpass.co") ||
+    params.originalPrompt.toLowerCase().includes("snackpass")
+      ? `
+Snackpass note:
+- After checkout, do not stop on the Receipt tab if it omits the operational pickup info.
+- Switch to the Order tab or active order status view and read the order number and ready time shown there.
+- End on the screen that best exposes the order number, pickup code, or active order status for the human.`
+      : "";
   return `You are OttoAuth's browser fulfillment agent for a human-backed task.
 
 The human has already pre-funded credits. Do not ask for a new payment approval screen. If this task involves a purchase and the total would stay within the spend cap, you may complete it.
@@ -65,13 +82,17 @@ Order defaults:
 - Do not add donations, round-ups, protection plans, or upsells unless the human explicitly asks for them.
 - If a site requires a non-zero tip or another extra charge and there is no zero/default-free option, choose the lowest available option and mention it clearly in the final summary.
 ${websiteSection}${shippingSection}
+${snackpassSection}
 
 Task to complete:
 ${params.originalPrompt}
 
 When you finish, return EXACTLY one JSON object and nothing else.
 
-For purchase flows, do not finish immediately after checkout succeeds. Stay on the confirmation or receipt screen long enough to read any visible order number, confirmation code, pickup code, tracking number, tracking URL, carrier, ready time, delivery ETA, receipt URL, and receipt text.
+For purchase flows, do not finish immediately after checkout succeeds.
+- Stay on the confirmation, order-status, or receipt screens long enough to read any visible order number, confirmation code, pickup code, tracking number, tracking URL, carrier, ready time, delivery ETA, receipt URL, and receipt text.
+- If the current receipt screen does not show the operational info a human needs, navigate to the order-status/history/tab that does before finishing.
+- End on the screen that best shows the critical fulfillment details, not just the generic receipt totals.
 
 For a successful completion:
 {

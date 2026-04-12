@@ -35,6 +35,7 @@ type TaskPayload = {
     instructions: string | null;
   } | null;
   tracking_summary: string | null;
+  fulfillment_details_missing: boolean;
   summary: string | null;
   error: string | null;
   requester_rating: number | null;
@@ -93,6 +94,7 @@ type DetailPayload = {
   run: { status: string } | null;
   run_events: RunEvent[];
   latest_snapshot: Snapshot | null;
+  recent_snapshots: Snapshot[];
 };
 
 function fmtDate(value: string | null | undefined) {
@@ -243,6 +245,9 @@ export function OrderDetailClient(props: {
   initialData: DetailPayload;
 }) {
   const [data, setData] = useState<DetailPayload>(props.initialData);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<number | null>(
+    props.initialData.latest_snapshot?.id ?? props.initialData.recent_snapshots[0]?.id ?? null,
+  );
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [savingRating, setSavingRating] = useState(false);
   const [ratingMessage, setRatingMessage] = useState<string | null>(null);
@@ -251,6 +256,22 @@ export function OrderDetailClient(props: {
   useEffect(() => {
     setRatingValue(data.task.requester_rating ?? 0);
   }, [data.task.requester_rating]);
+
+  useEffect(() => {
+    const snapshotIds = data.recent_snapshots.map((snapshot) => snapshot.id);
+    if (selectedSnapshotId == null) {
+      const fallbackId = data.latest_snapshot?.id ?? data.recent_snapshots[0]?.id ?? null;
+      if (fallbackId != null) setSelectedSnapshotId(fallbackId);
+      return;
+    }
+    if (
+      snapshotIds.length > 0 &&
+      !snapshotIds.includes(selectedSnapshotId) &&
+      data.latest_snapshot?.id != null
+    ) {
+      setSelectedSnapshotId(data.latest_snapshot.id);
+    }
+  }, [data.latest_snapshot, data.recent_snapshots, selectedSnapshotId]);
 
   useEffect(() => {
     const taskDone =
@@ -334,6 +355,18 @@ export function OrderDetailClient(props: {
     }
   }
 
+  const availableSnapshots =
+    data.recent_snapshots.length > 0
+      ? data.recent_snapshots
+      : data.latest_snapshot
+        ? [data.latest_snapshot]
+        : [];
+  const selectedSnapshot =
+    availableSnapshots.find((snapshot) => snapshot.id === selectedSnapshotId) ??
+    data.latest_snapshot ??
+    availableSnapshots[0] ??
+    null;
+
   return (
     <main className="dashboard-page">
       <section className="dashboard-shell">
@@ -356,6 +389,12 @@ export function OrderDetailClient(props: {
         </div>
 
         {loadingError && <div className="auth-error">{loadingError}</div>}
+        {data.task.fulfillment_details_missing && (
+          <div className="auth-error">
+            This purchase completed, but the fulfiller did not capture an order number, pickup code, or tracking number.
+            Check the recent frames below and the merchant account directly before pickup or delivery.
+          </div>
+        )}
 
         <section className="dashboard-grid metrics-grid">
           <article className="dashboard-card">
@@ -481,22 +520,36 @@ export function OrderDetailClient(props: {
         <section className="dashboard-grid wide">
           <article className="dashboard-card">
             <div className="supported-accounts-title">Live Screen</div>
-            {data.latest_snapshot ? (
+            {selectedSnapshot ? (
               <div className="live-view-block">
                 <div className="live-view-frame">
                   <img
-                    src={`data:image/png;base64,${data.latest_snapshot.image_base64}`}
+                    src={`data:image/png;base64,${selectedSnapshot.image_base64}`}
                     alt="Live browser snapshot"
                     className="live-view-image"
                   />
                 </div>
                 <div className="dashboard-muted">
-                  Latest frame {fmtDate(data.latest_snapshot.created_at)}
+                  Showing frame {fmtDate(selectedSnapshot.created_at)}
                 </div>
-                {data.latest_snapshot.tabs.length > 0 && (
+                {availableSnapshots.length > 1 && (
+                  <div className="snapshot-strip">
+                    {availableSnapshots.map((snapshot) => (
+                      <button
+                        key={snapshot.id}
+                        type="button"
+                        className={`snapshot-chip ${selectedSnapshot.id === snapshot.id ? "selected" : ""}`}
+                        onClick={() => setSelectedSnapshotId(snapshot.id)}
+                      >
+                        {snapshot.id === data.latest_snapshot?.id ? "Latest" : "Frame"} · {new Date(snapshot.created_at).toLocaleTimeString()}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedSnapshot.tabs.length > 0 && (
                   <div className="dashboard-list" style={{ marginTop: "1rem" }}>
                     <div className="supported-accounts-title">Live Tabs</div>
-                    {data.latest_snapshot.tabs.map((tab) => (
+                    {selectedSnapshot.tabs.map((tab) => (
                       <div className="dashboard-row" key={tab.id}>
                         <div>
                           <strong>{tab.title || "Untitled tab"}</strong>

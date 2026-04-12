@@ -8,6 +8,7 @@ import {
   getGenericBrowserTaskById,
   getHumanFulfillmentRatingStats,
   getLatestGenericBrowserTaskSnapshot,
+  listGenericBrowserTaskSnapshots,
 } from "@/lib/generic-browser-tasks";
 import { getHumanUserById } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
@@ -40,12 +41,13 @@ export default async function OrderDetailPage({ params }: Props) {
     redirect("/dashboard");
   }
 
-  const [requester, fulfiller, latestSnapshot, run, runEvents, fulfillerRating] = await Promise.all([
+  const [requester, fulfiller, latestSnapshot, recentSnapshots, run, runEvents, fulfillerRating] = await Promise.all([
     getHumanUserById(task.human_user_id),
     task.fulfiller_human_user_id != null
       ? getHumanUserById(task.fulfiller_human_user_id)
       : Promise.resolve(null),
     getLatestGenericBrowserTaskSnapshot(task.id),
+    listGenericBrowserTaskSnapshots(task.id, 8),
     task.run_id ? getComputerUseRunById(task.run_id) : Promise.resolve(null),
     task.run_id ? listComputerUseRunEvents({ runId: task.run_id, limit: 100 }) : Promise.resolve([]),
     task.fulfiller_human_user_id != null
@@ -84,6 +86,7 @@ export default async function OrderDetailPage({ params }: Props) {
         run,
         run_events: [...runEvents].reverse(),
         latest_snapshot: latestSnapshot,
+        recent_snapshots: recentSnapshots,
         fulfiller_rating: fulfillerRating,
       }}
     />

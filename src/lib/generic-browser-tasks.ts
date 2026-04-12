@@ -68,6 +68,7 @@ export type GenericBrowserTaskRecord = {
   pickup_summary: string | null;
   tracking_details: GenericBrowserTaskTrackingDetails | null;
   tracking_summary: string | null;
+  fulfillment_details_missing: boolean;
   usage_json: string | null;
   summary: string | null;
   error: string | null;
@@ -178,6 +179,12 @@ function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
     pickup_summary: formatPickupSummary(pickupDetails),
     tracking_details: trackingDetails,
     tracking_summary: formatTrackingSummary(trackingDetails),
+    fulfillment_details_missing: areFulfillmentDetailsMissing({
+      status: String(row.status),
+      totalCents: Number(row.total_cents ?? 0),
+      pickupDetails,
+      trackingDetails,
+    }),
     usage_json: row.usage_json == null ? null : String(row.usage_json),
     summary: row.summary == null ? null : String(row.summary),
     error: row.error == null ? null : String(row.error),
@@ -435,6 +442,22 @@ function formatTrackingSummary(details: GenericBrowserTaskTrackingDetails | null
     details.delivery_eta ? `ETA ${details.delivery_eta}` : null,
   ].filter((value): value is string => Boolean(value));
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function areFulfillmentDetailsMissing(args: {
+  status: string;
+  totalCents: number;
+  pickupDetails: GenericBrowserTaskPickupDetails | null;
+  trackingDetails: GenericBrowserTaskTrackingDetails | null;
+}) {
+  if (args.status !== "completed" || args.totalCents <= 0) return false;
+  const hasPickupIdentifier = Boolean(
+    args.pickupDetails?.order_number ||
+      args.pickupDetails?.pickup_code ||
+      args.pickupDetails?.confirmation_code,
+  );
+  const hasTrackingIdentifier = Boolean(args.trackingDetails?.tracking_number);
+  return !hasPickupIdentifier && !hasTrackingIdentifier;
 }
 
 function extractBillingFields(result: Record<string, unknown> | null) {
@@ -1154,6 +1177,7 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
     pickup_summary: task.pickup_summary,
     tracking_details: task.tracking_details,
     tracking_summary: task.tracking_summary,
+    fulfillment_details_missing: task.fulfillment_details_missing,
     summary: task.summary,
     error: task.error,
     requester_rating: task.requester_rating,
