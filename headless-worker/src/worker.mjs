@@ -19,6 +19,157 @@ function taskGoal(task) {
   return '';
 }
 
+function truncate(text, limit) {
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function looksLikeClarificationRequest(text) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!normalized) return false;
+
+  const strongMarkers = [
+    'how would you like me to proceed',
+    'how should i proceed',
+    'please clarify',
+    'could you clarify',
+    'can you clarify',
+    'i need clarification',
+    'i need more information',
+    'i need more detail',
+    'what would you like me to do',
+    'which option would you like',
+    'please let me know how to proceed',
+    'tell me how to proceed',
+    'waiting for clarification',
+    'according to my instructions',
+  ];
+  if (strongMarkers.some((marker) => normalized.includes(marker))) {
+    return true;
+  }
+
+  if (!normalized.includes('?')) {
+    return false;
+  }
+
+  return /(would you like|how should i|how would you like|can you clarify|could you clarify|should i proceed|what should i do|which .* should i)/.test(
+    normalized,
+  );
+}
+
+function collectLastAssistantText(messages) {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message?.role !== 'assistant' || !Array.isArray(message.content)) continue;
+    const text = message.content
+      .filter((block) => block?.type === 'text' && typeof block.text === 'string')
+      .map((block) => block.text)
+      .join('\n')
+      .trim();
+    if (text) return text;
+  }
+  return null;
+}
+
+function buildOttoAuthFailureResult(summary, error) {
+  return {
+    status: 'failed',
+    summary,
+    error,
+    merchant: null,
+    pickup_details: {
+      order_number: null,
+      confirmation_code: null,
+      pickup_code: null,
+      ready_time: null,
+      pickup_name: null,
+      instructions: null,
+    },
+    tracking_details: {
+      tracking_number: null,
+      tracking_url: null,
+      carrier: null,
+      status: null,
+      delivery_eta: null,
+      delivery_window: null,
+      instructions: null,
+    },
+    receipt_details: {
+      order_reference: null,
+      receipt_url: null,
+      receipt_text: null,
+    },
+    charges: {
+      goods_cents: 0,
+      shipping_cents: 0,
+      tax_cents: 0,
+      other_cents: 0,
+      currency: 'usd',
+    },
+  };
+}
+
+function normalizeOttoAuthCompletion(result, messages) {
+  const rawText = collectLastAssistantText(messages);
+  const statusValue =
+    result && typeof result.status === 'string'
+      ? result.status.trim().toLowerCase()
+      : '';
+  const summaryText = [
+    result && typeof result.summary === 'string' ? result.summary : '',
+    result && typeof result.error === 'string' ? result.error : '',
+    rawText || '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  if (looksLikeClarificationRequest(summaryText)) {
+    const error =
+      'OttoAuth does not support live clarification replies. The fulfiller asked for more direction instead of returning a final result.';
+    return {
+      status: 'failed',
+      result: buildOttoAuthFailureResult(
+        'Task blocked because the fulfiller requested clarification.',
+        `${error} Final assistant message: ${truncate(summaryText, 800)}`,
+      ),
+      error,
+    };
+  }
+
+  if (statusValue === 'failed') {
+    return {
+      status: 'failed',
+      result,
+      error:
+        (result && typeof result.error === 'string' && result.error.trim()) ||
+        (result && typeof result.summary === 'string' && result.summary.trim()) ||
+        'Task failed.',
+    };
+  }
+
+  if (statusValue === 'completed') {
+    return {
+      status: 'completed',
+      result,
+      error: null,
+    };
+  }
+
+  const error = result
+    ? 'OttoAuth browser tasks must return a JSON object whose status is "completed" or "failed".'
+    : 'OttoAuth browser tasks must finish with a single JSON result.';
+  return {
+    status: 'failed',
+    result: buildOttoAuthFailureResult(
+      result
+        ? 'Task returned an invalid OttoAuth result payload.'
+        : 'Task ended without a final OttoAuth result.',
+      `${error}${summaryText ? ` Final assistant message: ${truncate(summaryText, 800)}` : ''}`,
+    ),
+    error,
+  };
+}
+
 async function safeSnapshotUpload({ runtime, config, taskId, logger }) {
   try {
     const payload = await runtime.snapshotForOttoAuth();
@@ -93,15 +244,18 @@ async function handleTask({
     await recorder.setTranscript(messages);
     await recorder.setModelUsages(usedUsages);
     await safeSnapshotUpload({ runtime, config, taskId: task.id, logger });
+    const normalizedCompletion = normalizeOttoAuthCompletion(result, messages);
     completedTaskPayload = {
-      result,
+      status: normalizedCompletion.status,
+      result: normalizedCompletion.result,
+      error: normalizedCompletion.error,
       messages,
       usages: usedUsages,
     };
     await recorder.finalize({
-      status: 'completed',
-      result,
-      error: null,
+      status: normalizedCompletion.status,
+      result: normalizedCompletion.result,
+      error: normalizedCompletion.error,
       messages,
       usages: usedUsages,
     });
@@ -139,12 +293,12 @@ async function handleTask({
 
   try {
     await reportTaskResult(config, task.id, {
-      status: 'completed',
+      status: completedTaskPayload.status,
       result: completedTaskPayload.result,
-      error: null,
+      error: completedTaskPayload.error,
       usages: completedTaskPayload.usages,
     });
-    logger.log?.(`[ottoauth-headless] Task ${task.id} completed.`);
+    logger.log?.(`[ottoauth-headless] Task ${task.id} ${completedTaskPayload.status}.`);
   } catch (error) {
     logger.error?.(
       `[ottoauth-headless] Task ${task.id} completed locally, but OttoAuth result reporting failed: ${stringifyError(error)}`,

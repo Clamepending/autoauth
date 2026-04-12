@@ -3,7 +3,7 @@ import { runAgentLoop } from './loop';
 import {
   anySessionRunning,
   ensureBackgroundSession,
-  extractResultFromMessages,
+  extractOttoAuthTaskCompletion,
 } from './executionHelpers';
 import {
   createTraceRecorder,
@@ -395,24 +395,29 @@ async function executeOttoAuthTask(task: OttoAuthTask): Promise<void> {
     if (sessionError) {
       throw new Error(sessionError);
     }
-    const result = extractResultFromMessages(sessionId);
+    const completion = extractOttoAuthTaskCompletion(sessionId);
     await pushTaskSnapshot(task, sessionId).catch((snapshotError) => {
       console.error('[OttoAuth] Failed to push completion snapshot:', snapshotError);
     });
-    recorder?.note('task_completed', {
+    recorder?.note(completion.status === 'completed' ? 'task_completed' : 'task_failed', {
       taskId: task.id,
-      hasResult: Boolean(result),
+      hasResult: Boolean(completion.result),
+      error: completion.error,
+      status: completion.status,
     });
-    await reportTaskResult(task.id, 'completed', result, null, modelUsages);
+    if (completion.status === 'failed' && completion.error) {
+      useStore.getState().setError(completion.error, sessionId);
+    }
+    await reportTaskResult(task.id, completion.status, completion.result, completion.error, modelUsages);
     await persistHeadlessRuntimeState({
       currentTask: null,
-      lastError: null,
+      lastError: completion.status === 'failed' ? completion.error : null,
       lastSeenAt: Date.now(),
     });
     const persistResult = await recorder?.persist({
-      status: 'completed',
-      result,
-      error: null,
+      status: completion.status,
+      result: completion.result,
+      error: completion.error,
       messages: useStore.getState().getMessages(sessionId),
     });
     if (persistResult && !persistResult.ok) {
