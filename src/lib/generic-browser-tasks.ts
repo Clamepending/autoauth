@@ -64,6 +64,8 @@ export type GenericBrowserTaskRecord = {
   run_id: string | null;
   computeruse_task_id: string | null;
   result_json: string | null;
+  pickup_details: GenericBrowserTaskPickupDetails | null;
+  pickup_summary: string | null;
   usage_json: string | null;
   summary: string | null;
   error: string | null;
@@ -101,9 +103,24 @@ export type GenericBrowserTaskSnapshotRecord = {
   created_at: string;
 };
 
+export type GenericBrowserTaskPickupDetails = {
+  order_number: string | null;
+  confirmation_code: string | null;
+  pickup_code: string | null;
+  ready_time: string | null;
+  pickup_name: string | null;
+  instructions: string | null;
+  order_reference: string | null;
+  receipt_url: string | null;
+  receipt_text: string | null;
+};
+
 let schemaReady = false;
 
 function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
+  const resultJson = row.result_json == null ? null : String(row.result_json);
+  const parsedResult = parseJsonObject(resultJson);
+  const pickupDetails = extractPickupDetails(parsedResult);
   return {
     id: Number(row.id),
     agent_id: Number(row.agent_id),
@@ -143,7 +160,9 @@ function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
     run_id: row.run_id == null ? null : String(row.run_id),
     computeruse_task_id:
       row.computeruse_task_id == null ? null : String(row.computeruse_task_id),
-    result_json: row.result_json == null ? null : String(row.result_json),
+    result_json: resultJson,
+    pickup_details: pickupDetails,
+    pickup_summary: formatPickupSummary(pickupDetails),
     usage_json: row.usage_json == null ? null : String(row.usage_json),
     summary: row.summary == null ? null : String(row.summary),
     error: row.error == null ? null : String(row.error),
@@ -211,8 +230,135 @@ function toInt(value: unknown) {
   return 0;
 }
 
-function extractString(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+function extractString(value: unknown, maxLength = 500) {
+  return typeof value === "string" && value.trim()
+    ? value.trim().slice(0, maxLength)
+    : null;
+}
+
+function extractText(value: unknown, maxLength = 4000) {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim().slice(0, maxLength);
+  }
+  if (Array.isArray(value)) {
+    const lines = value
+      .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+      .filter(Boolean);
+    if (lines.length > 0) {
+      return lines.join("\n").slice(0, maxLength);
+    }
+  }
+  return null;
+}
+
+function extractObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function parseJsonObject(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return extractObject(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function firstString(values: unknown[], maxLength = 500) {
+  for (const value of values) {
+    const extracted = extractString(value, maxLength);
+    if (extracted) return extracted;
+  }
+  return null;
+}
+
+function formatReference(prefix: string, value: string | null) {
+  if (!value) return null;
+  if (value.toLowerCase().includes(prefix.toLowerCase())) {
+    return value;
+  }
+  return `${prefix} ${value}`;
+}
+
+function extractPickupDetails(
+  result: Record<string, unknown> | null,
+): GenericBrowserTaskPickupDetails | null {
+  const pickup = extractObject(result?.pickup_details) ?? extractObject(result?.pickup);
+  const receipt =
+    extractObject(result?.receipt_details) ?? extractObject(result?.receipt);
+  const details: GenericBrowserTaskPickupDetails = {
+    order_number: firstString([
+      pickup?.order_number,
+      pickup?.order_id,
+      result?.order_number,
+      result?.order_id,
+      result?.confirmation_number,
+    ]),
+    confirmation_code: firstString([
+      pickup?.confirmation_code,
+      receipt?.confirmation_code,
+      result?.confirmation_code,
+    ]),
+    pickup_code: firstString([
+      pickup?.pickup_code,
+      receipt?.pickup_code,
+      result?.pickup_code,
+      result?.pickup_number,
+    ]),
+    ready_time: firstString([
+      pickup?.ready_time,
+      pickup?.estimated_ready_time,
+      result?.ready_time,
+      result?.estimated_ready_time,
+      result?.pickup_eta,
+      result?.eta,
+    ]),
+    pickup_name: firstString([
+      pickup?.pickup_name,
+      pickup?.name_for_pickup,
+      result?.pickup_name,
+      result?.name_for_pickup,
+    ]),
+    instructions: firstString([
+      pickup?.instructions,
+      pickup?.pickup_instructions,
+      receipt?.instructions,
+      result?.pickup_instructions,
+    ], 1000),
+    order_reference: firstString([
+      receipt?.order_reference,
+      receipt?.reference,
+      result?.order_reference,
+      result?.reference,
+    ]),
+    receipt_url: firstString([
+      receipt?.receipt_url,
+      receipt?.url,
+      result?.receipt_url,
+    ], 2000),
+    receipt_text: extractText(
+      receipt?.receipt_text ??
+        receipt?.summary ??
+        result?.receipt_text ??
+        result?.receipt,
+      8000,
+    ),
+  };
+  return Object.values(details).some(Boolean) ? details : null;
+}
+
+function formatPickupSummary(details: GenericBrowserTaskPickupDetails | null) {
+  if (!details) return null;
+  const parts = [
+    formatReference("Order", details.order_number),
+    formatReference("Pickup code", details.pickup_code),
+    !details.pickup_code ? formatReference("Code", details.confirmation_code) : null,
+    formatReference("Ready", details.ready_time),
+  ].filter((value): value is string => Boolean(value));
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 function extractBillingFields(result: Record<string, unknown> | null) {
@@ -247,8 +393,14 @@ function buildFallbackTaskSummary(args: {
 }) {
   const extracted = extractBillingFields(args.result ?? null).summary;
   if (extracted) return extracted;
+  const pickupSummary = formatPickupSummary(extractPickupDetails(args.result ?? null));
   if (args.status === "failed") {
     return extractString(args.error) || "Task failed before the fulfiller returned a written summary.";
+  }
+  if (pickupSummary) {
+    return extractString(args.existingTaskTitle)
+      ? `Completed ${extractString(args.existingTaskTitle)}. ${pickupSummary}.`
+      : `Completed successfully. ${pickupSummary}.`;
   }
   return extractString(args.existingTaskTitle)
     ? `Completed: ${extractString(args.existingTaskTitle)}. The fulfiller did not return a written summary.`
@@ -916,6 +1068,8 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
     task_prompt: task.task_prompt,
     website_url: task.website_url,
     shipping_address: task.shipping_address,
+    pickup_details: task.pickup_details,
+    pickup_summary: task.pickup_summary,
     summary: task.summary,
     error: task.error,
     requester_rating: task.requester_rating,

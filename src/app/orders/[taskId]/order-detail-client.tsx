@@ -13,6 +13,18 @@ type TaskPayload = {
   task_prompt: string;
   website_url: string | null;
   shipping_address: string | null;
+  pickup_details: {
+    order_number: string | null;
+    confirmation_code: string | null;
+    pickup_code: string | null;
+    ready_time: string | null;
+    pickup_name: string | null;
+    instructions: string | null;
+    order_reference: string | null;
+    receipt_url: string | null;
+    receipt_text: string | null;
+  } | null;
+  pickup_summary: string | null;
   summary: string | null;
   error: string | null;
   requester_rating: number | null;
@@ -109,6 +121,9 @@ function describeEvent(event: RunEvent) {
 
 function displaySummary(task: TaskPayload) {
   if (task.summary) return task.summary;
+  if (task.status === "completed" && task.pickup_summary) {
+    return `Completed successfully. ${task.pickup_summary}.`;
+  }
   if (task.status === "completed") {
     return "Completed successfully, but the fulfiller did not return a written summary.";
   }
@@ -116,6 +131,53 @@ function displaySummary(task: TaskPayload) {
     return task.error || "This task failed before the fulfiller returned a written summary.";
   }
   return "Not yet available";
+}
+
+function PickupDetailsBlock(props: {
+  details: NonNullable<TaskPayload["pickup_details"]>;
+  summary: string | null;
+}) {
+  const rows = [
+    { label: "Order number", value: props.details.order_number, mono: true },
+    { label: "Confirmation code", value: props.details.confirmation_code, mono: true },
+    { label: "Pickup code", value: props.details.pickup_code, mono: true },
+    { label: "Ready time", value: props.details.ready_time },
+    { label: "Pickup name", value: props.details.pickup_name },
+    { label: "Order reference", value: props.details.order_reference, mono: true },
+    { label: "Instructions", value: props.details.instructions, prewrap: true },
+    { label: "Receipt text", value: props.details.receipt_text, prewrap: true },
+  ].filter((row) => Boolean(row.value));
+
+  return (
+    <div className="pickup-details-block">
+      <div className="supported-accounts-title">Pickup &amp; Receipt</div>
+      {props.summary && <div><strong>{props.summary}</strong></div>}
+      <div className="dashboard-list">
+        {rows.map((row) => (
+          <div className="dashboard-row" key={row.label}>
+            <div>
+              <strong>{row.label}</strong>
+              <div className={`dashboard-muted ${row.prewrap ? "dashboard-prewrap" : ""} ${row.mono ? "mono" : ""}`}>
+                {row.value}
+              </div>
+            </div>
+          </div>
+        ))}
+        {props.details.receipt_url && (
+          <div className="dashboard-row">
+            <div>
+              <strong>Receipt URL</strong>
+              <div className="dashboard-muted">
+                <a href={props.details.receipt_url} target="_blank" rel="noreferrer">
+                  {props.details.receipt_url}
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function OrderDetailClient(props: {
@@ -423,6 +485,16 @@ export function OrderDetailClient(props: {
                     <div className="dashboard-muted dashboard-prewrap">
                       {data.task.shipping_address}
                     </div>
+                  </div>
+                </div>
+              )}
+              {data.task.pickup_details && (
+                <div className="dashboard-row">
+                  <div>
+                    <PickupDetailsBlock
+                      details={data.task.pickup_details}
+                      summary={data.task.pickup_summary}
+                    />
                   </div>
                 </div>
               )}

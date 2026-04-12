@@ -205,6 +205,19 @@ async function main() {
         status: 'completed',
         summary: 'Bought office supplies successfully.',
         merchant: 'Example Mart',
+        pickup_details: {
+          order_number: 'MK-204',
+          confirmation_code: 'CONF-204',
+          pickup_code: 'PK-204',
+          ready_time: 'Tomorrow at 11:05 AM',
+          pickup_name: 'Requester Human',
+          instructions: 'Show the pickup code at the front desk.',
+        },
+        receipt_details: {
+          order_reference: 'Marketplace Receipt 204',
+          receipt_url: 'https://example.com/receipt/MK-204',
+          receipt_text: 'Notebook x1\\nPens x2',
+        },
         charges: {
           goods_cents: 1250,
           shipping_cents: 100,
@@ -250,6 +263,18 @@ async function main() {
   assert(
     requesterDetail.data.task.payout_status === 'credited',
     `Expected payout status credited, got ${requesterDetail.data.task.payout_status}`,
+  );
+  assert(
+    requesterDetail.data.task.pickup_details?.order_number === 'MK-204',
+    `Expected order number MK-204, got ${JSON.stringify(requesterDetail.data.task.pickup_details)}`,
+  );
+  assert(
+    requesterDetail.data.task.pickup_details?.pickup_code === 'PK-204',
+    `Expected pickup code PK-204, got ${JSON.stringify(requesterDetail.data.task.pickup_details)}`,
+  );
+  assert(
+    requesterDetail.data.task.pickup_summary?.includes('Order MK-204'),
+    `Expected pickup summary to include order number, got ${requesterDetail.data.task.pickup_summary}`,
   );
 
   const requesterMe = await request('/api/human/me', { cookieJar: requesterJar });

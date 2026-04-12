@@ -183,6 +183,19 @@ async function main() {
         status: 'completed',
         summary: 'Bought office supplies successfully.',
         merchant: 'Example Mart',
+        pickup_details: {
+          order_number: 'A-1024',
+          confirmation_code: 'CONF-55',
+          pickup_code: 'PICK-88',
+          ready_time: 'Today at 4:14 PM',
+          pickup_name: 'Jane Doe',
+          instructions: 'Tell the counter you are here for order A-1024.',
+        },
+        receipt_details: {
+          order_reference: 'Receipt #8831',
+          receipt_url: 'https://example.com/receipt/A-1024',
+          receipt_text: 'Tie Guan Yin Milk Tea x1\\nBoba x1',
+        },
         charges: {
           goods_cents: 1250,
           shipping_cents: 100,
@@ -223,6 +236,10 @@ async function main() {
   assert(taskStatusRes.data.task.payout_total === '$15.06', `Expected $15.06 payout, got ${taskStatusRes.data.task.payout_total}`);
   assert(taskStatusRes.data.task.website_url === 'https://example.com/store', `Expected normalized website URL, got ${taskStatusRes.data.task.website_url}`);
   assert(taskStatusRes.data.task.shipping_address === 'Jane Doe\n123 Market St\nSan Francisco, CA 94110', `Expected shipping address to round-trip, got ${taskStatusRes.data.task.shipping_address}`);
+  assert(taskStatusRes.data.task.pickup_details?.order_number === 'A-1024', `Expected order number A-1024, got ${JSON.stringify(taskStatusRes.data.task.pickup_details)}`);
+  assert(taskStatusRes.data.task.pickup_details?.pickup_code === 'PICK-88', `Expected pickup code PICK-88, got ${JSON.stringify(taskStatusRes.data.task.pickup_details)}`);
+  assert(taskStatusRes.data.task.pickup_details?.receipt_url === 'https://example.com/receipt/A-1024', `Expected receipt URL to round-trip, got ${taskStatusRes.data.task.pickup_details?.receipt_url}`);
+  assert(taskStatusRes.data.task.pickup_summary?.includes('Order A-1024'), `Expected pickup summary to include order number, got ${taskStatusRes.data.task.pickup_summary}`);
 
   const forbiddenStatusRes = await request(`/api/services/computeruse/tasks/${taskId}`, {
     json: {

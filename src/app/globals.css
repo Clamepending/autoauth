@@ -512,6 +512,14 @@ footer {
   gap: 12px;
 }
 
+.pickup-details-block {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  background: #fcfcfc;
+  padding: 16px;
+}
+
 .rating-picker {
   display: flex;
   gap: 8px;

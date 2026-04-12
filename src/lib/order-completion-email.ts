@@ -46,12 +46,62 @@ function buildEmailContent(params: SendOrderCompletionEmailParams) {
   const remainingCredits = `$${(params.remainingCreditsCents / 100).toFixed(2)}`;
   const merchant = params.task.merchant?.trim() || "Not specified";
   const subject = `OttoAuth completed: ${title}`;
+  const pickup = params.task.pickup_details;
 
   const websiteLine = params.task.website_url
     ? `Preferred website: ${params.task.website_url}\n`
     : "";
   const shippingLine = params.task.shipping_address
     ? `Shipping address used:\n${params.task.shipping_address}\n\n`
+    : "";
+  const pickupLines = pickup
+    ? [
+        pickup.order_number ? `Order number: ${pickup.order_number}` : null,
+        pickup.confirmation_code ? `Confirmation code: ${pickup.confirmation_code}` : null,
+        pickup.pickup_code ? `Pickup code: ${pickup.pickup_code}` : null,
+        pickup.ready_time ? `Ready time: ${pickup.ready_time}` : null,
+        pickup.pickup_name ? `Pickup name: ${pickup.pickup_name}` : null,
+        pickup.order_reference ? `Order reference: ${pickup.order_reference}` : null,
+        pickup.instructions ? `Pickup instructions: ${pickup.instructions}` : null,
+        pickup.receipt_url ? `Receipt URL: ${pickup.receipt_url}` : null,
+        pickup.receipt_text ? `Receipt details:\n${pickup.receipt_text}` : null,
+      ]
+        .filter((line): line is string => Boolean(line))
+        .join("\n")
+    : "";
+  const pickupTextSection = pickupLines ? `${pickupLines}\n\n` : "";
+  const pickupHtmlRows = pickup
+    ? [
+        pickup.order_number
+          ? `<strong>Order number:</strong> ${escapeHtml(pickup.order_number)}<br />`
+          : "",
+        pickup.confirmation_code
+          ? `<strong>Confirmation code:</strong> ${escapeHtml(pickup.confirmation_code)}<br />`
+          : "",
+        pickup.pickup_code
+          ? `<strong>Pickup code:</strong> ${escapeHtml(pickup.pickup_code)}<br />`
+          : "",
+        pickup.ready_time
+          ? `<strong>Ready time:</strong> ${escapeHtml(pickup.ready_time)}<br />`
+          : "",
+        pickup.pickup_name
+          ? `<strong>Pickup name:</strong> ${escapeHtml(pickup.pickup_name)}<br />`
+          : "",
+        pickup.order_reference
+          ? `<strong>Order reference:</strong> ${escapeHtml(pickup.order_reference)}<br />`
+          : "",
+        pickup.instructions
+          ? `<strong>Pickup instructions:</strong> ${escapeHtml(pickup.instructions)}<br />`
+          : "",
+        pickup.receipt_url
+          ? `<strong>Receipt URL:</strong> <a href="${escapeHtml(pickup.receipt_url)}">${escapeHtml(pickup.receipt_url)}</a><br />`
+          : "",
+        pickup.receipt_text
+          ? `<strong>Receipt details:</strong><br />${escapeHtml(pickup.receipt_text).replace(/\n/g, "<br />")}<br />`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("")
     : "";
 
   const text = `Hi ${recipientName},
@@ -63,7 +113,7 @@ Summary: ${summary}
 Merchant: ${merchant}
 Total debited: ${totalDebited}
 Remaining credits: ${remainingCredits}
-${websiteLine}${shippingLine}View the full run and live screenshots here:
+${websiteLine}${shippingLine}${pickupTextSection}View the full run and live screenshots here:
 ${orderUrl}
 `;
 
@@ -76,6 +126,7 @@ ${orderUrl}
 <strong>Remaining credits:</strong> ${escapeHtml(remainingCredits)}</p>
 ${params.task.website_url ? `<p><strong>Preferred website:</strong> <a href="${escapeHtml(params.task.website_url)}">${escapeHtml(params.task.website_url)}</a></p>` : ""}
 ${params.task.shipping_address ? `<p><strong>Shipping address used:</strong><br />${escapeHtml(params.task.shipping_address).replace(/\n/g, "<br />")}</p>` : ""}
+${pickupHtmlRows ? `<p>${pickupHtmlRows}</p>` : ""}
 <p><a href="${escapeHtml(orderUrl)}">Open the OttoAuth order page</a></p>`;
 
   return {

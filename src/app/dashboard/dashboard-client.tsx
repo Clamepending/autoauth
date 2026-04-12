@@ -323,9 +323,23 @@ export function DashboardClient(props: {
                       <span className={`status-chip status-${task.status}`}>{task.status}</span>
                     </div>
                     <div className="dashboard-muted">{task.summary || task.task_prompt}</div>
+                    {task.pickup_summary && (
+                      <div className="dashboard-muted">
+                        Pickup details: {task.pickup_summary}
+                      </div>
+                    )}
                     <div className="dashboard-task-meta">
                       <span>Role: {getTaskRoleLabel(task)}</span>
                       <span>Source: {task.submission_source}</span>
+                      {task.pickup_details?.order_number && (
+                        <span>Order {task.pickup_details.order_number}</span>
+                      )}
+                      {task.pickup_details?.pickup_code && (
+                        <span>Pickup code {task.pickup_details.pickup_code}</span>
+                      )}
+                      {task.pickup_details?.ready_time && (
+                        <span>Ready {task.pickup_details.ready_time}</span>
+                      )}
                       <span>Total debited: {fmtUsd(task.total_cents)}</span>
                       <span>Payout: {fmtUsd(task.payout_cents)}</span>
                       {task.requester_rating != null && <span>Rating: {task.requester_rating} / 5</span>}

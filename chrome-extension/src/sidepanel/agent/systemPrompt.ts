@@ -41,6 +41,7 @@ ${quickAccessPrompt}
 - Set tip to 0 unless the user explicitly asks for a different tip.
 - Do not add donations, round-ups, protection plans, or upsells unless the user explicitly asks for them.
 - If a site forces a non-zero tip or extra charge with no zero/default-free option, choose the lowest available option and mention it clearly in the final summary.
+- After a purchase succeeds, stay on the confirmation or receipt screen long enough to read any visible order number, confirmation code, pickup code, ready time, or receipt details before you finish.
 - After clicking or scrolling, a screenshot is taken automatically so you can see the result.
 - Use keyboard shortcuts when efficient (e.g., Cmd+A, Cmd+C on Mac; Ctrl+A, Ctrl+C on other platforms).
 - If a page hasn't loaded yet, use the computer tool with action "wait".

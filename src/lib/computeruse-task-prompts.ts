@@ -71,11 +71,26 @@ ${params.originalPrompt}
 
 When you finish, return EXACTLY one JSON object and nothing else.
 
+For purchase flows, do not finish immediately after checkout succeeds. Stay on the confirmation or receipt screen long enough to read any visible order number, confirmation code, pickup code, ready time, receipt URL, and receipt text.
+
 For a successful completion:
 {
   "status": "completed",
   "summary": "<short human-readable summary>",
   "merchant": "<merchant or website name>",
+  "pickup_details": {
+    "order_number": "<order number shown to the human or staff, or null if not shown>",
+    "confirmation_code": "<confirmation code shown after checkout, or null if not shown>",
+    "pickup_code": "<pickup code to tell staff, or null if not shown>",
+    "ready_time": "<estimated ready time / pickup ETA, or null if not shown>",
+    "pickup_name": "<pickup name or label to use, or null if not shown>",
+    "instructions": "<brief pickup instructions, or null if not shown>"
+  },
+  "receipt_details": {
+    "order_reference": "<other merchant reference, or null if not shown>",
+    "receipt_url": "<receipt URL, or null if not shown>",
+    "receipt_text": "<important receipt text / line items, or null if not shown>"
+  },
   "charges": {
     "goods_cents": <integer>,
     "shipping_cents": <integer>,
@@ -93,6 +108,19 @@ If the task fails or would exceed the cap:
   "summary": "<short failure summary>",
   "error": "<clear error message>",
   "merchant": "<merchant or website name if known>",
+  "pickup_details": {
+    "order_number": null,
+    "confirmation_code": null,
+    "pickup_code": null,
+    "ready_time": null,
+    "pickup_name": null,
+    "instructions": null
+  },
+  "receipt_details": {
+    "order_reference": null,
+    "receipt_url": null,
+    "receipt_text": null
+  },
   "charges": {
     "goods_cents": 0,
     "shipping_cents": 0,
