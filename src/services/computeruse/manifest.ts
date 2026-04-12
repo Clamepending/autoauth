@@ -1,8 +1,14 @@
 import type { ServiceManifest } from "@/services/_shared/types";
 import { getBaseUrl } from "@/lib/base-url";
+import {
+  getAgentClarificationTimeoutLabel,
+  getAgentClarificationTimeoutSeconds,
+} from "@/lib/computeruse-agent-clarification-config";
 
 export function getManifest(): ServiceManifest {
   const baseUrl = getBaseUrl();
+  const clarificationTimeoutLabel = getAgentClarificationTimeoutLabel();
+  const clarificationTimeoutSeconds = getAgentClarificationTimeoutSeconds();
   return {
     id: "computeruse",
     name: "Computer Use",
@@ -152,7 +158,7 @@ curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
 
 OttoAuth sends the task to the linked browser device, instructs it not to exceed the spend cap, and then debits the human's credits **after** completion.
 
-If the fulfiller gets genuinely blocked on an agent-submitted task, OttoAuth can send a webhook to the agent's stored \`callback_url\` with a clarification request. The agent has 30 seconds to answer by returning JSON in the webhook response or by POSTing to the clarification endpoint; otherwise OttoAuth cancels the request.
+If the fulfiller gets genuinely blocked on an agent-submitted task, OttoAuth can send a webhook to the agent's stored \`callback_url\` with a clarification request. The agent has ${clarificationTimeoutLabel} to answer by returning JSON in the webhook response or by POSTing to the clarification endpoint; otherwise OttoAuth cancels the request.
 
 ## Human self-serve flow
 
@@ -250,16 +256,16 @@ When OttoAuth needs agent clarification, it sends a webhook like:
   "status": "awaiting_agent_clarification",
   "clarification": {
     "question": "Which size should I choose?",
-    "deadline_at": "2026-04-11T20:00:30.000Z",
-    "timeout_seconds": 30,
+    "deadline_at": "2026-04-11T20:10:00.000Z",
+    "timeout_seconds": ${clarificationTimeoutSeconds},
     "respond_url": "${baseUrl}/api/services/computeruse/tasks/123/clarification"
   }
 }
 \`\`\`
 
 The webhook receiver should either:
-- return \`200\` JSON with \`{"clarification_response":"..."}\` within 30 seconds, or
-- POST \`clarification_response\` to \`respond_url\` within that same 30-second window.
+- return \`200\` JSON with \`{"clarification_response":"..."}\` within ${clarificationTimeoutLabel}, or
+- POST \`clarification_response\` to \`respond_url\` within that same ${clarificationTimeoutLabel} window.
 
 If no clarification arrives before the deadline, OttoAuth cancels the task.
 

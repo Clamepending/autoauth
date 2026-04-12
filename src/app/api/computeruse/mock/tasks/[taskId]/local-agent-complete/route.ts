@@ -6,6 +6,7 @@ import {
   waitForAgentClarificationResolution,
 } from "@/lib/computeruse-agent-clarification";
 import { notifyAgentClarificationRequested } from "@/lib/computeruse-agent-callback";
+import { getAgentClarificationTimeoutLabel } from "@/lib/computeruse-agent-clarification-config";
 import {
   appendComputerUseRunEvent,
   markComputerUseRunAwaitingAgentClarification,
@@ -49,6 +50,7 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request, context: Context) {
+  const clarificationTimeoutLabel = getAgentClarificationTimeoutLabel();
   const taskId = context.params.taskId?.trim() ?? "";
   if (!taskId) {
     return NextResponse.json({ error: "Missing task id." }, { status: 400, headers: corsHeaders() });
@@ -268,7 +270,7 @@ export async function POST(request: Request, context: Context) {
         finalClarificationError = null;
       } else {
         const timeoutReason =
-          "Human clarification timed out after 30 seconds, so OttoAuth canceled the request.";
+          `Human clarification timed out after ${clarificationTimeoutLabel}, so OttoAuth canceled the request.`;
         await cancelAgentClarificationTask({
           task: clarifyingTask,
           reason: timeoutReason,
@@ -367,7 +369,7 @@ export async function POST(request: Request, context: Context) {
             finalClarificationError = null;
           } else {
             const timeoutReason =
-              "Agent clarification timed out after 30 seconds, so OttoAuth canceled the request.";
+              `Agent clarification timed out after ${clarificationTimeoutLabel}, so OttoAuth canceled the request.`;
             await cancelAgentClarificationTask({
               task: clarifyingTask,
               reason: timeoutReason,

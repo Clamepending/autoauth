@@ -59,6 +59,8 @@ type TaskPayload = {
   inference_total: string | null;
   total_debited: string | null;
   payout_total: string | null;
+  net_credits: string | null;
+  self_fulfilled: boolean;
   run_id: string | null;
   created_at: string;
   completed_at: string | null;
@@ -148,6 +150,10 @@ function buildInitialRequestText(task: TaskPayload) {
 function displayTaskStatus(status: string) {
   if (status === "awaiting_agent_clarification") return "awaiting clarification";
   return status;
+}
+
+function displayPayoutStatus(status: string) {
+  return status.replace(/_/g, " ");
 }
 
 function buildTaskChatItems(data: DetailPayload) {
@@ -576,6 +582,11 @@ export function OrderDetailClient(props: {
     availableSnapshots[0] ??
     null;
   const taskChatItems = buildTaskChatItems(data);
+  const isSelfFulfilled =
+    data.task.self_fulfilled ||
+    (data.fulfiller != null &&
+      data.requester != null &&
+      data.fulfiller.id === data.requester.id);
 
   return (
     <main className="dashboard-page">
@@ -619,7 +630,7 @@ export function OrderDetailClient(props: {
             </div>
             <div className="dashboard-row">
               <strong>Payout</strong>
-              <span>{data.task.payout_status}</span>
+              <span>{displayPayoutStatus(data.task.payout_status)}</span>
             </div>
           </article>
 
@@ -671,6 +682,15 @@ export function OrderDetailClient(props: {
               <strong>Payout total</strong>
               <span>{data.task.payout_total || "$0.00"}</span>
             </div>
+            <div className="dashboard-row">
+              <strong>Net credits</strong>
+              <span>{data.task.net_credits || "$0.00"}</span>
+            </div>
+            {isSelfFulfilled && (
+              <div className="dashboard-muted">
+                Self-fulfilled runs still debit goods and inference normally, but the matching payout offsets them in your balance.
+              </div>
+            )}
           </article>
 
           <article className="dashboard-card">

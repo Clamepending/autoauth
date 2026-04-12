@@ -10,10 +10,7 @@ import type {
   HumanDevicePairingCodeRecord,
   HumanUserRecord,
 } from "@/lib/human-accounts";
-import type {
-  GenericBrowserTaskRecord,
-  HumanFulfillmentRatingStats,
-} from "@/lib/generic-browser-tasks";
+import type { HumanFulfillmentRatingStats } from "@/lib/generic-browser-tasks";
 
 function fmtUsd(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -30,7 +27,6 @@ export function DashboardClient(props: {
   devices: ComputerUseDeviceRecord[];
   pairingCodes: HumanDevicePairingCodeRecord[];
   ledger: CreditLedgerRecord[];
-  tasks: GenericBrowserTaskRecord[];
   fulfillmentStats: HumanFulfillmentRatingStats;
 }) {
   const [pairingKey, setPairingKey] = useState("");
@@ -169,17 +165,11 @@ export function DashboardClient(props: {
     }
   }
 
-  function getTaskRoleLabel(task: GenericBrowserTaskRecord) {
-    if (task.human_user_id === props.user.id && task.fulfiller_human_user_id === props.user.id) {
-      return "Self-fulfilled";
-    }
-    if (task.human_user_id === props.user.id) {
-      return "Submitted";
-    }
-    if (task.fulfiller_human_user_id === props.user.id) {
-      return "Fulfilled";
-    }
-    return "Related";
+  function getLedgerOrderHref(entry: CreditLedgerRecord) {
+    if (entry.reference_type !== "generic_browser_task" || !entry.reference_id) return null;
+    const taskId = Number(entry.reference_id);
+    if (!Number.isInteger(taskId) || taskId < 1) return null;
+    return `/orders/${taskId}`;
   }
 
   return (
@@ -381,70 +371,6 @@ export function DashboardClient(props: {
         <section className="dashboard-grid wide">
           <article className="dashboard-card">
             <div className="dashboard-section-header">
-              <div className="supported-accounts-title">Recent Browser Tasks</div>
-              <div className="dashboard-muted">
-                {props.tasks.length} related task{props.tasks.length === 1 ? "" : "s"}
-                {props.tasks.length > 6 ? " · Scroll for older activity" : ""}
-              </div>
-            </div>
-            <div className="dashboard-list dashboard-feed">
-              {props.tasks.length === 0 ? (
-                <div className="dashboard-empty">No tasks yet.</div>
-              ) : (
-                props.tasks.map((task) => (
-                  <div key={task.id} className="dashboard-task">
-                    <div className="dashboard-row">
-                      <strong>
-                        <Link href={`/orders/${task.id}`}>{task.task_title || `Task #${task.id}`}</Link>
-                      </strong>
-                      <span className={`status-chip status-${task.status}`}>{task.status}</span>
-                    </div>
-                    <div className="dashboard-muted">{task.summary || task.task_prompt}</div>
-                    {task.pickup_summary && (
-                      <div className="dashboard-muted">
-                        Pickup details: {task.pickup_summary}
-                      </div>
-                    )}
-                    {task.tracking_summary && (
-                      <div className="dashboard-muted">
-                        Tracking details: {task.tracking_summary}
-                      </div>
-                    )}
-                    <div className="dashboard-task-meta">
-                      <span>Role: {getTaskRoleLabel(task)}</span>
-                      <span>Source: {task.submission_source}</span>
-                      {task.pickup_details?.order_number && (
-                        <span>Order {task.pickup_details.order_number}</span>
-                      )}
-                      {task.pickup_details?.pickup_code && (
-                        <span>Pickup code {task.pickup_details.pickup_code}</span>
-                      )}
-                      {task.pickup_details?.ready_time && (
-                        <span>Ready {task.pickup_details.ready_time}</span>
-                      )}
-                      {task.tracking_details?.tracking_number && (
-                        <span>Tracking {task.tracking_details.tracking_number}</span>
-                      )}
-                      {task.tracking_details?.carrier && (
-                        <span>{task.tracking_details.carrier}</span>
-                      )}
-                      {task.tracking_details?.delivery_eta && (
-                        <span>ETA {task.tracking_details.delivery_eta}</span>
-                      )}
-                      <span>Total debited: {fmtUsd(task.total_cents)}</span>
-                      <span>Payout: {fmtUsd(task.payout_cents)}</span>
-                      {task.requester_rating != null && <span>Rating: {task.requester_rating} / 5</span>}
-                      <span>Billing: {task.billing_status}</span>
-                      <span>{new Date(task.created_at).toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </article>
-
-          <article className="dashboard-card">
-            <div className="dashboard-section-header">
               <div className="supported-accounts-title">Credit Activity</div>
               <div className="dashboard-muted">
                 {props.ledger.length} entr{props.ledger.length === 1 ? "y" : "ies"}
@@ -455,20 +381,40 @@ export function DashboardClient(props: {
               {props.ledger.length === 0 ? (
                 <div className="dashboard-empty">No ledger activity yet.</div>
               ) : (
-                props.ledger.map((entry) => (
-                  <div key={entry.id} className="dashboard-row">
-                    <div>
-                      <strong>{entry.description || entry.entry_type}</strong>
-                      <div className="dashboard-muted">
-                        {new Date(entry.created_at).toLocaleString()}
+                props.ledger.map((entry) => {
+                  const href = getLedgerOrderHref(entry);
+                  const content = (
+                    <>
+                      <div className="dashboard-activity-heading">
+                        <strong>{entry.description || entry.entry_type}</strong>
+                        <div className="dashboard-muted">
+                          {new Date(entry.created_at).toLocaleString()}
+                        </div>
                       </div>
+                      <div className="dashboard-activity-side">
+                        <div className={entry.amount_cents >= 0 ? "amount-positive" : "amount-negative"}>
+                          {entry.amount_cents >= 0 ? "+" : "-"}
+                          {fmtUsd(Math.abs(entry.amount_cents))}
+                        </div>
+                        {href && <span className="dashboard-task-cta">Open order</span>}
+                      </div>
+                    </>
+                  );
+
+                  return href ? (
+                    <Link
+                      key={entry.id}
+                      href={href}
+                      className="dashboard-row dashboard-activity-link"
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <div key={entry.id} className="dashboard-row">
+                      {content}
                     </div>
-                    <div className={entry.amount_cents >= 0 ? "amount-positive" : "amount-negative"}>
-                      {entry.amount_cents >= 0 ? "+" : "-"}
-                      {fmtUsd(Math.abs(entry.amount_cents))}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </article>
