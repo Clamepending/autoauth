@@ -56,7 +56,7 @@ export default async function HomePage() {
         <div className="eyebrow">OTTOAUTH</div>
         <h1>Agents, humans, and fulfillers now share one OttoAuth flow.</h1>
         <p className="lede">
-          OttoAuth now lets an OpenClaw-style agent pair with a human, lets humans submit their own browser tasks with a live watch page, and lets claimed extension devices opt into a marketplace to fulfill orders and earn credits.
+          OttoAuth now lets an OpenClaw-style agent pair with a human, lets humans submit their own orders with a live watch page, and lets linked fulfillment agents opt into a marketplace to fulfill orders and earn credits.
         </p>
         <div>
           <div style={{ marginBottom: 12 }}>Send this to your agent:</div>
@@ -67,9 +67,9 @@ export default async function HomePage() {
         <div className="card steps">
           <strong>1.</strong> Send the above command to your agent.<br />
           <strong>2.</strong> Let your agent create its OttoAuth account.<br />
-          <strong>3.</strong> Sign in as the human, link the pairing key, and claim a browser device.<br />
-          <strong>4.</strong> Submit tasks from your agent or directly from OttoAuth, then watch fulfillment live.<br />
-          <strong>5.</strong> If you want, enable marketplace fulfillment on your device and earn credits by completing other humans&apos; tasks.
+          <strong>3.</strong> Sign in as the human, link your agent, and link a fulfillment agent.<br />
+          <strong>4.</strong> Submit orders from your agent or directly from OttoAuth, then watch fulfillment live.<br />
+          <strong>5.</strong> If you want, enable marketplace fulfillment on your device and earn credits by completing other humans&apos; orders.
         </div>
         <div className="hero-actions">
           <a className="auth-button primary" href={humanUser ? "/dashboard" : "/login"}>
@@ -82,15 +82,15 @@ export default async function HomePage() {
         <div className="grid">
           <div className="card">
             <strong>OpenClaw-ready onboarding</strong>
-            Your agent creates an OttoAuth account once, keeps its private key secret, shares a pairing key with the human, and then uses the <code>computeruse</code> service as the default browser-task path.
+            Your agent creates an OttoAuth account once, keeps its private key secret, shares a link code with the human, and then uses the <code>computeruse</code> service as the default browser-order path.
           </div>
           <div className="card">
             <strong>Human self-serve orders</strong>
-            Humans can sign in to OttoAuth and use <code>/orders/new</code> to create their own browser tasks, then follow live low-rate screenshots on each order page while a fulfiller works.
+            Humans can sign in to OttoAuth and use <code>/orders/new</code> to create their own orders, then follow live low-rate screenshots on each order page while a fulfiller works.
           </div>
           <div className="card">
             <strong>Marketplace fulfillers</strong>
-            Claimed extension devices can opt into marketplace fulfillment from the dashboard. When they complete another human&apos;s task, OttoAuth transfers credits to the fulfiller after completion.
+            Linked fulfillment agents can opt into marketplace fulfillment from the dashboard. When they complete another human&apos;s order, OttoAuth transfers credits to the fulfiller after completion.
           </div>
         </div>
         <div className="supported-accounts">

@@ -135,12 +135,12 @@ const styles: Record<string, CSSProperties> = {
     background:
       "radial-gradient(circle at 20% 10%, rgba(247,148,29,0.10), transparent 45%), #0f1115",
     color: "#f2f3f5",
-    padding: "48px 20px",
+    padding: "clamp(24px, 5vw, 48px) clamp(14px, 4vw, 20px)",
   },
   container: {
     maxWidth: 860,
     margin: "0 auto",
-    padding: 24,
+    padding: "clamp(18px, 4vw, 28px)",
     borderRadius: 18,
     border: "1px solid rgba(255,255,255,0.08)",
     background: "rgba(255,255,255,0.02)",
@@ -148,13 +148,13 @@ const styles: Record<string, CSSProperties> = {
   },
   h1: {
     margin: "0 0 8px 0",
-    fontSize: 34,
+    fontSize: "clamp(28px, 8vw, 34px)",
     lineHeight: 1.1,
     fontWeight: 700,
   },
   h2: {
     margin: "0 0 10px 0",
-    fontSize: 18,
+    fontSize: "clamp(17px, 4.8vw, 18px)",
     lineHeight: 1.2,
     fontWeight: 600,
   },

@@ -20,6 +20,18 @@ function fmtRating(value: number | null) {
   return value == null ? "No ratings yet" : `${value.toFixed(1)} / 5`;
 }
 
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" aria-hidden="true">
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="m6 6 1 14h10l1-14" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
+
 export function DashboardClient(props: {
   user: HumanUserRecord;
   balanceCents: number;
@@ -52,7 +64,7 @@ export function DashboardClient(props: {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setStatusMessage(payload?.error || "Agent pairing failed.");
+        setStatusMessage(payload?.error || "Could not link agent.");
         return;
       }
       setStatusMessage(`Linked agent ${payload?.agent?.username || "agent"} successfully.`);
@@ -73,10 +85,10 @@ export function DashboardClient(props: {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setStatusMessage(payload?.error || "Could not create device claim code.");
+        setStatusMessage(payload?.error || "Could not create fulfillment link code.");
         return;
       }
-      setStatusMessage(`Created claim code ${payload?.code}.`);
+      setStatusMessage(`Created link code ${payload?.code}.`);
       window.location.reload();
     } finally {
       setCreatingCode(false);
@@ -108,8 +120,8 @@ export function DashboardClient(props: {
       }
       setStatusMessage(
         enabled
-          ? `Device ${deviceId} is now accepting marketplace tasks.`
-          : `Device ${deviceId} is no longer accepting marketplace tasks.`,
+          ? `Device ${deviceId} is now accepting marketplace orders.`
+          : `Device ${deviceId} is no longer accepting marketplace orders.`,
       );
       window.location.reload();
     } finally {
@@ -143,7 +155,7 @@ export function DashboardClient(props: {
 
   async function handleRemoveDevice(deviceId: string, label: string) {
     const confirmed = window.confirm(
-      `Remove ${label} from your OttoAuth account? That device will stop receiving tasks until it is claimed again.`,
+      `Remove ${label} from your OttoAuth account? That fulfillment agent will stop receiving orders until it is linked again.`,
     );
     if (!confirmed) return;
 
@@ -180,7 +192,7 @@ export function DashboardClient(props: {
             <div className="eyebrow">Human Dashboard</div>
             <h1>{props.user.display_name || props.user.email}</h1>
             <p className="lede">
-              Your agents can spend from your credits, and you can now submit your own browser tasks too. Claimed devices can also opt into the marketplace and earn credits by fulfilling other humans&apos; orders.
+              Your agents can spend from your credits, and you can now submit your own orders too. Linked fulfillment agents can also opt into the marketplace and earn credits by fulfilling other humans&apos; orders.
             </p>
           </div>
           <div className="dashboard-actions">
@@ -202,9 +214,6 @@ export function DashboardClient(props: {
           <article className="dashboard-card highlight">
             <div className="supported-accounts-title">Credits</div>
             <div className="dashboard-balance">{fmtUsd(props.balanceCents)}</div>
-            <p className="dashboard-muted">
-              New human accounts start with $20. You can refill your balance any time and OttoAuth will add the credits after Stripe confirms payment.
-            </p>
             <Link className="auth-button primary" href="/credits/refill">
               Refill credits
             </Link>
@@ -213,24 +222,15 @@ export function DashboardClient(props: {
           <article className="dashboard-card">
             <div className="supported-accounts-title">Linked Agents</div>
             <div className="dashboard-stat">{props.linkedAgents.length}</div>
-            <p className="dashboard-muted">
-              Agents linked to this human account can submit browser tasks against your credits.
-            </p>
           </article>
 
           <article className="dashboard-card">
-            <div className="supported-accounts-title">Tasks Submitted</div>
+            <div className="supported-accounts-title">Orders Submitted</div>
             <div className="dashboard-stat">{props.fulfillmentStats.submitted_task_count}</div>
-            <p className="dashboard-muted">
-              Requests from you or your linked agents show up here, whether they are still running or already done.
-            </p>
-            <Link className="auth-button" href="/orders/new">
-              Submit a human task
-            </Link>
           </article>
 
           <article className="dashboard-card">
-            <div className="supported-accounts-title">Tasks Fulfilled</div>
+            <div className="supported-accounts-title">Orders Fulfilled</div>
             <div className="dashboard-stat">{props.fulfillmentStats.fulfilled_task_count}</div>
             <p className="dashboard-muted">
               Fulfillment rating: {fmtRating(props.fulfillmentStats.average_rating)}
@@ -238,144 +238,13 @@ export function DashboardClient(props: {
                 ? ` from ${props.fulfillmentStats.rating_count} rating${
                     props.fulfillmentStats.rating_count === 1 ? "" : "s"
                   }.`
-                : ". Completed marketplace work will start building your score once requesters rate it."}
+                : ". Completed marketplace orders will start building your score once requesters rate them."}
             </p>
           </article>
         </section>
 
         <section className="dashboard-grid wide">
-          <article className="dashboard-card">
-            <div className="supported-accounts-title">Pair An Agent</div>
-            <form className="stack-form" onSubmit={handlePairAgent}>
-              <input
-                className="auth-input"
-                value={pairingKey}
-                onChange={(event) => setPairingKey(event.target.value)}
-                placeholder="Paste agent pairing key"
-              />
-              <button className="auth-button primary" type="submit" disabled={pairingAgent}>
-                {pairingAgent ? "Linking..." : "Link agent"}
-              </button>
-            </form>
-            <p className="dashboard-muted">
-              Your agent gets this key when it creates its OttoAuth account. The human uses it once here; the agent keeps its private key private.
-            </p>
-
-            <div className="dashboard-list">
-              {props.linkedAgents.length === 0 ? (
-                <div className="dashboard-empty">No linked agents yet.</div>
-              ) : (
-                props.linkedAgents.map((agent) => (
-                  <div key={agent.id} className="dashboard-row">
-                    <div>
-                      <strong>{agent.username_display}</strong>
-                      <div className="dashboard-muted mono">@{agent.username_lower}</div>
-                    </div>
-                    <div className="dashboard-device-actions">
-                      <div className="dashboard-muted">
-                        Linked {new Date(agent.linked_at).toLocaleString()}
-                      </div>
-                      <button
-                        className="auth-button"
-                        onClick={() => handleRemoveAgent(agent.id, agent.username_display)}
-                        disabled={removingAgentLinkId === agent.id}
-                      >
-                        {removingAgentLinkId === agent.id ? "Removing..." : "Remove agent"}
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </article>
-
-          <article className="dashboard-card">
-            <div className="supported-accounts-title">Claim Extension Device</div>
-            <div className="stack-form">
-              <input
-                className="auth-input"
-                value={deviceLabel}
-                onChange={(event) => setDeviceLabel(event.target.value)}
-                placeholder="Device label"
-              />
-              <button className="auth-button primary" onClick={handleCreateCode} disabled={creatingCode}>
-                {creatingCode ? "Generating..." : "Generate claim code"}
-              </button>
-            </div>
-            <p className="dashboard-muted">
-              Put this code into the OttoAuth extension settings on the Raspberry Pi or browser machine.
-            </p>
-
-            {activeCode ? (
-              <div className="claim-code-block">
-                <div className="claim-code">{activeCode.code}</div>
-                <div className="dashboard-muted">
-                  Expires {new Date(activeCode.expires_at).toLocaleString()}
-                </div>
-              </div>
-            ) : (
-              <div className="dashboard-empty">No active claim code yet.</div>
-            )}
-
-            <div className="dashboard-list">
-              {props.devices.length === 0 ? (
-                <div className="dashboard-empty">No devices claimed yet.</div>
-              ) : (
-                props.devices.map((device) => (
-                  <div key={device.device_id} className="dashboard-row">
-                    <div>
-                      <strong>{device.label || device.device_id}</strong>
-                      <div className="dashboard-muted mono">{device.device_id}</div>
-                      <div className="dashboard-muted">
-                        Marketplace {device.marketplace_enabled ? "enabled" : "disabled"}
-                        {device.last_seen_at ? ` · Seen ${new Date(device.last_seen_at).toLocaleString()}` : ""}
-                      </div>
-                    </div>
-                    <div className="dashboard-device-actions">
-                      <div className="dashboard-muted">
-                        Updated {new Date(device.updated_at).toLocaleString()}
-                      </div>
-                      <button
-                        className="auth-button"
-                        onClick={() =>
-                          handleToggleMarketplace(device.device_id, !device.marketplace_enabled)
-                        }
-                        disabled={
-                          togglingDeviceId === device.device_id ||
-                          removingDeviceId === device.device_id
-                        }
-                      >
-                        {togglingDeviceId === device.device_id
-                          ? "Saving..."
-                          : device.marketplace_enabled
-                            ? "Disable marketplace"
-                            : "Enable marketplace"}
-                      </button>
-                      <button
-                        className="auth-button"
-                        onClick={() =>
-                          handleRemoveDevice(
-                            device.device_id,
-                            device.label || device.device_id,
-                          )
-                        }
-                        disabled={
-                          togglingDeviceId === device.device_id ||
-                          removingDeviceId === device.device_id
-                        }
-                      >
-                        {removingDeviceId === device.device_id ? "Removing..." : "Remove device"}
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </article>
-        </section>
-
-        <section className="dashboard-grid wide">
-          <article className="dashboard-card">
+          <article className="dashboard-card dashboard-card-span-2">
             <div className="dashboard-section-header">
               <div className="supported-accounts-title">Credit Activity</div>
               <div className="dashboard-muted">
@@ -425,6 +294,155 @@ export function DashboardClient(props: {
             </div>
           </article>
         </section>
+
+        <section className="dashboard-grid wide">
+          <article className="dashboard-card">
+            <div className="supported-accounts-title">Link Agent</div>
+            <form className="stack-form" onSubmit={handlePairAgent}>
+              <input
+                className="auth-input"
+                value={pairingKey}
+                onChange={(event) => setPairingKey(event.target.value)}
+                placeholder="Paste agent link code"
+              />
+              <button className="auth-button primary" type="submit" disabled={pairingAgent}>
+                {pairingAgent ? "Linking..." : "Link agent"}
+              </button>
+            </form>
+            <p className="dashboard-muted">
+              Your agent creates this link code when it sets up OttoAuth. Use it once here to let that agent place orders against your balance.
+            </p>
+
+            <div className="dashboard-list">
+              {props.linkedAgents.length === 0 ? (
+                <div className="dashboard-empty">No linked agents yet.</div>
+              ) : (
+                props.linkedAgents.map((agent) => (
+                  <div key={agent.id} className="dashboard-row">
+                    <div>
+                      <strong>{agent.username_display}</strong>
+                      <div className="dashboard-muted mono">@{agent.username_lower}</div>
+                    </div>
+                    <div className="dashboard-device-actions">
+                      <div className="dashboard-muted">
+                        Linked {new Date(agent.linked_at).toLocaleString()}
+                      </div>
+                      <button
+                        type="button"
+                        className="dashboard-icon-button"
+                        onClick={() => handleRemoveAgent(agent.id, agent.username_display)}
+                        disabled={removingAgentLinkId === agent.id}
+                        aria-label={`Remove ${agent.username_display}`}
+                        title="Remove agent"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </article>
+
+          <article className="dashboard-card">
+            <div className="supported-accounts-title">Link Fulfillment Agent</div>
+            <div className="stack-form">
+              <input
+                className="auth-input"
+                value={deviceLabel}
+                onChange={(event) => setDeviceLabel(event.target.value)}
+                placeholder="Device label"
+              />
+              <button className="auth-button primary" onClick={handleCreateCode} disabled={creatingCode}>
+                {creatingCode ? "Generating..." : "Generate link code"}
+              </button>
+            </div>
+            <p className="dashboard-muted">
+              Use this link code in the OttoAuth fulfillment agent settings on the Raspberry Pi or browser machine.
+            </p>
+
+            {activeCode ? (
+              <div className="claim-code-block">
+                <div className="claim-code">{activeCode.code}</div>
+                <div className="dashboard-muted">
+                  Expires {new Date(activeCode.expires_at).toLocaleString()}
+                </div>
+              </div>
+            ) : (
+              <div className="dashboard-empty">No active link code yet.</div>
+            )}
+
+            <div className="dashboard-list">
+              {props.devices.length === 0 ? (
+                <div className="dashboard-empty">No fulfillment agents linked yet.</div>
+              ) : (
+                props.devices.map((device) => (
+                  <div key={device.device_id} className="dashboard-row">
+                    <div>
+                      <strong>{device.label || device.device_id}</strong>
+                      <div className="dashboard-muted mono">{device.device_id}</div>
+                      <div className="dashboard-muted">
+                        Marketplace {device.marketplace_enabled ? "on" : "off"}
+                        {device.last_seen_at ? ` · Seen ${new Date(device.last_seen_at).toLocaleString()}` : ""}
+                      </div>
+                    </div>
+                    <div className="dashboard-device-actions">
+                      <div className="dashboard-muted">
+                        Updated {new Date(device.updated_at).toLocaleString()}
+                      </div>
+                      <label
+                        className={`dashboard-toggle ${
+                          togglingDeviceId === device.device_id ||
+                          removingDeviceId === device.device_id
+                            ? "is-disabled"
+                            : ""
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="dashboard-toggle-input"
+                          checked={device.marketplace_enabled}
+                          onChange={(event) =>
+                            handleToggleMarketplace(device.device_id, event.target.checked)
+                          }
+                          disabled={
+                            togglingDeviceId === device.device_id ||
+                            removingDeviceId === device.device_id
+                          }
+                        />
+                        <span className="dashboard-toggle-track" aria-hidden="true">
+                          <span className="dashboard-toggle-thumb" />
+                        </span>
+                        <span className="dashboard-toggle-label">
+                          {togglingDeviceId === device.device_id ? "Saving..." : "Marketplace"}
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        className="dashboard-icon-button"
+                        onClick={() =>
+                          handleRemoveDevice(
+                            device.device_id,
+                            device.label || device.device_id,
+                          )
+                        }
+                        disabled={
+                          togglingDeviceId === device.device_id ||
+                          removingDeviceId === device.device_id
+                        }
+                        aria-label={`Remove ${device.label || device.device_id}`}
+                        title="Remove fulfillment agent"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </article>
+        </section>
+
       </section>
     </main>
   );
