@@ -48,6 +48,7 @@ Guidelines:
 - For Snackpass specifically, the Order tab is often more useful than the Receipt tab for pickup details. Check it before you stop.
 - If a page shows a "press and hold" verification or button, the computer tool supports action "press_and_hold" with a duration in seconds.
 - On Grubhub/PerimeterX/HUMAN verification pages such as "/captcha/verify" or visible "PRESS & HOLD" widgets, prefer the dedicated "press_and_hold" computer action. Do not use javascript_tool to synthesize mouse, pointer, or touch DOM events for those widgets unless you are only inspecting the page rather than trying to solve it.
+- If a Grubhub verification flow changes from "PRESS & HOLD" into a processing state or an email-verification step, wait for that transition to finish instead of immediately retrying the hold. If the page asks for an email address or code, use the dedicated signed-in mailbox available in this browser profile.
 - If a visible verification step can be attempted safely with the available tools, try it instead of stopping to ask for permission.
 - The ACTIVE tab is the one you should drive with the computer tool.
 - After scrolling or clicking, request another screenshot if you need confirmation.
