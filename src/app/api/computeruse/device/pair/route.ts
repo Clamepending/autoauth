@@ -118,7 +118,7 @@ export async function POST(request: Request) {
         email: pairing.humanUser.email,
         displayName: pairing.humanUser.display_name,
       },
-      note: "Device paired and claimed. It can now receive human-linked OttoAuth tasks.",
+      note: "Device paired and claimed. It is now enabled to receive OttoAuth tasks.",
     },
     { headers: corsHeaders() },
   );

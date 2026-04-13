@@ -127,7 +127,7 @@ export function NewOrderClient() {
                 <div>
                   <strong>1. OttoAuth assigns a fulfiller</strong>
                   <div className="dashboard-muted">
-                    Auto mode prefers your own linked fulfillment agent and falls back to an opted-in marketplace fulfiller.
+                    Auto mode prefers your own enabled linked fulfillment agent and falls back to an enabled marketplace fulfiller.
                   </div>
                 </div>
               </div>

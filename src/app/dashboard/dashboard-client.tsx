@@ -126,8 +126,8 @@ export function DashboardClient(props: {
       }
       setStatusMessage(
         enabled
-          ? `Device ${deviceId} is now accepting marketplace orders.`
-          : `Device ${deviceId} is no longer accepting marketplace orders.`,
+          ? `Device ${deviceId} is now enabled for OttoAuth orders.`
+          : `Device ${deviceId} is now disabled for OttoAuth orders.`,
       );
       window.location.reload();
     } finally {
@@ -401,6 +401,9 @@ export function DashboardClient(props: {
             <p className="dashboard-muted">
               Use this link code in the OttoAuth fulfillment agent settings on the Raspberry Pi or browser machine.
             </p>
+            <p className="dashboard-muted">
+              Enabled devices can receive both your own orders and marketplace orders. Disabled devices receive neither.
+            </p>
 
             {activeCode ? (
               <div className="claim-code-block">
@@ -423,7 +426,7 @@ export function DashboardClient(props: {
                       <strong>{device.label || device.device_id}</strong>
                       <div className="dashboard-muted mono">{device.device_id}</div>
                       <div className="dashboard-muted">
-                        Marketplace {device.marketplace_enabled ? "on" : "off"}
+                        {device.marketplace_enabled ? "Enabled" : "Disabled"}
                         {device.last_seen_at ? ` · Seen ${new Date(device.last_seen_at).toLocaleString()}` : ""}
                       </div>
                     </div>
@@ -455,7 +458,7 @@ export function DashboardClient(props: {
                           <span className="dashboard-toggle-thumb" />
                         </span>
                         <span className="dashboard-toggle-label">
-                          {togglingDeviceId === device.device_id ? "Saving..." : "Marketplace"}
+                          {togglingDeviceId === device.device_id ? "Saving..." : "Enabled"}
                         </span>
                       </label>
                       <button

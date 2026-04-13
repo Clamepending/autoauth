@@ -276,15 +276,21 @@ export async function claimComputerUseDeviceForHuman(params: {
   label?: string | null;
 }) {
   await ensureComputerUseTransportSchema();
+  const existing = await getComputerUseDeviceById(params.deviceId);
   const client = getTursoClient();
   const now = new Date().toISOString();
+  const enabledValue =
+    existing && existing.human_user_id != null
+      ? (existing.marketplace_enabled ? 1 : 0)
+      : 1;
   await client.execute({
     sql: `UPDATE computeruse_devices
-          SET human_user_id = ?, label = COALESCE(?, label), updated_at = ?
+          SET human_user_id = ?, label = COALESCE(?, label), marketplace_enabled = ?, updated_at = ?
           WHERE device_id = ?`,
     args: [
       params.humanUserId,
       params.label?.trim() || null,
+      enabledValue,
       now,
       params.deviceId.trim(),
     ],
@@ -310,6 +316,7 @@ export async function getDefaultComputerUseDeviceForHuman(humanUserId: number) {
   const result = await client.execute({
     sql: `SELECT * FROM computeruse_devices
           WHERE human_user_id = ?
+            AND marketplace_enabled = 1
           ORDER BY updated_at DESC, paired_at DESC
           LIMIT 1`,
     args: [humanUserId],

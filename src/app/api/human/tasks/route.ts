@@ -119,10 +119,10 @@ export async function POST(request: Request) {
   if (!selection?.device) {
     const error =
       fulfillmentMode === "own_device"
-        ? "You do not have a claimed OttoAuth browser device yet."
+        ? "You do not have an enabled claimed OttoAuth browser device right now."
         : fulfillmentMode === "marketplace"
           ? "No online marketplace fulfillment device is available right now."
-          : "No claimed browser device or online marketplace fulfiller is available right now.";
+          : "No enabled claimed browser device or online marketplace fulfiller is available right now.";
     return NextResponse.json({ error }, { status: 409 });
   }
   if (selection.device.human_user_id == null) {
