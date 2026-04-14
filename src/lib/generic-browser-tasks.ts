@@ -1587,6 +1587,7 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
     id: task.id,
     submission_source: task.submission_source,
     status: task.status,
+    device_id: task.device_id,
     billing_status: task.billing_status,
     payout_status: task.payout_status,
     task_title: task.task_title,

@@ -7,6 +7,7 @@ type TaskPayload = {
   id: number;
   submission_source: string;
   status: string;
+  device_id: string;
   billing_status: string;
   payout_status: string;
   task_title: string | null;
@@ -792,6 +793,10 @@ export function OrderDetailClient(props: {
             <div className="dashboard-row">
               <strong>Order</strong>
               <span className={`status-chip status-${data.task.status}`}>{displayTaskStatus(data.task.status)}</span>
+            </div>
+            <div className="dashboard-row">
+              <strong>Device</strong>
+              <span className="mono">{data.task.device_id}</span>
             </div>
             <div className="dashboard-row">
               <strong>Billing</strong>
