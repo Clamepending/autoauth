@@ -5,6 +5,9 @@ import path from 'node:path';
 const DEFAULT_HOME = process.env.OTTOAUTH_WORKER_HOME?.trim()
   ? expandUserPath(process.env.OTTOAUTH_WORKER_HOME.trim())
   : path.join(os.homedir(), '.ottoauth-headless-worker');
+const PROFILE_DIR_OVERRIDE = process.env.OTTOAUTH_PROFILE_DIR?.trim()
+  ? expandUserPath(process.env.OTTOAUTH_PROFILE_DIR.trim())
+  : null;
 
 export function expandUserPath(value) {
   if (!value) return value;
@@ -24,7 +27,7 @@ export function getConfigPath() {
 }
 
 export function getProfileDir() {
-  return path.join(DEFAULT_HOME, 'profile');
+  return PROFILE_DIR_OVERRIDE || path.join(DEFAULT_HOME, 'profile');
 }
 
 export function getTraceRoot() {

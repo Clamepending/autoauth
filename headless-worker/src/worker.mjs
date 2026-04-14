@@ -17,6 +17,18 @@ function stringifyError(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function formatRuntimeStartupError(error) {
+  const message = stringifyError(error);
+  if (
+    /opening in existing browser session/i.test(message)
+    || /processsingleton/i.test(message)
+    || /profile.*already in use/i.test(message)
+  ) {
+    return `${message}\n\nChrome is already open on this profile. Quit regular Chrome completely before running OttoAuth against a shared real browser profile.`;
+  }
+  return message;
+}
+
 function taskGoal(task) {
   const goal = String(task.goal || task.taskPrompt || '').trim();
   if (goal) return goal;
@@ -352,15 +364,6 @@ export async function runWorker({
   model = null,
   logger = console,
 }) {
-  const runtime = new BrowserRuntime({
-    profileDir,
-    browserPath: browserPath || config.browserPath || null,
-    headless,
-    keepTabs,
-    strictHumanInput,
-  });
-  await runtime.start();
-
   let stopRequested = false;
   const requestStop = () => {
     stopRequested = true;
@@ -392,15 +395,45 @@ export async function runWorker({
       }
 
       logger.log?.(`[ottoauth-headless] Claimed task ${task.id}.`);
-      await handleTask({
-        runtime,
-        config,
-        apiKey,
-        task,
-        traceRoot,
-        logger,
-        model,
+      const runtime = new BrowserRuntime({
+        profileDir,
+        browserPath: browserPath || config.browserPath || null,
+        headless,
+        keepTabs,
+        strictHumanInput,
       });
+
+      try {
+        await runtime.start();
+        await handleTask({
+          runtime,
+          config,
+          apiKey,
+          task,
+          traceRoot,
+          logger,
+          model,
+        });
+      } catch (error) {
+        const message = `Failed to start browser runtime: ${formatRuntimeStartupError(error)}`;
+        logger.error?.(`[ottoauth-headless] Task ${task.id} failed before execution: ${message}`);
+        await reportTaskResult(config, task.id, {
+          status: 'failed',
+          result: null,
+          error: message,
+          usages: [],
+        }).catch((reportError) => {
+          logger.warn?.(
+            `[ottoauth-headless] Failed to report startup failure for task ${task.id}: ${stringifyError(reportError)}`,
+          );
+        });
+      } finally {
+        await runtime.stop().catch((stopError) => {
+          logger.warn?.(
+            `[ottoauth-headless] Failed to stop browser runtime after task ${task.id}: ${stringifyError(stopError)}`,
+          );
+        });
+      }
 
       if (once) {
         break;
@@ -409,6 +442,5 @@ export async function runWorker({
   } finally {
     process.off('SIGINT', requestStop);
     process.off('SIGTERM', requestStop);
-    await runtime.stop();
   }
 }

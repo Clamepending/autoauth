@@ -9,6 +9,9 @@
     "run": "node ./src/cli.mjs run",
     "once": "node ./src/cli.mjs once",
     "status": "node ./src/cli.mjs status",
+    "bootstrap:mac": "./scripts/bootstrap-mac.sh",
+    "open-profile": "./scripts/open-profile.sh",
+    "service:run": "./scripts/run-service.sh",
     "verify": "node ./scripts/verify.mjs",
     "live-local-e2e": "node ./scripts/live-local-e2e.mjs",
     "bootstrap": "./scripts/bootstrap.sh"

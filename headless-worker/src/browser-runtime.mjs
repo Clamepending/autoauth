@@ -20,14 +20,42 @@ function buildBrowserLaunchArgs() {
     '--no-first-run',
     '--disable-blink-features=AutomationControlled',
   ];
+  const chromeProfileName = String(process.env.OTTOAUTH_PROFILE_NAME || '').trim();
+  if (chromeProfileName) {
+    args.push(`--profile-directory=${chromeProfileName}`);
+  }
   if (process.platform === 'linux') {
     // Keep the dedicated worker profile self-contained so a background service
     // can reuse website sessions without depending on a desktop keyring unlock.
     args.push('--password-store=basic');
-  } else if (process.platform === 'darwin') {
+  } else if (shouldUseMockKeychain()) {
     args.push('--use-mock-keychain');
   }
   return args;
+}
+
+function buildIgnoredDefaultArgs() {
+  const args = ['--enable-automation'];
+  if (process.platform === 'darwin' && !shouldUseMockKeychain()) {
+    args.push('--use-mock-keychain');
+    args.push('--disable-sync');
+  }
+  return args;
+}
+
+function shouldUseMockKeychain() {
+  if (process.platform !== 'darwin') {
+    return false;
+  }
+
+  const explicitSetting = String(process.env.OTTOAUTH_USE_MOCK_KEYCHAIN || '').trim().toLowerCase();
+  if (explicitSetting) {
+    return !['0', 'false', 'no', 'off'].includes(explicitSetting);
+  }
+
+  // When reusing a real Chrome user-data dir on macOS, keep the normal
+  // keychain integration so existing signed-in sessions remain accessible.
+  return !process.env.OTTOAUTH_PROFILE_DIR?.trim();
 }
 
 const KEY_ALIASES = {
@@ -238,7 +266,7 @@ export class BrowserRuntime {
       ignoreHTTPSErrors: true,
       chromiumSandbox: false,
       // Playwright's default automation flag is a direct anti-bot signal.
-      ignoreDefaultArgs: ['--enable-automation'],
+      ignoreDefaultArgs: buildIgnoredDefaultArgs(),
       args: buildBrowserLaunchArgs(),
     });
     this.context.setDefaultNavigationTimeout(45000);
