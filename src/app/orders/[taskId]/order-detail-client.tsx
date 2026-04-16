@@ -137,6 +137,22 @@ function fmtRating(value: number | null | undefined) {
 function cleanChatText(value: string | null | undefined, limit = 700) {
   const raw = String(value || "").trim();
   if (!raw) return "";
+
+  const httpJsonError = raw.match(/^(\d{3})\s+(\{[\s\S]*\})$/);
+  if (httpJsonError) {
+    try {
+      const parsed = JSON.parse(httpJsonError[2]) as {
+        error?: { message?: unknown };
+      };
+      if (typeof parsed.error?.message === "string" && parsed.error.message.trim()) {
+        const text = `${httpJsonError[1]}: ${parsed.error.message.trim()}`;
+        return text.length > limit ? `${text.slice(0, limit)}...` : text;
+      }
+    } catch {
+      // Fall through to the generic cleanup below.
+    }
+  }
+
   const withoutFences = raw.replace(/```[\s\S]*?```/g, " ").trim();
   const withoutJsonTail = withoutFences.replace(/\{[\s\S]*$/, " ").trim();
   const collapsed = withoutJsonTail.replace(/\n{3,}/g, "\n\n").trim();
