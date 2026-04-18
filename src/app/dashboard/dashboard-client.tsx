@@ -243,6 +243,9 @@ export function DashboardClient(props: {
             <Link className="auth-button" href="/orders">
               Orders
             </Link>
+            <Link className="auth-button" href="/market">
+              Marketplace
+            </Link>
             <button className="auth-button" onClick={handleLogout}>
               Sign out
             </button>
