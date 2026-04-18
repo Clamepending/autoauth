@@ -110,9 +110,9 @@ export function NewOrderClient() {
                   setFulfillmentMode(event.target.value as "auto" | "own_device" | "marketplace")
                 }
               >
-                <option value="auto">Auto: use my device first, then marketplace</option>
+                <option value="auto">Auto: use my device first, then another enabled fulfiller</option>
                 <option value="own_device">Only my claimed device</option>
-                <option value="marketplace">Only marketplace devices</option>
+                <option value="marketplace">Only another enabled fulfiller</option>
               </select>
               <button className="auth-button primary" type="submit" disabled={submitting}>
                 {submitting ? "Submitting..." : "Submit order"}
@@ -127,7 +127,7 @@ export function NewOrderClient() {
                 <div>
                   <strong>1. OttoAuth assigns a fulfiller</strong>
                   <div className="dashboard-muted">
-                    Auto mode prefers your own enabled linked fulfillment agent and falls back to an enabled marketplace fulfiller.
+                    Auto mode prefers your own enabled linked fulfillment agent and falls back to another enabled fulfiller.
                   </div>
                 </div>
               </div>
