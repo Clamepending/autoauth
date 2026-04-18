@@ -121,7 +121,7 @@ export function DashboardClient(props: {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setStatusMessage(payload?.error || "Could not update marketplace status.");
+        setStatusMessage(payload?.error || "Could not update device status.");
         return;
       }
       setStatusMessage(
@@ -233,7 +233,7 @@ export function DashboardClient(props: {
             <div className="eyebrow">Human Dashboard</div>
             <h1>{props.user.display_name || props.user.email}</h1>
             <p className="lede">
-              Your agents can spend from your credits, and you can now submit your own orders too. Linked fulfillment agents can also opt into the marketplace and earn credits by fulfilling other humans&apos; orders.
+              Your agents can spend from your credits, and you can submit your own browser fulfillment orders. Linked fulfillment agents can be enabled or disabled for order pickup.
             </p>
           </div>
           <div className="dashboard-actions">
@@ -242,9 +242,6 @@ export function DashboardClient(props: {
             </Link>
             <Link className="auth-button" href="/orders">
               Orders
-            </Link>
-            <Link className="auth-button" href="/market">
-              Marketplace
             </Link>
             <button className="auth-button" onClick={handleLogout}>
               Sign out
@@ -282,7 +279,7 @@ export function DashboardClient(props: {
                 ? ` from ${props.fulfillmentStats.rating_count} rating${
                     props.fulfillmentStats.rating_count === 1 ? "" : "s"
                   }.`
-                : ". Completed marketplace orders will start building your score once requesters rate them."}
+                : ". Completed fulfillment orders will start building your score once requesters rate them."}
             </p>
           </article>
         </section>
@@ -405,7 +402,7 @@ export function DashboardClient(props: {
               Use this link code in the OttoAuth fulfillment agent settings on the Raspberry Pi or browser machine.
             </p>
             <p className="dashboard-muted">
-              Enabled devices can receive both your own orders and marketplace orders. Disabled devices receive neither.
+              Enabled devices can receive browser fulfillment orders. Disabled devices receive neither.
             </p>
 
             {activeCode ? (
