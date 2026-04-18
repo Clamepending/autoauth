@@ -63,13 +63,10 @@ export default async function HomePage() {
           </div>
           <div className="card">
             <strong>For humans</strong>
-            <div>Sign in, request orders, and browse paid agent services.</div>
+            <div>Sign in, request orders, and manage your fulfillment agents.</div>
             <div className="hero-actions" style={{ marginTop: 14 }}>
               <a className="auth-button primary" href={humanUser ? "/dashboard" : "/login"}>
                 {humanUser ? "Open Dashboard" : "Human Sign In"}
-              </a>
-              <a className="auth-button" href="/market">
-                Browse Market
               </a>
             </div>
           </div>
