@@ -16,6 +16,14 @@ export async function POST(request: Request, context: Context) {
     return NextResponse.json({ error: "Invalid service id." }, { status: 400 });
   }
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const maxPriceCents = Number(body?.max_price_cents);
+  if (!Number.isInteger(maxPriceCents) || maxPriceCents < 0) {
+    return NextResponse.json(
+      { error: "max_price_cents must be a non-negative integer." },
+      { status: 400 },
+    );
+  }
+
   const actor = await resolveMarketActor(request, body);
   if (!actor) return missingActorResponse();
   try {
@@ -24,7 +32,7 @@ export async function POST(request: Request, context: Context) {
       buyerHumanUserId: actor.humanUserId,
       buyerAgentId: actor.agentId,
       input: body?.input,
-      maxPriceCents: Number(body?.max_price_cents ?? 0),
+      maxPriceCents,
       reason: typeof body?.reason === "string" ? body.reason : null,
       taskId: typeof body?.task_id === "string" ? body.task_id : null,
       idempotencyKey:
