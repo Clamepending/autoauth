@@ -169,6 +169,11 @@ function inputSchemaFor(definition: StandardFulfillmentServiceDefinition) {
           description:
             "Optional spend cap for actual checkout + inference costs. Defaults to the requester's available OttoAuth credit balance.",
         },
+        fulfillment_method: {
+          type: "string",
+          enum: ["shipping", "local_pickup"],
+          description: "Optional preferred eBay fulfillment method.",
+        },
         shipping_address: {
           type: "string",
           description:
