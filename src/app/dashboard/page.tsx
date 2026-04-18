@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DashboardClient } from "./dashboard-client";
+import { DashboardMarketServicesClient } from "./dashboard-market-services-client";
 import { getBaseUrl } from "@/lib/base-url";
 import { listComputerUseDevicesForHuman } from "@/lib/computeruse-store";
 import {
@@ -13,6 +14,7 @@ import { getCurrentHumanUser } from "@/lib/human-session";
 import {
   getHumanFulfillmentRatingStats,
 } from "@/lib/generic-browser-tasks";
+import { listMarketServicesForOwner } from "@/lib/market-service-owner";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,7 @@ export default async function DashboardPage() {
     ledger,
     fulfillmentStats,
     referralStats,
+    marketServices,
   ] =
     await Promise.all([
       getHumanCreditBalance(user.id),
@@ -40,19 +43,27 @@ export default async function DashboardPage() {
       listCreditLedgerEntries(user.id, 20),
       getHumanFulfillmentRatingStats(user.id),
       getHumanReferralStats(user.id),
+      listMarketServicesForOwner({ ownerHumanUserId: user.id, limit: 100 }),
     ]);
 
   return (
-    <DashboardClient
-      user={user}
-      referralLink={`${baseUrl}/login?ref=${user.id}`}
-      referralStats={referralStats}
-      balanceCents={balanceCents}
-      linkedAgents={linkedAgents}
-      devices={devices}
-      pairingCodes={pairingCodes}
-      ledger={ledger}
-      fulfillmentStats={fulfillmentStats}
-    />
+    <>
+      <DashboardClient
+        user={user}
+        referralLink={`${baseUrl}/login?ref=${user.id}`}
+        referralStats={referralStats}
+        balanceCents={balanceCents}
+        linkedAgents={linkedAgents}
+        devices={devices}
+        pairingCodes={pairingCodes}
+        ledger={ledger}
+        fulfillmentStats={fulfillmentStats}
+      />
+      <DashboardMarketServicesClient
+        marketServices={marketServices}
+        linkedAgents={linkedAgents}
+        devices={devices}
+      />
+    </>
   );
 }
