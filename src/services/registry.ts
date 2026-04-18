@@ -1,14 +1,12 @@
 import type { ServiceManifest } from "@/services/_shared/types";
 import { getManifest as getAmazonManifest } from "@/services/amazon/manifest";
 import { getManifest as getComputerUseManifest } from "@/services/computeruse/manifest";
-import { getManifest as getPayManifest } from "@/services/pay/manifest";
 import { getManifest as getSnackpassManifest } from "@/services/snackpass/manifest";
 
 export function getAllManifests(): ServiceManifest[] {
   return [
     getAmazonManifest(),
     getComputerUseManifest(),
-    getPayManifest(),
     getSnackpassManifest(),
   ];
 }
