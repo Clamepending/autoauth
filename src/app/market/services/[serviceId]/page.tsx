@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { getCurrentHumanUser } from "@/lib/human-session";
 import {
@@ -7,6 +8,7 @@ import {
   serviceRails,
   serviceTags,
 } from "@/lib/market-services";
+import { MarketServiceUseForm } from "./market-service-use-form";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,46 @@ function prettyJson(value: string | null) {
   } catch {
     return value;
   }
+}
+
+function firstExampleInputJson(value: string | null) {
+  if (!value) return "";
+  try {
+    const parsed = JSON.parse(value);
+    const first = Array.isArray(parsed) ? parsed[0] : null;
+    const input =
+      first && typeof first === "object" && !Array.isArray(first) && "input" in first
+        ? (first as { input?: unknown }).input
+        : null;
+    return input ? JSON.stringify(input, null, 2) : "";
+  } catch {
+    return "";
+  }
+}
+
+function ServiceDetailRow(props: { label: string; children: ReactNode }) {
+  return (
+    <div
+      className="dashboard-row"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 7.5rem) minmax(0, 1fr)",
+        alignItems: "start",
+      }}
+    >
+      <span style={{ minWidth: 0 }}>{props.label}</span>
+      <strong
+        style={{
+          minWidth: 0,
+          overflowWrap: "anywhere",
+          textAlign: "right",
+          wordBreak: "break-word",
+        }}
+      >
+        {props.children}
+      </strong>
+    </div>
+  );
 }
 
 export default async function MarketServicePage({ params }: Props) {
@@ -61,34 +103,27 @@ export default async function MarketServicePage({ params }: Props) {
           <article className="dashboard-card">
             <div className="supported-accounts-title">Service Details</div>
             <div className="dashboard-list">
-              <div className="dashboard-row">
-                <span>Capability</span>
-                <strong>{service.capability}</strong>
-              </div>
-              <div className="dashboard-row">
-                <span>Endpoint</span>
+              <ServiceDetailRow label="Capability">
+                {service.capability}
+              </ServiceDetailRow>
+              <ServiceDetailRow label="Endpoint">
                 <code>{service.endpoint_url}</code>
-              </div>
-              <div className="dashboard-row">
-                <span>Price</span>
-                <strong>{centsToUsd(service.price_cents)}</strong>
-              </div>
-              <div className="dashboard-row">
-                <span>Status</span>
-                <strong>{service.status}</strong>
-              </div>
-              <div className="dashboard-row">
-                <span>Visibility</span>
-                <strong>{service.visibility}</strong>
-              </div>
-              <div className="dashboard-row">
-                <span>Rails</span>
-                <strong>{serviceRails(service).join(", ")}</strong>
-              </div>
-              <div className="dashboard-row">
-                <span>Provider</span>
-                <strong>{service.owner_agent_username_lower || `Human #${service.owner_human_user_id}`}</strong>
-              </div>
+              </ServiceDetailRow>
+              <ServiceDetailRow label="Price">
+                {centsToUsd(service.price_cents)}
+              </ServiceDetailRow>
+              <ServiceDetailRow label="Status">
+                {service.status}
+              </ServiceDetailRow>
+              <ServiceDetailRow label="Visibility">
+                {service.visibility}
+              </ServiceDetailRow>
+              <ServiceDetailRow label="Rails">
+                {serviceRails(service).join(", ")}
+              </ServiceDetailRow>
+              <ServiceDetailRow label="Provider">
+                {service.owner_agent_username_lower || `Human #${service.owner_human_user_id}`}
+              </ServiceDetailRow>
             </div>
             {tags.length > 0 && (
               <div className="dashboard-actions">
@@ -119,6 +154,18 @@ export default async function MarketServicePage({ params }: Props) {
   }
 }`}</pre>
           </article>
+        </section>
+
+        <section className="dashboard-grid wide">
+          <MarketServiceUseForm
+            serviceId={service.id}
+            serviceName={service.name}
+            serviceCapability={service.capability}
+            servicePriceCents={service.price_cents}
+            currentHumanUserId={currentHuman?.id ?? null}
+            isOwnPaidService={Boolean(canEdit && service.price_cents > 0)}
+            exampleInputJson={firstExampleInputJson(service.examples_json)}
+          />
         </section>
 
         <section className="dashboard-grid">
