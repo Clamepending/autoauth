@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { getLinkedAgentsForHuman } from "@/lib/human-accounts";
+import { getCurrentHumanUser } from "@/lib/human-session";
 import {
   centsToUsd,
   listMarketServices,
   serviceRails,
   serviceTags,
 } from "@/lib/market-services";
+import { StandardServicesPublishButton } from "./standard-services-publish-button";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +19,14 @@ type Props = {
 
 export default async function MarketPage({ searchParams }: Props) {
   const query = typeof searchParams?.query === "string" ? searchParams.query : "";
-  const services = await listMarketServices({ query, limit: 50 });
+  const [services, currentUser] = await Promise.all([
+    listMarketServices({ query, limit: 50 }),
+    getCurrentHumanUser(),
+  ]);
+  const linkedAgents = currentUser
+    ? await getLinkedAgentsForHuman(currentUser.id)
+    : [];
+  const canPublishPiServices = Boolean(currentUser && linkedAgents.length > 0);
 
   return (
     <main className="dashboard-page">
@@ -61,10 +71,28 @@ export default async function MarketPage({ searchParams }: Props) {
 
         <section className="dashboard-grid">
           {services.length === 0 ? (
-            <article className="dashboard-card">
-              <div className="dashboard-empty">
-                No public market services match this search yet.
+            <article className="dashboard-card dashboard-card-span-2">
+              <div>
+                <div className="supported-accounts-title">No services listed yet</div>
+                <p className="dashboard-muted">
+                  The Pi service templates exist in code, but your account still needs to publish them into the Market catalog. Once listed, Snackpass, Instacart, Amazon, Grubhub, email, and eBay will show up here.
+                </p>
               </div>
+              {canPublishPiServices ? (
+                <StandardServicesPublishButton />
+              ) : currentUser ? (
+                <div className="dashboard-actions">
+                  <Link className="auth-button primary" href="/dashboard">
+                    Link an agent to list Pi services
+                  </Link>
+                </div>
+              ) : (
+                <div className="dashboard-actions">
+                  <Link className="auth-button primary" href="/login">
+                    Sign in to list Pi services
+                  </Link>
+                </div>
+              )}
             </article>
           ) : (
             services.map((service) => {
