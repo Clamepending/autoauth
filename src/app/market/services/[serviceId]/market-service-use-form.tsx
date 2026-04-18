@@ -59,6 +59,22 @@ function resultOrderUrl(result: MarketCallResult | null) {
   return readStringField(result.output, "order_url");
 }
 
+function resultImageUrl(result: MarketCallResult | null) {
+  if (!result) return "";
+  return (
+    readStringField(result.output, "image_data_url") ||
+    readStringField(result.output, "image_url")
+  );
+}
+
+function resultVideoUrl(result: MarketCallResult | null) {
+  if (!result) return "";
+  return (
+    readStringField(result.output, "video_url") ||
+    readStringField(result.output, "result_url")
+  );
+}
+
 function prettyResult(result: MarketCallResult | null) {
   if (!result) return "";
   return JSON.stringify(result, null, 2);
@@ -105,7 +121,7 @@ export function MarketServiceUseForm(props: {
         input = parsedObject;
       }
       const request = requestText.trim();
-      if (request && input.request == null) {
+      if (request && input.request == null && input.prompt == null) {
         input.request = request;
       }
       const maxChargeCents = optionalDollarsToCents(maxChargeDollars);
@@ -148,6 +164,8 @@ export function MarketServiceUseForm(props: {
   }
 
   const orderUrl = resultOrderUrl(result);
+  const imageUrl = resultImageUrl(result);
+  const videoUrl = resultVideoUrl(result);
   const summary = resultSummary(result);
 
   return (
@@ -200,10 +218,10 @@ export function MarketServiceUseForm(props: {
               className="auth-input shipping-textarea"
               value={inputJson}
               onChange={(event) => setInputJson(event.target.value)}
-              placeholder={props.exampleInputJson || "Optional JSON object, for example: {\"request\":\"...\"}"}
+              placeholder={props.exampleInputJson || "Optional JSON object, for example: {\"prompt\":\"...\"}"}
             />
             <span className="dashboard-muted">
-              Optional. If you provide JSON, the request text is added as <code>request</code> only when that field is missing.
+              Optional. If you provide JSON, the request text is added as <code>request</code> only when <code>request</code> and <code>prompt</code> are missing.
             </span>
           </label>
 
@@ -226,14 +244,35 @@ export function MarketServiceUseForm(props: {
       {result && (
         <div className="auth-success">
           {summary}
-          {orderUrl && (
+          {(orderUrl || imageUrl || videoUrl) && (
             <div className="dashboard-actions" style={{ marginTop: 12 }}>
-              <Link className="auth-button primary" href={orderUrl}>
-                Open queued order
-              </Link>
+              {orderUrl && (
+                <Link className="auth-button primary" href={orderUrl}>
+                  Open queued order
+                </Link>
+              )}
+              {imageUrl && (
+                <a className="auth-button primary" href={imageUrl} target="_blank" rel="noreferrer">
+                  Open image
+                </a>
+              )}
+              {videoUrl && (
+                <a className="auth-button primary" href={videoUrl} target="_blank" rel="noreferrer">
+                  Open video
+                </a>
+              )}
             </div>
           )}
         </div>
+      )}
+      {imageUrl && (
+        <div className="live-view-frame" style={{ maxHeight: "none" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="live-view-image" src={imageUrl} alt="Generated Market service output" />
+        </div>
+      )}
+      {videoUrl && (
+        <video className="live-view-image" src={videoUrl} controls playsInline />
       )}
       {result && (
         <details>
