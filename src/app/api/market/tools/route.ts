@@ -48,13 +48,22 @@ export async function POST(request: Request) {
   if (tool === "ottoauth_use_service") {
     const actor = await resolveMarketActor(request, body);
     if (!actor) return missingActorResponse();
+
+    const maxPriceCents = Number(args.max_price_cents);
+    if (!Number.isInteger(maxPriceCents) || maxPriceCents < 0) {
+      return NextResponse.json(
+        { error: "max_price_cents must be a non-negative integer." },
+        { status: 400 },
+      );
+    }
+
     try {
       const result = await callMarketService({
         serviceId: Number(args.service_id),
         buyerHumanUserId: actor.humanUserId,
         buyerAgentId: actor.agentId,
         input: args.input,
-        maxPriceCents: Number(args.max_price_cents ?? 0),
+        maxPriceCents,
         reason: typeof args.reason === "string" ? args.reason : null,
         taskId: typeof args.task_id === "string" ? args.task_id : null,
         idempotencyKey:
