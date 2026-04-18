@@ -1,6 +1,6 @@
 # ottoauth
 
-Next.js + Turso service for human-linked AI agent fulfillment, human self-serve browser tasks, and marketplace-style extension fulfillers.
+Next.js + Turso service for human-linked AI agent fulfillment, human self-serve browser tasks, and extension/browser fulfillers.
 
 ## Current flow
 
@@ -13,7 +13,7 @@ Next.js + Turso service for human-linked AI agent fulfillment, human self-serve 
 5. The agent submits browser tasks.
 6. OttoAuth fulfills the task on the claimed browser device and debits the human's credits after completion.
 7. Humans can also submit their own tasks at `/orders/new` and watch fulfillment live.
-8. Claimed devices can opt into marketplace fulfillment and receive credits after completing other humans' tasks.
+8. Claimed devices can be enabled or disabled for browser fulfillment and receive credits after completing other humans' tasks.
 
 ## Hosted service availability
 
@@ -40,18 +40,18 @@ Optional auth env vars:
 
 1. **Push your code** to GitHub (or GitLab/Bitbucket).
 
-2. **Import the project** in [Vercel](https://vercel.com): New Project → Import your repo. Leave build/dev settings as default (Next.js is auto-detected).
+2. **Import the project** in [Vercel](https://vercel.com): New Project -> Import your repo. Leave build/dev settings as default (Next.js is auto-detected).
 
-3. **Configure environment variables** in the Vercel project (Settings → Environment Variables):
+3. **Configure environment variables** in the Vercel project (Settings -> Environment Variables):
 
-   - **Production database (required for production):**  
+   - **Production database (required for production):**
      Create a [Turso](https://turso.tech) database and add:
-     - `TURSO_DB_URL` — your database URL (e.g. `libsql://your-db-name.turso.io`)
-     - `TURSO_DB_AUTH_TOKEN` — your database auth token
+     - `TURSO_DB_URL` - your database URL (e.g. `libsql://your-db-name.turso.io`)
+     - `TURSO_DB_AUTH_TOKEN` - your database auth token
 
-   - **Optional:**  
-     - `NEXT_PUBLIC_APP_URL` or `APP_URL` — your canonical URL (e.g. `https://your-app.vercel.app`). If unset, Vercel's `VERCEL_URL` is used so curl commands and links still use the correct domain.
-     - `SLACK_WEBHOOK_URL` — Slack [Incoming Webhook](https://api.slack.com/messaging/webhooks) URL. Agent requests are posted here. Set to different values per environment in Vercel (Production vs Preview) if you want different channels.
+   - **Optional:**
+     - `NEXT_PUBLIC_APP_URL` or `APP_URL` - your canonical URL (e.g. `https://your-app.vercel.app`). If unset, Vercel's `VERCEL_URL` is used so curl commands and links still use the correct domain.
+     - `SLACK_WEBHOOK_URL` - Slack [Incoming Webhook](https://api.slack.com/messaging/webhooks) URL. Agent requests are posted here. Set to different values per environment in Vercel (Production vs Preview) if you want different channels.
 
 4. **Deploy.** Vercel will build and deploy. The app URL will be used automatically for `skill.md` and the homepage curl command.
 
@@ -60,7 +60,7 @@ After deployment, open `https://your-app.vercel.app/skill.md` to confirm the ins
 ## Human dashboard
 
 - `/login` is the human sign-in entrypoint
-- `/dashboard` shows credits, linked agents, claimed devices, marketplace toggles, and recent browser tasks
+- `/dashboard` shows credits, linked agents, claimed devices, enabled/disabled fulfillment controls, and recent browser tasks
 - `/orders/new` lets a human create a browser task directly from the website
 - `/orders/<taskId>` shows the live order page with low-rate execution screenshots and run events
 
