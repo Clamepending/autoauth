@@ -634,7 +634,7 @@ export async function callMarketService(params: {
   if (!rails.includes("ottoauth_ledger")) {
     throw new Error("x402_usdc service calls are not configured in this OttoAuth Pay build yet.");
   }
-  if (service.owner_human_user_id === params.buyerHumanUserId) {
+  if (service.owner_human_user_id === params.buyerHumanUserId && service.price_cents > 0) {
     throw new Error("A service provider cannot pay itself through the market.");
   }
   const balance = await getHumanCreditBalance(params.buyerHumanUserId);
