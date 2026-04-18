@@ -104,6 +104,7 @@ export function MarketNewClient(props: { user: HumanUserRecord }) {
   const [visibility, setVisibility] = useState<"public" | "unlisted">("public");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageTone, setMessageTone] = useState<"success" | "error">("success");
   const [copiedQuickstart, setCopiedQuickstart] = useState<string | null>(null);
 
   async function handleCopy(label: string, value: string) {
@@ -112,6 +113,7 @@ export function MarketNewClient(props: { user: HumanUserRecord }) {
       setCopiedQuickstart(label);
       window.setTimeout(() => setCopiedQuickstart(null), 1400);
     } catch {
+      setMessageTone("error");
       setMessage("Could not copy to clipboard.");
     }
   }
@@ -127,6 +129,7 @@ export function MarketNewClient(props: { user: HumanUserRecord }) {
     setOutputSchema(JSON.stringify(DEMO_OUTPUT_SCHEMA, null, 2));
     setExamples(JSON.stringify(DEMO_EXAMPLES, null, 2));
     setVisibility("public");
+    setMessageTone("success");
     setMessage("Demo values loaded. Replace the endpoint URL after you deploy your route.");
   }
 
@@ -158,11 +161,13 @@ export function MarketNewClient(props: { user: HumanUserRecord }) {
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
+        setMessageTone("error");
         setMessage(body?.error || "Could not publish service.");
         return;
       }
       router.push(`/market/services/${body.service.id}`);
     } catch (error) {
+      setMessageTone("error");
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setSubmitting(false);
@@ -188,7 +193,11 @@ export function MarketNewClient(props: { user: HumanUserRecord }) {
           </div>
         </section>
 
-        {message && <div className="auth-success">{message}</div>}
+        {message && (
+          <div className={messageTone === "error" ? "auth-error" : "auth-success"}>
+            {message}
+          </div>
+        )}
 
         <section className="dashboard-grid wide">
           <article className="dashboard-card dashboard-card-span-2">
