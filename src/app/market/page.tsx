@@ -8,6 +8,7 @@ import {
   serviceRails,
   serviceTags,
 } from "@/lib/market-services";
+import { ensureOfficialMarketServices } from "@/lib/official-market-services";
 import { StandardServicesPublishButton } from "./standard-services-publish-button";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ function MarketDetailRow(props: { label: string; children: ReactNode }) {
 
 export default async function MarketPage({ searchParams }: Props) {
   const query = typeof searchParams?.query === "string" ? searchParams.query : "";
+  await ensureOfficialMarketServices();
   const [services, currentUser] = await Promise.all([
     listMarketServices({ query, limit: 50 }),
     getCurrentHumanUser(),
@@ -99,9 +101,9 @@ export default async function MarketPage({ searchParams }: Props) {
           {services.length === 0 ? (
             <article className="dashboard-card dashboard-card-span-2">
               <div>
-                <div className="supported-accounts-title">No services listed yet</div>
+                <div className="supported-accounts-title">No matching services</div>
                 <p className="dashboard-muted">
-                  The Pi service templates exist in code, but your account still needs to publish them into the Market catalog. Once listed, Snackpass, Instacart, Amazon, Grubhub, email, and eBay will show up here.
+                  No public Market services match this search yet. OttoAuth official media services are listed automatically; Pi/browser services appear after you publish them from your account.
                 </p>
               </div>
               {canPublishPiServices ? (
