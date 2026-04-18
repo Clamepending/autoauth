@@ -4,6 +4,7 @@ import {
   createMarketService,
   listMarketServices,
 } from "@/lib/market-services";
+import { ensureOfficialMarketServices } from "@/lib/official-market-services";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ function parseLimit(value: string | null, fallback: number) {
 }
 
 export async function GET(request: Request) {
+  await ensureOfficialMarketServices();
   const url = new URL(request.url);
   const services = await listMarketServices({
     query: url.searchParams.get("query"),
