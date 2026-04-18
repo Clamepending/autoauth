@@ -7,12 +7,17 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function parseLimit(value: string | null, fallback: number) {
+  const parsed = Number(value ?? fallback);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const services = await listMarketServices({
     query: url.searchParams.get("query"),
     includeUnlisted: url.searchParams.get("include_unlisted") === "1",
-    limit: Number(url.searchParams.get("limit") || 50),
+    limit: parseLimit(url.searchParams.get("limit"), 50),
   });
   return NextResponse.json({ services });
 }
