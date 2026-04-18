@@ -51,6 +51,29 @@ function optionalPositiveInt(value: unknown) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function formatStructuredValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => formatStructuredValue(item))
+      .filter(Boolean)
+      .join(", ");
+  }
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return "";
+}
+
+function detailLine(label: string, value: unknown) {
+  const formatted = formatStructuredValue(value);
+  return formatted ? `${label}: ${formatted}` : null;
+}
+
+function centsLine(label: string, value: unknown) {
+  const cents = optionalPositiveInt(value);
+  return cents == null ? null : `${label}: $${(cents / 100).toFixed(2)}`;
+}
+
 function buildBuyerPrompt(params: {
   definitionName: string;
   promptPrefix: string;
@@ -63,19 +86,48 @@ function buildBuyerPrompt(params: {
     params.input.prompt,
     params.input.order,
     params.input.item,
+    params.input.search_query,
+    params.input.item_url,
+    params.input.listing_url,
     params.reason,
   ]);
-  if (!request) return "";
-
   const fulfillmentMethod = firstString([
     params.input.fulfillment_method,
     params.input.method,
   ]);
   const notes = firstString([params.input.notes, params.input.instructions]);
+  const emailBody = firstString([
+    params.input.body,
+    params.input.email_body,
+    params.input.message,
+  ]);
+  const structuredDetails = [
+    detailLine("Email to", params.input.to ?? params.input.email_to ?? params.input.recipient),
+    detailLine("Email CC", params.input.cc),
+    detailLine("Email BCC", params.input.bcc),
+    detailLine("Email subject", params.input.subject),
+    emailBody ? `Email body:\n${emailBody}` : null,
+    detailLine("Send mode", params.input.send_mode),
+    detailLine("Listing URL", params.input.item_url ?? params.input.listing_url ?? params.input.url),
+    detailLine("Search query", params.input.search_query),
+    centsLine(
+      "Max item price",
+      params.input.max_item_price_cents ?? params.input.max_price_cents,
+    ),
+    detailLine("Requested condition", params.input.condition),
+    detailLine("Buy It Now only", params.input.buy_now_only),
+    detailLine("Quantity", params.input.quantity),
+  ].filter((part): part is string => Boolean(part));
+
+  if (!request && !fulfillmentMethod && !notes && structuredDetails.length === 0) {
+    return "";
+  }
+
   const parts = [
     params.promptPrefix,
-    `Buyer request: ${request}`,
+    request ? `Buyer request for ${params.definitionName}: ${request}` : null,
     fulfillmentMethod ? `Requested fulfillment method: ${fulfillmentMethod}` : null,
+    ...structuredDetails,
     notes ? `Additional requester notes: ${notes}` : null,
   ].filter((part): part is string => Boolean(part));
 
@@ -127,7 +179,7 @@ export async function POST(request: Request, context: Context) {
   });
   if (!taskPrompt) {
     return NextResponse.json(
-      { error: "input.request is required for this fulfillment service." },
+      { error: "A request or structured service input is required for this fulfillment service." },
       { status: 400 },
     );
   }
