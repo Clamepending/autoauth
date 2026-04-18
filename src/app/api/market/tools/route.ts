@@ -25,12 +25,21 @@ export async function POST(request: Request) {
   }
 
   if (tool === "ottoauth_get_payment_status") {
+    const actor = await resolveMarketActor(request, body);
+    if (!actor) return missingActorResponse();
+
     const callId = typeof args.call_id === "string" ? args.call_id : "";
     if (!callId) {
       return NextResponse.json({ error: "call_id is required." }, { status: 400 });
     }
     const call = await getMarketServiceCallById(callId);
     if (!call) {
+      return NextResponse.json({ error: "Payment call not found." }, { status: 404 });
+    }
+    if (
+      call.buyer_human_user_id !== actor.humanUserId &&
+      call.provider_human_user_id !== actor.humanUserId
+    ) {
       return NextResponse.json({ error: "Payment call not found." }, { status: 404 });
     }
     return NextResponse.json({ call });
