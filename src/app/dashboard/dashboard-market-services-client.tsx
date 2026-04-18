@@ -36,7 +36,7 @@ export function DashboardMarketServicesClient(props: {
         return;
       }
       setMessage(
-        `Listed ${payload?.services?.length ?? 4} services for ${payload?.agent?.username_display || "your agent"}.`,
+        `Listed ${payload?.services?.length ?? 6} services for ${payload?.agent?.username_display || "your agent"}.`,
       );
       window.location.reload();
     } finally {
@@ -79,7 +79,7 @@ export function DashboardMarketServicesClient(props: {
 
             {props.linkedAgents.length === 0 && (
               <p className="dashboard-muted">
-                Link an agent first, then you can list standard Snackpass, Instacart, Amazon, and Grubhub services.
+                Link an agent first, then you can list standard Snackpass, Instacart, Amazon, Grubhub, email, and eBay services.
               </p>
             )}
             {props.linkedAgents.length > 0 && enabledDeviceCount === 0 && (
@@ -91,7 +91,7 @@ export function DashboardMarketServicesClient(props: {
             <div className="dashboard-list">
               {props.marketServices.length === 0 ? (
                 <div className="dashboard-empty">
-                  You are not selling any Market services yet. Use "List Pi services" to publish the four standard browser fulfillment offerings.
+                  You are not selling any Market services yet. Use "List Pi services" to publish the standard browser fulfillment offerings.
                 </div>
               ) : (
                 props.marketServices.map((service) => (
