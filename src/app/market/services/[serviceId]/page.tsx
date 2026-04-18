@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getCurrentHumanUser } from "@/lib/human-session";
 import {
   centsToUsd,
   getMarketServiceById,
@@ -27,8 +28,12 @@ function prettyJson(value: string | null) {
 export default async function MarketServicePage({ params }: Props) {
   const serviceId = Number(params.serviceId);
   if (!Number.isInteger(serviceId) || serviceId <= 0) notFound();
-  const service = await getMarketServiceById(serviceId);
-  if (!service || service.status !== "enabled") notFound();
+  const [service, currentHuman] = await Promise.all([
+    getMarketServiceById(serviceId),
+    getCurrentHumanUser().catch(() => null),
+  ]);
+  const canEdit = currentHuman?.id === service?.owner_human_user_id;
+  if (!service || (service.status !== "enabled" && !canEdit)) notFound();
   const tags = serviceTags(service);
 
   return (
@@ -44,6 +49,11 @@ export default async function MarketServicePage({ params }: Props) {
             <Link className="auth-button" href="/market">
               Back to Market
             </Link>
+            {canEdit && (
+              <Link className="auth-button primary" href={`/market/services/${service.id}/edit`}>
+                Edit service
+              </Link>
+            )}
           </div>
         </section>
 
@@ -62,6 +72,14 @@ export default async function MarketServicePage({ params }: Props) {
               <div className="dashboard-row">
                 <span>Price</span>
                 <strong>{centsToUsd(service.price_cents)}</strong>
+              </div>
+              <div className="dashboard-row">
+                <span>Status</span>
+                <strong>{service.status}</strong>
+              </div>
+              <div className="dashboard-row">
+                <span>Visibility</span>
+                <strong>{service.visibility}</strong>
               </div>
               <div className="dashboard-row">
                 <span>Rails</span>
