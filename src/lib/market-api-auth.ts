@@ -36,13 +36,13 @@ async function resolveAgentActor(request: Request): Promise<MarketActor | null> 
     null;
   if (!privateKey) return null;
 
-  const agent = await getAgentByPrivateKey(privateKey);
+  const agent = await getAgentByPrivateKey(privateKey).catch(() => null);
   if (!agent) return null;
 
-  const humanLink = await getHumanLinkForAgentUsername(agent.username_lower);
-  if (!humanLink) {
-    throw new Error("This agent is not linked to a human OttoAuth account.");
-  }
+  const humanLink = await getHumanLinkForAgentUsername(agent.username_lower).catch(
+    () => null,
+  );
+  if (!humanLink) return null;
 
   return {
     humanUserId: humanLink.human_user_id,
@@ -104,7 +104,7 @@ export function missingActorResponse() {
   return NextResponse.json(
     {
       error:
-        "Missing market actor. Sign in to OttoAuth or authenticate an agent with Authorization: Bearer <agent_private_key>.",
+        "Missing market actor. Sign in to OttoAuth or authenticate a linked agent with Authorization: Bearer <agent_private_key>.",
     },
     { status: 401 },
   );
