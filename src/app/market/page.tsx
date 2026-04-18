@@ -34,6 +34,9 @@ export default async function MarketPage({ searchParams }: Props) {
             <Link className="auth-button" href="/dashboard">
               Dashboard
             </Link>
+            <Link className="auth-button" href="/market/new">
+              Publish service
+            </Link>
             <Link className="auth-button primary" href="/orders/new">
               New order
             </Link>
