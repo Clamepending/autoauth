@@ -8,6 +8,11 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function parseLimit(value: unknown, fallback: number) {
+  const parsed = Number(value ?? fallback);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const tool = typeof body?.tool === "string" ? body.tool : "";
@@ -19,7 +24,7 @@ export async function POST(request: Request) {
   if (tool === "ottoauth_search_market") {
     const services = await listMarketServices({
       query: typeof args.query === "string" ? args.query : "",
-      limit: Number(args.limit ?? 10),
+      limit: parseLimit(args.limit, 10),
     });
     return NextResponse.json({ services });
   }
