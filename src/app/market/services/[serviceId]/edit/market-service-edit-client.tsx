@@ -28,7 +28,9 @@ function parseTags(value: string) {
     if (Array.isArray(parsed)) {
       return parsed.map((tag) => String(tag)).join(", ");
     }
-  } catch {}
+  } catch {
+    return "";
+  }
   return "";
 }
 
