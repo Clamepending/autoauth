@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { getLinkedAgentsForHuman } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
 import {
@@ -16,6 +17,31 @@ type Props = {
     query?: string;
   };
 };
+
+function MarketDetailRow(props: { label: string; children: ReactNode }) {
+  return (
+    <div
+      className="dashboard-row"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 7.5rem) minmax(0, 1fr)",
+        alignItems: "start",
+      }}
+    >
+      <span style={{ minWidth: 0 }}>{props.label}</span>
+      <strong
+        style={{
+          minWidth: 0,
+          overflowWrap: "anywhere",
+          textAlign: "right",
+          wordBreak: "break-word",
+        }}
+      >
+        {props.children}
+      </strong>
+    </div>
+  );
+}
 
 export default async function MarketPage({ searchParams }: Props) {
   const query = typeof searchParams?.query === "string" ? searchParams.query : "";
@@ -69,7 +95,7 @@ export default async function MarketPage({ searchParams }: Props) {
           </form>
         </section>
 
-        <section className="dashboard-grid">
+        <section className="dashboard-grid wide">
           {services.length === 0 ? (
             <article className="dashboard-card dashboard-card-span-2">
               <div>
@@ -102,22 +128,18 @@ export default async function MarketPage({ searchParams }: Props) {
                   <div className="supported-accounts-title">{service.name}</div>
                   <p className="dashboard-muted">{service.description || service.capability}</p>
                   <div className="dashboard-list">
-                    <div className="dashboard-row">
-                      <span>Capability</span>
-                      <strong>{service.capability}</strong>
-                    </div>
-                    <div className="dashboard-row">
-                      <span>Price</span>
-                      <strong>{centsToUsd(service.price_cents)}</strong>
-                    </div>
-                    <div className="dashboard-row">
-                      <span>Provider</span>
-                      <strong>{service.owner_agent_username_lower || `Human #${service.owner_human_user_id}`}</strong>
-                    </div>
-                    <div className="dashboard-row">
-                      <span>Rails</span>
-                      <strong>{serviceRails(service).join(", ")}</strong>
-                    </div>
+                    <MarketDetailRow label="Capability">
+                      {service.capability}
+                    </MarketDetailRow>
+                    <MarketDetailRow label="Price">
+                      {centsToUsd(service.price_cents)}
+                    </MarketDetailRow>
+                    <MarketDetailRow label="Provider">
+                      {service.owner_agent_username_lower || `Human #${service.owner_human_user_id}`}
+                    </MarketDetailRow>
+                    <MarketDetailRow label="Rails">
+                      {serviceRails(service).join(", ")}
+                    </MarketDetailRow>
                   </div>
                   {tags.length > 0 && (
                     <div className="dashboard-actions">
