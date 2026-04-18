@@ -91,7 +91,7 @@ export function DashboardMarketServicesClient(props: {
             <div className="dashboard-list">
               {props.marketServices.length === 0 ? (
                 <div className="dashboard-empty">
-                  You are not selling any Market services yet. Use “List Pi services” to publish the four standard browser fulfillment offerings.
+                  You are not selling any Market services yet. Use "List Pi services" to publish the four standard browser fulfillment offerings.
                 </div>
               ) : (
                 props.marketServices.map((service) => (
@@ -100,12 +100,12 @@ export function DashboardMarketServicesClient(props: {
                       <strong>{service.name}</strong>
                       <div className="dashboard-muted mono">{service.capability}</div>
                       <div className="dashboard-muted">
-                        Provider {service.owner_agent_username_lower ? `@${service.owner_agent_username_lower}` : `Human #${service.owner_human_user_id}`} · {service.status} · {service.visibility}
+                        Provider {service.owner_agent_username_lower ? `@${service.owner_agent_username_lower}` : `Human #${service.owner_human_user_id}`} - {service.status} - {service.visibility}
                       </div>
                     </div>
                     <div className="dashboard-device-actions">
                       <div className="dashboard-muted">
-                        {fmtUsd(service.price_cents)} service fee · {service.call_count} call{service.call_count === 1 ? "" : "s"}
+                        {fmtUsd(service.price_cents)} service fee - {service.call_count} call{service.call_count === 1 ? "" : "s"}
                       </div>
                       <Link className="auth-button" href={`/market/services/${service.id}`}>
                         View
