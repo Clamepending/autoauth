@@ -12,6 +12,7 @@ import {
 } from "@/lib/generic-browser-tasks";
 import { getHumanUserById } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
+import { withPickupNameInOrderNumberDisplay } from "@/lib/order-pickup-display";
 import { OrderDetailClient } from "./order-detail-client";
 
 type Props = {
@@ -60,7 +61,7 @@ export default async function OrderDetailPage({ params }: Props) {
       taskId={task.id}
       initialData={{
         ok: true,
-        task: formatGenericTaskForApi(task, user),
+        task: withPickupNameInOrderNumberDisplay(formatGenericTaskForApi(task, user)),
         viewer_role:
           task.human_user_id === user.id
             ? "requester"
