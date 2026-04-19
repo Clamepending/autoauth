@@ -36,5 +36,5 @@ export function withPickupNameInOrderNumberDisplay<T extends ApiTaskWithPickupDe
       ...details,
       order_number: `${orderNumber} - Name: ${pickupName}`,
     },
-  };
+  } as T;
 }
