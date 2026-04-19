@@ -12,6 +12,7 @@ import {
 } from "@/lib/generic-browser-tasks";
 import { getHumanUserById } from "@/lib/human-accounts";
 import { requireCurrentHumanUser } from "@/lib/human-session";
+import { withPickupNameInOrderNumberDisplay } from "@/lib/order-pickup-display";
 
 type Context = {
   params: {
@@ -55,7 +56,7 @@ export async function GET(_request: Request, context: Context) {
 
   return NextResponse.json({
     ok: true,
-    task: formatGenericTaskForApi(task, user),
+    task: withPickupNameInOrderNumberDisplay(formatGenericTaskForApi(task, user)),
     viewer_role:
       task.human_user_id === user.id
         ? "requester"
