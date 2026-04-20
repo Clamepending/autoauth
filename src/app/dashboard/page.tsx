@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { CurrentBrowserFulfillmentClient } from "./current-browser-fulfillment-client";
 import { DashboardClient } from "./dashboard-client";
 import { getBaseUrl } from "@/lib/base-url";
 import { listComputerUseDevicesForHuman } from "@/lib/computeruse-store";
@@ -40,16 +41,19 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <DashboardClient
-      user={user}
-      referralLink={`${baseUrl}/login?ref=${user.id}`}
-      referralStats={referralStats}
-      balanceCents={balanceCents}
-      linkedAgents={linkedAgents}
-      devices={devices}
-      pairingCodes={pairingCodes}
-      ledger={ledger}
-      fulfillmentStats={fulfillmentStats}
-    />
+    <>
+      <CurrentBrowserFulfillmentClient serverUrl={baseUrl} />
+      <DashboardClient
+        user={user}
+        referralLink={`${baseUrl}/login?ref=${user.id}`}
+        referralStats={referralStats}
+        balanceCents={balanceCents}
+        linkedAgents={linkedAgents}
+        devices={devices}
+        pairingCodes={pairingCodes}
+        ledger={ledger}
+        fulfillmentStats={fulfillmentStats}
+      />
+    </>
   );
 }
