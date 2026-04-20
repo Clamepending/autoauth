@@ -14,6 +14,17 @@
     "storage"
   ],
   "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://ottoauth.vercel.app/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["ottoauth-dashboard-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "side_panel": {
     "default_path": "sidepanel.html"
   },
