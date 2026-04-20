@@ -35,14 +35,18 @@ function parseUsdToCents(value: string) {
 
 function buildOrderPrompt(params: {
   storeLabel: string;
+  merchantName: string;
   itemName: string;
   orderDetails: string;
   fulfillmentPreference: FulfillmentPreference;
   deliveryAddress: string;
   extraInstructions: string;
 }) {
+  const merchantName = params.merchantName.trim();
+  const storeTarget = merchantName ? `${merchantName} on ${params.storeLabel}` : params.storeLabel;
   const parts = [
-    `Store: ${params.storeLabel}`,
+    `Platform: ${params.storeLabel}`,
+    merchantName ? `Store or merchant name: ${merchantName}` : null,
     `Fulfillment method: ${params.fulfillmentPreference}`,
     `Item name: ${params.itemName.trim()}`,
     params.orderDetails.trim()
@@ -56,11 +60,12 @@ function buildOrderPrompt(params: {
       : null,
   ].filter((part): part is string => Boolean(part));
 
-  return `Please place this ${params.fulfillmentPreference} order on ${params.storeLabel}.\n\n${parts.join("\n")}`;
+  return `Please place this ${params.fulfillmentPreference} order from ${storeTarget}.\n\n${parts.join("\n")}`;
 }
 
 export function NewOrderClient() {
   const [storeId, setStoreId] = useState<StoreId>("snackpass");
+  const [merchantName, setMerchantName] = useState("");
   const [itemName, setItemName] = useState("");
   const [orderDetails, setOrderDetails] = useState("");
   const [fulfillmentPreference, setFulfillmentPreference] = useState<FulfillmentPreference>("pickup");
@@ -74,6 +79,7 @@ export function NewOrderClient() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const selectedStore = STORE_OPTIONS.find((store) => store.id === storeId) ?? STORE_OPTIONS[0];
+    const merchant = merchantName.trim();
     const item = itemName.trim();
     const address = deliveryAddress.trim();
 
@@ -92,12 +98,14 @@ export function NewOrderClient() {
       const maxChargeCents = parseUsdToCents(maxChargeUsd);
       const taskPrompt = buildOrderPrompt({
         storeLabel: selectedStore.label,
+        merchantName: merchant,
         itemName: item,
         orderDetails,
         fulfillmentPreference,
         deliveryAddress: address,
         extraInstructions,
       });
+      const taskTitle = merchant ? `${merchant} (${selectedStore.label}): ${item}` : `${selectedStore.label}: ${item}`;
       const response = await fetch("/api/human/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,7 +113,7 @@ export function NewOrderClient() {
           website_url: selectedStore.url,
           shipping_address: fulfillmentPreference === "delivery" ? address : undefined,
           task_prompt: taskPrompt,
-          task_title: `${selectedStore.label}: ${item}`,
+          task_title: taskTitle,
           max_charge_cents: maxChargeCents ?? undefined,
           fulfillment_mode: fulfillmentMode,
         }),
@@ -146,7 +154,7 @@ export function NewOrderClient() {
             <div className="supported-accounts-title">Order Request</div>
             <form className="stack-form" onSubmit={handleSubmit}>
               <label className="stack-form">
-                <span className="supported-accounts-title">Store</span>
+                <span className="supported-accounts-title">Platform</span>
                 <select
                   className="auth-input"
                   value={storeId}
@@ -158,6 +166,16 @@ export function NewOrderClient() {
                     </option>
                   ))}
                 </select>
+              </label>
+
+              <label className="stack-form">
+                <span className="supported-accounts-title">Store name</span>
+                <input
+                  className="auth-input"
+                  value={merchantName}
+                  onChange={(event) => setMerchantName(event.target.value)}
+                  placeholder="Example: Little Plearn, Safeway, Target, seller name, restaurant name"
+                />
               </label>
 
               <label className="stack-form">
@@ -245,7 +263,7 @@ export function NewOrderClient() {
               </label>
 
               <div className="dashboard-muted">
-                OttoAuth turns these fields into a clear browser task for the fulfiller. Specific details reduce checkout mistakes.
+                OttoAuth turns these fields into a clear browser task for the fulfiller. Platform plus store name helps the browser agent find the right merchant quickly.
               </div>
 
               <button className="auth-button primary" type="submit" disabled={submitting}>
@@ -269,7 +287,7 @@ export function NewOrderClient() {
                 <div>
                   <strong>2. The browser agent follows the structured request</strong>
                   <div className="dashboard-muted">
-                    Store, item, modifiers, pickup/delivery, address, tip, and substitutions are included in the task prompt.
+                    Platform, store name, item, modifiers, pickup/delivery, address, tip, and substitutions are included in the task prompt.
                   </div>
                 </div>
               </div>
