@@ -42,7 +42,6 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <CurrentBrowserFulfillmentClient serverUrl={baseUrl} />
       <DashboardClient
         user={user}
         referralLink={`${baseUrl}/login?ref=${user.id}`}
@@ -54,6 +53,7 @@ export default async function DashboardPage() {
         ledger={ledger}
         fulfillmentStats={fulfillmentStats}
       />
+      <CurrentBrowserFulfillmentClient serverUrl={baseUrl} />
     </>
   );
 }
