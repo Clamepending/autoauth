@@ -44,12 +44,12 @@ function postBridgeRequest<T>(action: BridgeAction, payload?: Record<string, unk
     const requestId = `ottoauth-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let timeoutId = 0;
 
-    const cleanup = () => {
+    function cleanup() {
       window.clearTimeout(timeoutId);
       window.removeEventListener("message", onMessage);
-    };
+    }
 
-    const onMessage = (event: MessageEvent) => {
+    function onMessage(event: MessageEvent) {
       if (event.source !== window) return;
 
       const message = event.data as unknown;
@@ -69,7 +69,7 @@ function postBridgeRequest<T>(action: BridgeAction, payload?: Record<string, unk
             : "The OttoAuth Chrome extension rejected the request.",
         ),
       );
-    };
+    }
 
     timeoutId = window.setTimeout(() => {
       cleanup();
