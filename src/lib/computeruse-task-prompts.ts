@@ -33,6 +33,11 @@ export function normalizeOptionalShippingAddress(value: unknown) {
   return normalized;
 }
 
+function extractStructuredMerchantName(prompt: string) {
+  const match = prompt.match(/^Store or merchant name:\s*(.+)$/im);
+  return match?.[1]?.trim() || null;
+}
+
 export function buildGenericTaskGoal(params: {
   originalPrompt: string;
   maxChargeCents: number;
@@ -44,8 +49,32 @@ export function buildGenericTaskGoal(params: {
 }) {
   const clarificationTimeoutLabel = getAgentClarificationTimeoutLabel();
   const spendCapUsd = `$${(params.maxChargeCents / 100).toFixed(2)}`;
+  const originalPromptLower = params.originalPrompt.toLowerCase();
+  const websiteHost = (() => {
+    if (!params.websiteUrl) return null;
+    try {
+      return new URL(params.websiteUrl).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  })();
+  const isSnackpassTask =
+    websiteHost?.includes("snackpass.co") || originalPromptLower.includes("snackpass");
+  const snackpassMerchantName = extractStructuredMerchantName(params.originalPrompt);
+  const snackpassSearchQuery = snackpassMerchantName
+    ? `"${snackpassMerchantName}" Snackpass`
+    : "the requested store name plus Snackpass";
   const websiteSection = params.websiteUrl
-    ? `
+    ? isSnackpassTask
+      ? `
+Preferred website:
+- This is a Snackpass order. Do not begin by browsing the generic Snackpass marketing homepage.
+- First find the store-specific Snackpass ordering page by searching the browser address/search bar for ${snackpassSearchQuery}.
+- Prefer a result on order.snackpass.co or another official Snackpass ordering URL for the requested store.
+- Do not open news, blog, map, social, or guide results merely because they mention Snackpass; ignore results like Daily Cal articles or generic Snackpass cheat sheets.
+- If you land on www.snackpass.co without a store menu, immediately search for ${snackpassSearchQuery} or use order.snackpass.co's own store search instead of exploring the homepage.
+- Stay on Snackpass ordering pages once you find the requested store.`
+      : `
 Preferred website:
 - Start on ${params.websiteUrl}.
 - Stay on that website unless the task clearly requires leaving it.`
@@ -77,23 +106,16 @@ Food ordering policy:
 Grocery policy:
 - If the task is about grocery delivery and no preferred website is provided, prefer Instacart before generic web search or merchant-owned grocery sites.`
     : "";
-  const websiteHost = (() => {
-    if (!params.websiteUrl) return null;
-    try {
-      return new URL(params.websiteUrl).hostname.toLowerCase();
-    } catch {
-      return null;
-    }
-  })();
-  const snackpassSection =
-    websiteHost?.includes("snackpass.co") ||
-    params.originalPrompt.toLowerCase().includes("snackpass")
-      ? `
+  const snackpassSection = isSnackpassTask
+    ? `
 Snackpass note:
+- For Snackpass tasks, the first milestone is the requested store's Snackpass menu, not the Snackpass public homepage.
+- Search for ${snackpassSearchQuery} and choose the official Snackpass ordering result for that store.
+- If search results include articles, guides, campus newspaper pages, or other pages about Snackpass, skip them unless they directly link to the official store-specific Snackpass ordering page.
 - After checkout, do not stop on the Receipt tab if it omits the operational pickup info.
 - Switch to the Order tab or active order status view and read the order number and ready time shown there.
 - End on the screen that best exposes the order number, pickup code, or active order status for the human.`
-      : "";
+    : "";
   const clarificationMode = params.clarificationMode ?? "no_reply_channel";
   const clarificationInstruction =
     clarificationMode === "agent_webhook"
