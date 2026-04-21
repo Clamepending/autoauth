@@ -3,10 +3,12 @@ import { MAX_TOKENS, MODEL, BETAS, MAX_TOOL_RESULT_CHARS_IN_HISTORY } from '../.
 import { sendToBackground } from '../../shared/messaging';
 import type { TabInfo } from '../../shared/types';
 import { buildSystemPrompt, buildTabContextReminder } from './systemPrompt';
-import { getToolDefinitions } from './toolDefinitions';
+import { getToolDefinitions, refreshMacroTools } from './toolDefinitions';
 import { executeTool } from './toolExecutor';
 import { permissionManager } from './permissions';
 import { useStore, type DisplayBlock } from '../store';
+import { startTrace, finalizeTrace } from './traceLogger';
+import { maybeRunMiningPass, loadMacros } from './macroMiner';
 
 type ApiMessage = {
   role: 'user' | 'assistant';
@@ -94,9 +96,11 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
   store.setIsRunning(true);
   store.setError(null);
   permissionManager.setMode(store.permissionMode);
+  startTrace(userPrompt);
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
+  let taskSucceeded = false;
   try {
     const tabsResp = await sendToBackground({ type: 'tabs-context' });
     let tabs: TabInfo[] = (tabsResp.data as TabInfo[]) || [];
@@ -115,10 +119,20 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
       await sendToBackground({ type: 'enable-network-capture', tabId: activeTab.id });
     }
 
-    const systemPrompt = buildSystemPrompt(tabs);
+    await refreshMacroTools().catch(() => {});
+    const currentMacros = await loadMacros().catch(() => []);
+    const systemPrompt = buildSystemPrompt(tabs, currentMacros);
+
+    let augmentedPrompt = userPrompt;
+    if (currentMacros.length > 0) {
+      const macroList = currentMacros
+        .map((m) => `  - macro_${m.name}(${m.parameters.map((p) => p.name).join(', ')}): ${m.description}`)
+        .join('\n');
+      augmentedPrompt = `${userPrompt}\n\n[SYSTEM: You have ${currentMacros.length} macro(s) available. USE THEM instead of doing steps manually:\n${macroList}\nCall the matching macro as your FIRST action for any sub-task it covers.]`;
+    }
 
     const messages: ApiMessage[] = [
-      { role: 'user', content: userPrompt },
+      { role: 'user', content: augmentedPrompt },
     ];
 
     const msgId = `msg_${Date.now()}`;
@@ -303,6 +317,7 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
 
       messages.push({ role: 'user', content: toolResults });
     }
+    taskSucceeded = !useStore.getState().error;
   } catch (e: unknown) {
     const errMsg = e instanceof Error ? e.message : String(e);
     useStore.getState().setError(errMsg);
@@ -310,5 +325,12 @@ export async function runAgentLoop(userPrompt: string): Promise<void> {
     await sendToBackground({ type: 'cdp-detach-all' }).catch(() => {});
     useStore.getState().setIsRunning(false);
     useStore.getState().setCurrentTool(null);
+
+    const domain = await finalizeTrace(taskSucceeded).catch(() => null);
+    if (domain && apiKey) {
+      maybeRunMiningPass(domain, apiKey).catch((e) =>
+        console.error('[MacroMining] mining pass failed:', e),
+      );
+    }
   }
 }

@@ -1,3 +1,38 @@
+import { loadMacros, type Macro } from './macroMiner';
+
+let cachedMacroTools: ReturnType<typeof macroToToolDef>[] = [];
+
+export function macroToToolDef(macro: Macro) {
+  const properties: Record<string, { type: string; description: string }> = {};
+  const required: string[] = [];
+
+  for (const param of macro.parameters) {
+    properties[param.name] = {
+      type: param.type === 'number' ? 'number' : 'string',
+      description: param.description,
+    };
+    required.push(param.name);
+  }
+
+  return {
+    name: `macro_${macro.name}`,
+    description: `[MACRO] ${macro.description}${macro.trigger ? ` Use when: ${macro.trigger}` : ''}. This is a pre-recorded workflow that executes instantly without step-by-step reasoning.`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        ...properties,
+        tabId: { type: 'number', description: 'Tab ID to run the macro on.' },
+      },
+      required: [...required, 'tabId'],
+    },
+  };
+}
+
+export async function refreshMacroTools(): Promise<void> {
+  const macros = await loadMacros();
+  cachedMacroTools = macros.map(macroToToolDef);
+}
+
 export function getToolDefinitions(viewportWidth: number, viewportHeight: number) {
   return [
     {
@@ -205,5 +240,6 @@ export function getToolDefinitions(viewportWidth: number, viewportHeight: number
         required: [],
       },
     },
+    ...cachedMacroTools,
   ];
 }

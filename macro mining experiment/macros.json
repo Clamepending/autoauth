@@ -1,0 +1,89 @@
+[
+  {
+    "id": "macro_www_amazon_com_search_and_add_product",
+    "name": "search_and_add_product",
+    "domain": "www.amazon.com",
+    "description": "Search for a product on Amazon and add a specific item to the shopping cart.",
+    "trigger": "When the user wants to find and purchase a product by searching for it on Amazon.",
+    "parameters": [
+      {
+        "name": "search_query",
+        "type": "string",
+        "description": "The product search term to enter in the Amazon search box (e.g., 'wireless headphones')"
+      },
+      {
+        "name": "product_link_text",
+        "type": "string",
+        "description": "The exact display name of the product link to click from search results (e.g., 'Sony WH-1000XM5 Wireless Headphones')"
+      }
+    ],
+    "steps": [
+      {
+        "tool": "navigate",
+        "action": null,
+        "inputTemplate": {
+          "url": "https://www.amazon.com/"
+        },
+        "semanticTarget": null
+      },
+      {
+        "tool": "computer",
+        "action": "left_click",
+        "inputTemplate": {
+          "tabId": "{{tabId}}"
+        },
+        "semanticTarget": {
+          "role": "searchbox",
+          "name": "Search Amazon.com",
+          "description": "Amazon search input field"
+        }
+      },
+      {
+        "tool": "computer",
+        "action": "type",
+        "inputTemplate": {
+          "text": "{{search_query}}",
+          "tabId": "{{tabId}}"
+        },
+        "semanticTarget": null
+      },
+      {
+        "tool": "computer",
+        "action": "key",
+        "inputTemplate": {
+          "text": "Enter",
+          "tabId": "{{tabId}}"
+        },
+        "semanticTarget": null
+      },
+      {
+        "tool": "computer",
+        "action": "left_click",
+        "inputTemplate": {
+          "tabId": "{{tabId}}"
+        },
+        "semanticTarget": {
+          "role": "link",
+          "name": "{{product_link_text}}",
+          "description": "Product search result link"
+        }
+      },
+      {
+        "tool": "computer",
+        "action": "left_click",
+        "inputTemplate": {
+          "tabId": "{{tabId}}"
+        },
+        "semanticTarget": {
+          "role": "button",
+          "name": "Add to Cart",
+          "description": "Button to add the selected product to shopping cart"
+        }
+      }
+    ],
+    "sourceTraceCount": 4,
+    "confidence": 0.92,
+    "chainWeight": 4,
+    "chainLength": 6
+  }
+]

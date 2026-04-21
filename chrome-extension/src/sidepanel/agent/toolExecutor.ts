@@ -8,6 +8,8 @@ import { extractPageText } from '../../content/pageText';
 import { useStore } from '../store';
 import { permissionManager } from './permissions';
 import Anthropic from '@anthropic-ai/sdk';
+import { logEvent, type SemanticTarget } from './traceLogger';
+import { executeMacro } from './macroExecutor';
 
 const screenshotStore = new Map<string, string>();
 let screenshotCounter = 0;
@@ -109,6 +111,75 @@ function parseModifiers(modifiers?: string): number {
 }
 
 const BUTTON_TO_BUTTONS: Record<string, number> = { left: 1, right: 2, middle: 4 };
+
+export async function resolveRefToSemantic(tabId: number, ref: string): Promise<SemanticTarget | null> {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (refId: string) => {
+        const ROLE_MAP: Record<string, string> = {
+          A: 'link', BUTTON: 'button', INPUT: 'textbox', TEXTAREA: 'textarea',
+          SELECT: 'combobox', IMG: 'image', H1: 'heading', H2: 'heading',
+          H3: 'heading', H4: 'heading', H5: 'heading', H6: 'heading',
+        };
+        const INPUT_TYPE_ROLES: Record<string, string> = {
+          checkbox: 'checkbox', radio: 'radio', range: 'slider', number: 'spinbutton',
+          search: 'searchbox', submit: 'button', reset: 'button', button: 'button', file: 'file',
+        };
+
+        const w = window as unknown as { __claudeElementMap?: Record<string, WeakRef<Element>> };
+        const el = w.__claudeElementMap?.[refId]?.deref();
+        if (!el) return null;
+
+        const tag = el.tagName;
+        const ariaRole = el.getAttribute('role');
+        let role = ariaRole || '';
+        if (!role && tag === 'INPUT') {
+          const inputType = (el as HTMLInputElement).type || 'text';
+          role = INPUT_TYPE_ROLES[inputType] || 'textbox';
+        }
+        if (!role) role = ROLE_MAP[tag] || tag.toLowerCase();
+
+        const ariaLabel = el.getAttribute('aria-label');
+        let name = ariaLabel || '';
+        if (!name) {
+          const labelledBy = el.getAttribute('aria-labelledby');
+          if (labelledBy) {
+            const labelEl = document.getElementById(labelledBy);
+            if (labelEl) name = labelEl.textContent?.trim() || '';
+          }
+        }
+        if (!name && (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT')) {
+          const inputEl = el as HTMLInputElement;
+          if (inputEl.id) {
+            const label = document.querySelector(`label[for="${inputEl.id}"]`);
+            if (label) name = label.textContent?.trim() || '';
+          }
+          if (!name) name = inputEl.placeholder || inputEl.title || '';
+        }
+        if (!name && tag === 'IMG') name = (el as HTMLImageElement).alt || '';
+        if (!name && (tag === 'A' || tag === 'BUTTON' || tag === 'SUMMARY')) {
+          name = el.textContent?.trim().slice(0, 120) || '';
+        }
+        if (!name) name = el.getAttribute('title') || el.textContent?.trim().slice(0, 80) || '';
+
+        const inputType = tag === 'INPUT' ? (el as HTMLInputElement).type || 'text' : undefined;
+
+        return { role, name, tag, inputType };
+      },
+      args: [ref],
+    });
+    return results?.[0]?.result as SemanticTarget | null;
+  } catch {
+    return null;
+  }
+}
+
+function extractRefFromInput(tool: string, input: Record<string, unknown>): string | null {
+  if (input.ref && typeof input.ref === 'string') return input.ref as string;
+  if (tool === 'computer' && input.ref && typeof input.ref === 'string') return input.ref as string;
+  return null;
+}
 
 async function resolveRefToCoordinate(tabId: number, ref: string): Promise<[number, number] | null> {
   const results = await chrome.scripting.executeScript({
@@ -473,18 +544,43 @@ export async function executeTool(
   const store = useStore.getState();
   store.setCurrentTool(name);
 
+  if (name.startsWith('macro_')) {
+    let macroSuccess = true;
+    try {
+      const result = await executeMacro(name, input, apiKey);
+      return result;
+    } catch (e) {
+      macroSuccess = false;
+      throw e;
+    } finally {
+      const targetTabId = (input.tabId as number | undefined) || store.activeTabId;
+      let tabUrl = '';
+      if (targetTabId) {
+        try {
+          const tab = await chrome.tabs.get(targetTabId);
+          tabUrl = tab.url || '';
+        } catch { /* */ }
+      }
+      logEvent(name, input, macroSuccess, tabUrl);
+      store.setCurrentTool(null);
+    }
+  }
+
   const isMutating = MUTATING_TOOLS.has(name) &&
     (name !== 'computer' || MUTATING_ACTIONS.has(input.action as string));
   let preDomain = '';
   const targetTabId = (input.tabId as number | undefined) || store.activeTabId;
 
-  if (isMutating && targetTabId) {
+  let tabUrl = '';
+  if (targetTabId) {
     try {
       const tab = await chrome.tabs.get(targetTabId);
-      preDomain = tab.url ? new URL(tab.url).hostname : '';
+      tabUrl = tab.url || '';
+      if (isMutating) preDomain = tabUrl ? new URL(tabUrl).hostname : '';
     } catch { /* */ }
   }
 
+  let success = true;
   try {
     switch (name) {
       case 'computer':
@@ -524,7 +620,16 @@ export async function executeTool(
       default:
         return textResult(`Unknown tool: ${name}`);
     }
+  } catch (e) {
+    success = false;
+    throw e;
   } finally {
+    let semantic: SemanticTarget | undefined;
+    const ref = extractRefFromInput(name, input);
+    if (ref && targetTabId) {
+      semantic = (await resolveRefToSemantic(targetTabId, ref).catch(() => null)) ?? undefined;
+    }
+    logEvent(name, input, success, tabUrl, semantic);
     if (isMutating && preDomain && targetTabId) {
       const domainErr = await verifyDomainUnchanged(targetTabId, preDomain);
       if (domainErr) {
