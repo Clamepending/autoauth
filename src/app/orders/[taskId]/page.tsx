@@ -14,6 +14,7 @@ import { getHumanUserById } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
 import { withPickupNameInOrderNumberDisplay } from "@/lib/order-pickup-display";
 import { OrderDetailClient } from "./order-detail-client";
+import { RetryOrderClient } from "./retry-order-client";
 
 type Props = {
   params: {
@@ -56,40 +57,47 @@ export default async function OrderDetailPage({ params }: Props) {
       : Promise.resolve(null),
   ]);
 
+  const viewerRole =
+    task.human_user_id === user.id
+      ? "requester"
+      : task.fulfiller_human_user_id === user.id
+        ? "fulfiller"
+        : "viewer";
+
   return (
-    <OrderDetailClient
-      taskId={task.id}
-      initialData={{
-        ok: true,
-        task: withPickupNameInOrderNumberDisplay(formatGenericTaskForApi(task, user)),
-        viewer_role:
-          task.human_user_id === user.id
-            ? "requester"
-            : task.fulfiller_human_user_id === user.id
-              ? "fulfiller"
-              : "viewer",
-        requester:
-          requester == null
-            ? null
-            : {
-                id: requester.id,
-                email: requester.email,
-                display_name: requester.display_name,
-              },
-        fulfiller:
-          fulfiller == null
-            ? null
-            : {
-                id: fulfiller.id,
-                email: fulfiller.email,
-                display_name: fulfiller.display_name,
-              },
-        run,
-        run_events: [...runEvents].reverse(),
-        latest_snapshot: latestSnapshot,
-        recent_snapshots: recentSnapshots,
-        fulfiller_rating: fulfillerRating,
-      }}
-    />
+    <>
+      <OrderDetailClient
+        taskId={task.id}
+        initialData={{
+          ok: true,
+          task: withPickupNameInOrderNumberDisplay(formatGenericTaskForApi(task, user)),
+          viewer_role: viewerRole,
+          requester:
+            requester == null
+              ? null
+              : {
+                  id: requester.id,
+                  email: requester.email,
+                  display_name: requester.display_name,
+                },
+          fulfiller:
+            fulfiller == null
+              ? null
+              : {
+                  id: fulfiller.id,
+                  email: fulfiller.email,
+                  display_name: fulfiller.display_name,
+                },
+          run,
+          run_events: [...runEvents].reverse(),
+          latest_snapshot: latestSnapshot,
+          recent_snapshots: recentSnapshots,
+          fulfiller_rating: fulfillerRating,
+        }}
+      />
+      {task.status === "failed" && viewerRole === "requester" ? (
+        <RetryOrderClient taskId={task.id} taskTitle={task.task_title} />
+      ) : null}
+    </>
   );
 }
