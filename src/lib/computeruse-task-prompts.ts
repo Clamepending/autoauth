@@ -6,7 +6,6 @@ type KnownSnackpassStore = {
   canonicalName: string;
   aliases: string[];
   orderingUrl: string;
-  menuHints?: string[];
 };
 
 const KNOWN_SNACKPASS_STORES: KnownSnackpassStore[] = [
@@ -14,9 +13,6 @@ const KNOWN_SNACKPASS_STORES: KnownSnackpassStore[] = [
     canonicalName: "V&A Cafe",
     aliases: ["v&a", "v & a", "v and a", "v&a cafe", "v & a cafe", "v and a cafe", "vandacafe"],
     orderingUrl: "https://order.snackpass.co/vandacafe",
-    menuHints: [
-      'If the requester asks for "Water Bottle", the menu item may appear simply as "Water" and is expected to be around $1.50. Choose that item if it is visible.',
-    ],
   },
 ];
 
@@ -107,9 +103,6 @@ export function buildGenericTaskGoal(params: {
     : snackpassMerchantName
       ? `"${snackpassMerchantName}" Snackpass`
       : "the requested store name plus Snackpass";
-  const snackpassKnownStoreHints = knownSnackpassStore?.menuHints?.length
-    ? `\nKnown store hints:\n${knownSnackpassStore.menuHints.map((hint) => `- ${hint}`).join("\n")}`
-    : "";
   const websiteSection = params.websiteUrl
     ? isSnackpassTask
       ? knownSnackpassStore
@@ -120,7 +113,7 @@ Preferred website:
 - If that URL opens but does not immediately show the order menu, stay within official Snackpass ordering pages and search for ${snackpassSearchQuery}.
 - Do not browse the generic Snackpass marketing homepage unless the store-specific ordering URL is unavailable.
 - Do not open news, blog, map, social, or guide results merely because they mention Snackpass; ignore results like Daily Cal articles or generic Snackpass cheat sheets.
-- Stay on Snackpass ordering pages once you find the requested store.${snackpassKnownStoreHints}`
+- Stay on Snackpass ordering pages once you find the requested store.`
         : `
 Preferred website:
 - This is a Snackpass order. Do not begin by browsing the generic Snackpass marketing homepage.
@@ -169,7 +162,7 @@ ${knownSnackpassStore ? `- For ${knownSnackpassStore.canonicalName}, use ${known
 - If search results include articles, guides, campus newspaper pages, or other pages about Snackpass, skip them unless they directly link to the official store-specific Snackpass ordering page.
 - After checkout, do not stop on the Receipt tab if it omits the operational pickup info.
 - Switch to the Order tab or active order status view and read the order number and ready time shown there.
-- End on the screen that best exposes the order number, pickup code, or active order status for the human.${snackpassKnownStoreHints}`
+- End on the screen that best exposes the order number, pickup code, or active order status for the human.`
     : "";
   const clarificationMode = params.clarificationMode ?? "no_reply_channel";
   const clarificationInstruction =
