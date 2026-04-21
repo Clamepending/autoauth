@@ -2,6 +2,24 @@ import { getAgentClarificationTimeoutLabel } from "@/lib/computeruse-agent-clari
 
 const URL_SCHEME_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
 
+type KnownSnackpassStore = {
+  canonicalName: string;
+  aliases: string[];
+  orderingUrl: string;
+  menuHints?: string[];
+};
+
+const KNOWN_SNACKPASS_STORES: KnownSnackpassStore[] = [
+  {
+    canonicalName: "V&A Cafe",
+    aliases: ["v&a", "v & a", "v and a", "v&a cafe", "v & a cafe", "v and a cafe", "vandacafe"],
+    orderingUrl: "https://order.snackpass.co/vandacafe",
+    menuHints: [
+      'If the requester asks for "Water Bottle", the menu item may appear simply as "Water" and is expected to be around $1.50. Choose that item if it is visible.',
+    ],
+  },
+];
+
 export function normalizeOptionalWebsiteUrl(value: unknown) {
   if (typeof value !== "string") return null;
   const raw = value.trim();
@@ -38,6 +56,26 @@ function extractStructuredMerchantName(prompt: string) {
   return match?.[1]?.trim() || null;
 }
 
+function normalizeKnownStoreAlias(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findKnownSnackpassStore(merchantName: string | null) {
+  if (!merchantName) return null;
+  const normalizedMerchant = normalizeKnownStoreAlias(merchantName);
+  if (!normalizedMerchant) return null;
+  return (
+    KNOWN_SNACKPASS_STORES.find((store) =>
+      store.aliases.some((alias) => normalizeKnownStoreAlias(alias) === normalizedMerchant),
+    ) ?? null
+  );
+}
+
 export function buildGenericTaskGoal(params: {
   originalPrompt: string;
   maxChargeCents: number;
@@ -61,12 +99,29 @@ export function buildGenericTaskGoal(params: {
   const isSnackpassTask =
     websiteHost?.includes("snackpass.co") || originalPromptLower.includes("snackpass");
   const snackpassMerchantName = extractStructuredMerchantName(params.originalPrompt);
-  const snackpassSearchQuery = snackpassMerchantName
-    ? `"${snackpassMerchantName}" Snackpass`
-    : "the requested store name plus Snackpass";
+  const knownSnackpassStore = isSnackpassTask
+    ? findKnownSnackpassStore(snackpassMerchantName)
+    : null;
+  const snackpassSearchQuery = knownSnackpassStore
+    ? `"${knownSnackpassStore.canonicalName}" Snackpass`
+    : snackpassMerchantName
+      ? `"${snackpassMerchantName}" Snackpass`
+      : "the requested store name plus Snackpass";
+  const snackpassKnownStoreHints = knownSnackpassStore?.menuHints?.length
+    ? `\nKnown store hints:\n${knownSnackpassStore.menuHints.map((hint) => `- ${hint}`).join("\n")}`
+    : "";
   const websiteSection = params.websiteUrl
     ? isSnackpassTask
-      ? `
+      ? knownSnackpassStore
+        ? `
+Preferred website:
+- This is a Snackpass order for the known store ${knownSnackpassStore.canonicalName}.
+- Start directly on ${knownSnackpassStore.orderingUrl}.
+- If that URL opens but does not immediately show the order menu, stay within official Snackpass ordering pages and search for ${snackpassSearchQuery}.
+- Do not browse the generic Snackpass marketing homepage unless the store-specific ordering URL is unavailable.
+- Do not open news, blog, map, social, or guide results merely because they mention Snackpass; ignore results like Daily Cal articles or generic Snackpass cheat sheets.
+- Stay on Snackpass ordering pages once you find the requested store.${snackpassKnownStoreHints}`
+        : `
 Preferred website:
 - This is a Snackpass order. Do not begin by browsing the generic Snackpass marketing homepage.
 - First find the store-specific Snackpass ordering page by searching the browser address/search bar for ${snackpassSearchQuery}.
@@ -110,11 +165,11 @@ Grocery policy:
     ? `
 Snackpass note:
 - For Snackpass tasks, the first milestone is the requested store's Snackpass menu, not the Snackpass public homepage.
-- Search for ${snackpassSearchQuery} and choose the official Snackpass ordering result for that store.
+${knownSnackpassStore ? `- For ${knownSnackpassStore.canonicalName}, use ${knownSnackpassStore.orderingUrl} as the primary ordering URL.` : `- Search for ${snackpassSearchQuery} and choose the official Snackpass ordering result for that store.`}
 - If search results include articles, guides, campus newspaper pages, or other pages about Snackpass, skip them unless they directly link to the official store-specific Snackpass ordering page.
 - After checkout, do not stop on the Receipt tab if it omits the operational pickup info.
 - Switch to the Order tab or active order status view and read the order number and ready time shown there.
-- End on the screen that best exposes the order number, pickup code, or active order status for the human.`
+- End on the screen that best exposes the order number, pickup code, or active order status for the human.${snackpassKnownStoreHints}`
     : "";
   const clarificationMode = params.clarificationMode ?? "no_reply_channel";
   const clarificationInstruction =
