@@ -151,6 +151,14 @@ By default the worker tries common Chrome/Chromium install paths. You can overri
 export OTTOAUTH_BROWSER_PATH=/path/to/chrome-or-chromium
 ```
 
+The browser agent gets up to 100 model/tool turns by default. For unusually long flows, you can override that with:
+
+```bash
+export OTTOAUTH_AGENT_MAX_LOOPS=120
+```
+
+Values above `200` are capped to avoid runaway browser sessions.
+
 If you want OttoAuth to reuse an existing Chrome/Chromium user data directory instead of the worker's default dedicated profile, set:
 
 ```bash

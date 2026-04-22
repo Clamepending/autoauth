@@ -4,7 +4,14 @@ import { buildQuickAccessPrompt } from './quick-access-links.mjs';
 const MAX_TOKENS = Number(process.env.OTTOAUTH_MAX_TOKENS || 4096);
 const DEFAULT_MODEL = process.env.OTTOAUTH_MODEL?.trim() || 'claude-sonnet-4-5-20250929';
 const FIND_MODEL = process.env.OTTOAUTH_FIND_MODEL?.trim() || 'claude-haiku-4-5-20251001';
+const DEFAULT_MAX_LOOPS = 100;
 const BETAS = ['computer-use-2025-01-24'];
+
+function parseMaxLoops(value) {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_MAX_LOOPS;
+  return Math.min(parsed, 200);
+}
 
 function buildSystemPrompt(tabs, pageContext = '') {
   const tabLines = tabs.length > 0
@@ -249,7 +256,7 @@ export async function runAgentLoop({
   const seenRequesterMessageIds = new Set();
 
   const modelUsages = [];
-  const maxLoops = 50;
+  const maxLoops = parseMaxLoops(process.env.OTTOAUTH_AGENT_MAX_LOOPS);
 
   for (let loop = 0; loop < maxLoops; loop += 1) {
     if (taskChat?.fetchRequesterMessages) {
