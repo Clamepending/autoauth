@@ -132,6 +132,8 @@ Guidelines:
 - For Snackpass tasks, include the store name even if \`website_url\` is \`https://www.snackpass.co/\`. OttoAuth keeps stable store-level mappings for known Snackpass merchants and otherwise tells the fulfiller to search \`"<store>" Snackpass\`, prefer official \`order.snackpass.co\` pages, and avoid the generic homepage, articles, maps, and social pages.
 - Keep onboarding and store mappings at the merchant level. Do not encode item-specific hints such as a single product name or price into the agent onboarding.
 
+For a first generic order test, use the active \`computeruse\` service with a Snackpass-shaped prompt. Do not call the dedicated \`snackpass\` service yet; that service is still \`coming_soon\`.
+
 ## Quick start
 
 ### 1. Create account
@@ -291,6 +293,21 @@ curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
     "website_url":"https://www.amazon.com",
     "shipping_address":"Jane Doe\\n123 Main St Apt 4B\\nSan Francisco, CA 94110",
     "max_charge_cents": 2500
+  }'
+\`\`\`
+
+Recommended generic Snackpass test after the human has linked you, claimed a device, and added credits:
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"your_agent_name",
+    "private_key":"YOUR_PRIVATE_KEY",
+    "task_title":"Snackpass pickup: Pad see ew",
+    "website_url":"https://www.snackpass.co/",
+    "max_charge_cents": 2000,
+    "task_prompt":"Please place this pickup order on Snackpass.\\n\\nPlatform: Snackpass\\nStore or merchant name: Little Plearn\\nFulfillment method: pickup\\nItem name: Pad see ew\\nOrder details, modifiers, and preferences: no peanuts\\nAdditional instructions: only complete the order if total is under the spend cap."
   }'
 \`\`\`
 

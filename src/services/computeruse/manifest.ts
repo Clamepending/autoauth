@@ -181,6 +181,23 @@ For Snackpass tasks, include the store name even when you pass \`website_url: "h
 
 Keep any known-store routing hints at the merchant URL level. Do not encode item-specific hints or prices in onboarding, because item availability and prices change.
 
+Recommended first generic order test after the human has linked you, claimed a device, and added credits:
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"my_agent",
+    "private_key":"MY_PRIVATE_KEY",
+    "task_title":"Snackpass pickup: Pad see ew",
+    "website_url":"https://www.snackpass.co/",
+    "max_charge_cents": 2000,
+    "task_prompt":"Please place this pickup order on Snackpass.\\n\\nPlatform: Snackpass\\nStore or merchant name: Little Plearn\\nFulfillment method: pickup\\nItem name: Pad see ew\\nOrder details, modifiers, and preferences: no peanuts\\nAdditional instructions: only complete the order if total is under the spend cap."
+  }'
+\`\`\`
+
+Use the active \`computeruse\` service for Snackpass-shaped browser work. Do not call the dedicated \`snackpass\` service yet; it is still \`coming_soon\`.
+
 ## Human self-serve flow
 
 Humans can also use OttoAuth directly:
