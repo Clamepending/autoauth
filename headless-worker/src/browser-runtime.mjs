@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { extractPageText, generateAccessibilityTree, setFormValue } from './dom-helpers.mjs';
 
@@ -222,6 +223,19 @@ async function fileExists(targetPath) {
   }
 }
 
+async function moveFile(sourcePath, targetPath) {
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  try {
+    await fs.rename(sourcePath, targetPath);
+  } catch (error) {
+    if (!error || typeof error !== 'object' || error.code !== 'EXDEV') {
+      throw error;
+    }
+    await fs.copyFile(sourcePath, targetPath);
+    await fs.unlink(sourcePath).catch(() => {});
+  }
+}
+
 export async function resolveBrowserExecutable(preferredPath = null) {
   const candidates = [preferredPath, ...COMMON_BROWSER_PATHS].filter(Boolean);
   for (const candidate of candidates) {
@@ -242,6 +256,9 @@ export class BrowserRuntime {
     this.keepTabs = Boolean(options.keepTabs);
     this.strictHumanInput = Boolean(options.strictHumanInput);
     this.viewport = options.viewport || DEFAULT_VIEWPORT;
+    this.recordVideo = Boolean(options.recordVideo && options.videoDir);
+    this.videoDir = options.videoDir || null;
+    this.videoEntries = [];
     this.context = null;
     this.browserExecutablePath = null;
     this.pageIds = new WeakMap();
@@ -258,10 +275,21 @@ export class BrowserRuntime {
 
   async start() {
     this.browserExecutablePath = await resolveBrowserExecutable(this.browserPath);
+    if (this.recordVideo) {
+      await fs.mkdir(this.videoDir, { recursive: true });
+    }
     this.context = await chromium.launchPersistentContext(this.profileDir, {
       executablePath: this.browserExecutablePath,
       headless: this.headless,
       viewport: this.viewport,
+      ...(this.recordVideo
+        ? {
+            recordVideo: {
+              dir: this.videoDir,
+              size: this.viewport,
+            },
+          }
+        : {}),
       locale: 'en-US',
       ignoreHTTPSErrors: true,
       chromiumSandbox: false,
@@ -372,6 +400,43 @@ export class BrowserRuntime {
     const tracePath = this.currentTracePath;
     this.currentTracePath = null;
     await this.context.tracing.stop({ path: tracePath });
+  }
+
+  async saveTaskVideos(primaryVideoPath) {
+    if (!this.context || !this.recordVideo || !primaryVideoPath) return [];
+
+    const openPages = this.context.pages().filter((page) => !page.isClosed());
+    await Promise.all(openPages.map((page) => page.close().catch(() => {})));
+
+    const entries = this.videoEntries.length > 0
+      ? this.videoEntries
+      : openPages.map((page) => ({
+          pageId: this.pageIds.get(page) || null,
+          video: typeof page.video === 'function' ? page.video() : null,
+        }));
+    const artifacts = [];
+    const extension = path.extname(primaryVideoPath) || '.webm';
+    const base = primaryVideoPath.slice(0, primaryVideoPath.length - extension.length);
+
+    for (const entry of entries) {
+      if (!entry.video) continue;
+      const sourcePath = await entry.video.path().catch(() => null);
+      if (!sourcePath) continue;
+      const stats = await fs.stat(sourcePath).catch(() => null);
+      if (!stats || stats.size <= 0) continue;
+
+      const index = artifacts.length + 1;
+      const targetPath = index === 1 ? primaryVideoPath : `${base}-${index}${extension}`;
+      await moveFile(sourcePath, targetPath);
+      artifacts.push({
+        path: path.basename(targetPath),
+        page_id: entry.pageId,
+        primary: index === 1,
+        bytes: stats.size,
+      });
+    }
+
+    return artifacts;
   }
 
   async createTab() {
@@ -640,6 +705,12 @@ export class BrowserRuntime {
     this.nextPageId += 1;
     this.pageIds.set(page, id);
     this.pagesById.set(id, page);
+    if (this.recordVideo && typeof page.video === 'function') {
+      const video = page.video();
+      if (video) {
+        this.videoEntries.push({ pageId: id, video });
+      }
+    }
     if (this.activePageId == null) {
       this.activePageId = id;
     }

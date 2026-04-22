@@ -9,7 +9,7 @@ It can:
 - fulfill tasks with Anthropic + Playwright in headless mode
 - stream screenshots back to OttoAuth while a task runs
 - report completion and model usage for billing
-- save a local Playwright trace plus a compact task transcript
+- save a local Playwright trace, WebM browser video, and compact task transcript
 
 ## Install
 
@@ -131,13 +131,13 @@ Known Snackpass routing hints should be store-level only. Do not add item-specif
 
 ## Debugging A Run
 
-The worker writes a compact transcript and Playwright trace for each task under:
+The worker writes a compact transcript, Playwright trace, and browser video for each task under:
 
 ```text
 ~/.ottoauth-headless-worker/traces/
 ```
 
-Use the latest task directory when a run fails or chooses the wrong site. The useful files are usually `trace.json`, `playwright-trace.zip`, and the screenshots streamed back to the OttoAuth order page.
+Use the latest task directory when a run fails or chooses the wrong site. The useful files are usually `trace.json`, `playwright-trace.zip`, `task-video.webm`, and the screenshots streamed back to the OttoAuth order page.
 
 ## Requirements
 
@@ -158,6 +158,12 @@ export OTTOAUTH_AGENT_MAX_LOOPS=120
 ```
 
 Values above `200` are capped to avoid runaway browser sessions.
+
+The worker records `task-video.webm` for each browser task by default. To disable local video capture:
+
+```bash
+export OTTOAUTH_RECORD_VIDEO=0
+```
 
 If you want OttoAuth to reuse an existing Chrome/Chromium user data directory instead of the worker's default dedicated profile, set:
 
@@ -304,7 +310,7 @@ Important subfolders:
 
 - `config.json` — paired device credentials
 - `profile/` — persistent browser profile/cookies
-- `traces/` — Playwright traces and compact OttoAuth task transcripts
+- `traces/` — Playwright traces, browser videos, and compact OttoAuth task transcripts
 
 ## Notes
 

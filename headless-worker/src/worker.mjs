@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { runAgentLoop } from './agent-loop.mjs';
 import { BrowserRuntime } from './browser-runtime.mjs';
 import {
@@ -15,6 +16,12 @@ function sleep(ms) {
 
 function stringifyError(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function envFlagEnabled(value, fallback = true) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return fallback;
+  return !['0', 'false', 'no', 'off'].includes(normalized);
 }
 
 function formatRuntimeStartupError(error) {
@@ -329,6 +336,17 @@ async function handleTask({
     await runtime.stopTaskTrace().catch((traceError) => {
       logger.warn?.(`[ottoauth-headless] Failed to stop Playwright trace for task ${task.id}: ${stringifyError(traceError)}`);
     });
+    try {
+      const videoArtifacts = await runtime.saveTaskVideos(recorder.videoPath);
+      if (videoArtifacts.length > 0) {
+        await recorder.setVideoArtifacts(videoArtifacts);
+        await recorder.note('task_video_saved', { videos: videoArtifacts });
+      }
+    } catch (videoError) {
+      const message = stringifyError(videoError);
+      await recorder.note('task_video_failed', { error: message }).catch(() => {});
+      logger.warn?.(`[ottoauth-headless] Failed to save browser video for task ${task.id}: ${message}`);
+    }
   }
 
   if (!completedTaskPayload) {
@@ -362,6 +380,7 @@ export async function runWorker({
   strictHumanInput = false,
   waitMs = 25000,
   model = null,
+  recordVideo = envFlagEnabled(process.env.OTTOAUTH_RECORD_VIDEO, true),
   logger = console,
 }) {
   let stopRequested = false;
@@ -401,6 +420,8 @@ export async function runWorker({
         headless,
         keepTabs,
         strictHumanInput,
+        recordVideo,
+        videoDir: recordVideo ? path.join(traceRoot, '_videos') : null,
       });
 
       try {

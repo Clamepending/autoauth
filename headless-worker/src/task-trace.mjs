@@ -90,6 +90,8 @@ export async function createTaskTraceRecorder({ traceRoot, task, goal }) {
     result: null,
     error: null,
     playwrightTraceZip: 'playwright-trace.zip',
+    videoWebm: 'task-video.webm',
+    videoArtifacts: [],
   };
 
   async function flush() {
@@ -101,6 +103,7 @@ export async function createTaskTraceRecorder({ traceRoot, task, goal }) {
   return {
     traceDir,
     playwrightTracePath: path.join(traceDir, 'playwright-trace.zip'),
+    videoPath: path.join(traceDir, 'task-video.webm'),
     async note(type, payload = {}) {
       state.events.push({
         timestamp: new Date().toISOString(),
@@ -115,6 +118,12 @@ export async function createTaskTraceRecorder({ traceRoot, task, goal }) {
     },
     async setTranscript(messages) {
       state.transcript = compactConversation(messages);
+      await flush();
+    },
+    async setVideoArtifacts(artifacts) {
+      state.videoArtifacts = Array.isArray(artifacts) ? artifacts : [];
+      const primary = state.videoArtifacts.find((artifact) => artifact?.primary) || state.videoArtifacts[0];
+      state.videoWebm = primary?.path || 'task-video.webm';
       await flush();
     },
     async finalize({ status, result, error, messages, usages }) {
