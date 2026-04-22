@@ -68,7 +68,7 @@ New human accounts start with `$20` of starter credits.
 
 ## Headless fulfiller
 
-There is now a small CLI OttoAuth fulfiller in [headless-worker](/Users/mark/Desktop/projects/oneclickstack/autoauth/headless-worker/README.md) for Raspberry Pis or other headless devices.
+There is now a small CLI OttoAuth fulfiller in [headless-worker](./headless-worker/README.md) for Raspberry Pis or other headless devices.
 
 It can:
 
@@ -91,6 +91,8 @@ cd /path/to/autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/b
 ```
 
 During install, OttoAuth now opens the worker's dedicated persistent browser profile to Snackpass so you can sign in once, then it starts the background service after you close that window. Add `--skip-login` if you want to postpone that step.
+
+For reliable shopping/order fulfillment, write tasks as compact work orders with platform, store name, fulfillment method, item, modifiers, tip, delivery address if needed, and spend cap. Snackpass tasks should include the merchant name; OttoAuth uses known store URLs when available and otherwise searches for `"<store>" Snackpass` instead of starting from the generic Snackpass homepage.
 
 ## OttoAuth MCP proxy server
 

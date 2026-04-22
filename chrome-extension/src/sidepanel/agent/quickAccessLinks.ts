@@ -30,6 +30,11 @@ export const DEFAULT_QUICK_ACCESS_LINKS: QuickAccessLink[] = [
     label: 'Scoop n Chill Berkeley',
     url: 'https://order.snackpass.co/scoopnchill',
   },
+  {
+    id: 'v-a-cafe-berkeley',
+    label: 'V&A Cafe Berkeley',
+    url: 'https://order.snackpass.co/vandacafe',
+  },
 ];
 
 export const DEFAULT_SUPPORTED_PLATFORM_LINKS: QuickAccessLink[] = [

@@ -111,6 +111,34 @@ Recommended naming:
 
 If a collaborator does not want OttoAuth touching their everyday Chrome profile, they can skip `npm run bootstrap:mac` and use the plain `./scripts/bootstrap.sh ...` command instead. That uses the worker's own dedicated profile under `~/.ottoauth-headless-worker/profile`.
 
+## Fulfillment Prompting Notes
+
+The worker is most reliable when browser tasks are written as structured work orders:
+
+```text
+Platform: Snackpass
+Store or merchant name: Little Plearn
+Fulfillment method: pickup
+Item name: Pad see ew
+Order details, modifiers, and preferences: mild spice, no peanuts
+Delivery address, if any: Jane Doe, 123 Main St, San Francisco, CA
+Additional instructions: ask for clarification if the item is unavailable
+```
+
+For Snackpass, prefer a direct `https://order.snackpass.co/...` URL when you know it. If only the merchant name is known, include the store name and `website_url: "https://www.snackpass.co/"`; OttoAuth will tell the worker to search `"<store>" Snackpass`, prefer official `order.snackpass.co` ordering pages, and avoid the generic homepage, maps, articles, guides, and social pages.
+
+Known Snackpass routing hints should be store-level only. Do not add item-specific hints such as a single product name or price; those change too often and can make the worker overfit the wrong order.
+
+## Debugging A Run
+
+The worker writes a compact transcript and Playwright trace for each task under:
+
+```text
+~/.ottoauth-headless-worker/traces/
+```
+
+Use the latest task directory when a run fails or chooses the wrong site. The useful files are usually `trace.json`, `playwright-trace.zip`, and the screenshots streamed back to the OttoAuth order page.
+
 ## Requirements
 
 - Node 20+

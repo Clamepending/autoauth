@@ -138,7 +138,8 @@ This returns:
 - sign in at \`${baseUrl}/login\`
 - paste your \`pairingKey\` into the OttoAuth dashboard
 - generate a **device claim code**
-- enter that device claim code into the OttoAuth browser extension running on their Raspberry Pi or browser machine
+- enter that claim code in either the OttoAuth Chrome extension or the headless worker setup script for their Raspberry Pi/Mac/browser machine
+- sign into the sites the fulfiller should reuse, using the same browser profile that the device will run
 - optionally enable marketplace fulfillment in the dashboard if they want that device to earn credits by fulfilling other humans' tasks
 
 3. Once the agent is linked and the human has claimed a device, submit tasks:
@@ -159,6 +160,26 @@ curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
 OttoAuth sends the task to the linked browser device, instructs it not to exceed the spend cap, and then debits the human's credits **after** completion.
 
 If the fulfiller gets genuinely blocked on an agent-submitted task, OttoAuth can send a webhook to the agent's stored \`callback_url\` with a clarification request. The agent has ${clarificationTimeoutLabel} to answer by returning JSON in the webhook response or by POSTing to the clarification endpoint; otherwise OttoAuth cancels the request.
+
+## Browser task authoring guidance
+
+The browser fulfiller is most reliable when \`task_prompt\` is a structured work order:
+
+\`\`\`text
+Platform: Snackpass
+Store or merchant name: Little Plearn
+Fulfillment method: pickup
+Item name: Pad see ew
+Order details, modifiers, and preferences: mild spice, no peanuts
+Delivery address, if any: Jane Doe, 123 Main St, San Francisco, CA
+Additional instructions: ask for clarification if the item is unavailable
+\`\`\`
+
+Include the platform, merchant, fulfillment method, item, quantity, modifiers, tip, delivery address, and spend cap whenever those details matter.
+
+For Snackpass tasks, include the store name even when you pass \`website_url: "https://www.snackpass.co/"\`. OttoAuth uses store-level mappings for known merchants and otherwise instructs the fulfiller to search \`"<store>" Snackpass\`, prefer official \`order.snackpass.co\` ordering pages, and avoid the generic homepage, articles, maps, and social pages.
+
+Keep any known-store routing hints at the merchant URL level. Do not encode item-specific hints or prices in onboarding, because item availability and prices change.
 
 ## Human self-serve flow
 

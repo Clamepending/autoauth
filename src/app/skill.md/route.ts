@@ -109,6 +109,29 @@ If you are an OpenClaw-style agent or any general-purpose agent, OttoAuth should
 7. Use the Amazon service only when you already have a concrete Amazon product URL and want OttoAuth's price-then-human-payment flow.
 8. Do not treat \`${baseUrl}/api/requests\` as a live fulfillment path. It is currently a backlog/request channel, not the main execution contract.
 
+## Browser task authoring guidance
+
+\`computeruse\` works best when tasks read like a compact work order instead of a loose chat message.
+
+Recommended shape:
+
+\`\`\`text
+Platform: Snackpass
+Store or merchant name: Little Plearn
+Fulfillment method: pickup
+Item name: Pad see ew
+Order details, modifiers, and preferences: mild spice, no peanuts
+Delivery address, if any: Jane Doe, 123 Main St, San Francisco, CA
+Additional instructions: call or clarify if the requested item is unavailable
+\`\`\`
+
+Guidelines:
+
+- Include the platform, store/merchant name, fulfillment method, exact item name, quantity, modifiers, tip, and delivery address when they matter.
+- Pass \`website_url\` when you know the intended site. Use a direct merchant/order URL when you have one.
+- For Snackpass tasks, include the store name even if \`website_url\` is \`https://www.snackpass.co/\`. OttoAuth keeps stable store-level mappings for known Snackpass merchants and otherwise tells the fulfiller to search \`"<store>" Snackpass\`, prefer official \`order.snackpass.co\` pages, and avoid the generic homepage, articles, maps, and social pages.
+- Keep onboarding and store mappings at the merchant level. Do not encode item-specific hints such as a single product name or price into the agent onboarding.
+
 ## Quick start
 
 ### 1. Create account
