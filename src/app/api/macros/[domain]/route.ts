@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { authenticateMacroMiningDevice } from "@/lib/macro-mining-auth";
 import { getActiveMacrosForDomain } from "@/lib/macro-mining-store";
 
 /**
@@ -9,13 +8,10 @@ import { getActiveMacrosForDomain } from "@/lib/macro-mining-store";
  * Returns: { macros: MinedMacro[] }
  */
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ domain: string }> },
 ) {
   try {
-    const auth = await authenticateMacroMiningDevice(request);
-    if (!auth.ok) return auth.response;
-
     const { domain } = await params;
     if (!domain) {
       return NextResponse.json({ error: "Missing domain" }, { status: 400 });
