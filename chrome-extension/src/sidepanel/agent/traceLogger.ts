@@ -69,7 +69,7 @@ export function logEvent(
     } catch { /* invalid url */ }
   }
 
-  if (domain && !currentTrace.domain) {
+  if (domain && !currentTrace.domain && isRealDomain(domain)) {
     currentTrace.domain = domain;
   }
 
@@ -109,9 +109,9 @@ export async function finalizeTrace(success: boolean): Promise<string | null> {
   currentTrace.completedAt = Date.now();
   currentTrace.taskSuccess = success;
 
-  if (!currentTrace.domain && currentTrace.events.length > 0) {
+  if ((!currentTrace.domain || !isRealDomain(currentTrace.domain)) && currentTrace.events.length > 0) {
     for (const ev of currentTrace.events) {
-      if (ev.domain) {
+      if (ev.domain && isRealDomain(ev.domain)) {
         currentTrace.domain = ev.domain;
         break;
       }
@@ -180,6 +180,13 @@ async function getLastMineTime(domain: string): Promise<number> {
       resolve((result[key] as number) || 0);
     });
   });
+}
+
+function isRealDomain(domain: string): boolean {
+  if (!domain) return false;
+  if (domain === 'newtab' || domain === '_unknown') return false;
+  if (domain.startsWith('chrome') || domain.startsWith('about:')) return false;
+  return domain.includes('.');
 }
 
 function normalizeDomain(domain: string): string {
