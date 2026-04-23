@@ -1,5 +1,54 @@
 import type { AgentMacroAction } from '../../shared/types';
 import { getMacroToolDefinitions } from './actionLibrary';
+import { loadMacros, type Macro } from './macroMiner';
+
+let cachedMinedMacros: Macro[] = [];
+
+function macroAppliesToUrl(macro: Macro, activeUrl: string): boolean {
+  if (!activeUrl) return false;
+  try {
+    const hostname = new URL(activeUrl).hostname.toLowerCase().replace(/^www\./, '');
+    const macroDomain = macro.domain.toLowerCase().replace(/^www\./, '');
+    return (
+      hostname === macroDomain ||
+      hostname.endsWith(`.${macroDomain}`) ||
+      macroDomain.endsWith(`.${hostname}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function macroToToolDef(macro: Macro) {
+  const properties: Record<string, { type: string; description: string }> = {};
+  const required: string[] = [];
+
+  for (const param of macro.parameters) {
+    properties[param.name] = {
+      type: param.type === 'number' ? 'number' : 'string',
+      description: param.description,
+    };
+    required.push(param.name);
+  }
+
+  return {
+    name: `macro_${macro.name}`,
+    description: `[MINED MACRO] ${macro.description}${macro.trigger ? ` Use when: ${macro.trigger}` : ''}. This is a learned workflow mined from successful traces; use it only when it directly matches the current sub-task.`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        ...properties,
+        tabId: { type: 'number', description: 'Tab ID to run the macro on.' },
+      },
+      required: [...required, 'tabId'],
+    },
+  };
+}
+
+export async function refreshMacroTools(): Promise<Macro[]> {
+  cachedMinedMacros = await loadMacros();
+  return cachedMinedMacros;
+}
 
 export function getToolDefinitions(
   viewportWidth: number,
@@ -225,5 +274,6 @@ export function getToolDefinitions(
       },
     },
     ...getMacroToolDefinitions(macros, activeUrl),
+    ...cachedMinedMacros.filter((macro) => macroAppliesToUrl(macro, activeUrl)).map(macroToToolDef),
   ];
 }

@@ -11,10 +11,12 @@ import type { OttoAuthModelUsage, TabInfo } from '../../shared/types';
 import { buildSystemPrompt, buildTabContextReminder } from './systemPrompt';
 import { buildActionLibraryPrompt, findMacroByToolName, getMacroPermissionType } from './actionLibrary';
 import { buildQuickAccessPrompt } from './quickAccessLinks';
-import { getToolDefinitions } from './toolDefinitions';
+import { getToolDefinitions, refreshMacroTools } from './toolDefinitions';
 import { executeTool } from './toolExecutor';
 import { permissionManager } from './permissions';
 import { useStore, type DisplayBlock } from '../store';
+import { startTrace, finalizeTrace } from './traceLogger';
+import { maybeRunMiningPass, type Macro } from './macroMiner';
 
 type ApiMessage = {
   role: 'user' | 'assistant';
@@ -149,6 +151,41 @@ function compactMessages(messages: ApiMessage[]): void {
   }
 }
 
+function minedMacroMatchesUrl(macro: Macro, activeUrl: string): boolean {
+  if (!activeUrl) return false;
+  try {
+    const hostname = new URL(activeUrl).hostname.toLowerCase().replace(/^www\./, '');
+    const macroDomain = macro.domain.toLowerCase().replace(/^www\./, '');
+    return (
+      hostname === macroDomain ||
+      hostname.endsWith(`.${macroDomain}`) ||
+      macroDomain.endsWith(`.${hostname}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function buildMinedMacroPrompt(macros: Macro[], activeUrl: string): string {
+  const applicable = macros.filter((macro) => minedMacroMatchesUrl(macro, activeUrl));
+  if (applicable.length === 0) return '';
+
+  const macroLines = applicable
+    .map((macro) => {
+      const params = macro.parameters.length > 0
+        ? ` Params: ${macro.parameters.map((param) => param.name).join(', ')}.`
+        : '';
+      return `  - macro_${macro.name}: ${macro.description}${macro.trigger ? ` Trigger: ${macro.trigger}.` : ''}${params}`;
+    })
+    .join('\n');
+
+  return `<mined_macros>
+Server-mined macros available on this site:
+${macroLines}
+Use a server-mined macro when it directly matches the current sub-task. If it fails, continue with primitive tools.
+</mined_macros>`;
+}
+
 /**
  * Session-scoped helpers that target a specific session for all store mutations,
  * so the loop continues writing to its own session even if the user switches views.
@@ -184,11 +221,13 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
   h.setIsRunning(true);
   h.setError(null);
   permissionManager.setMode(store.permissionMode);
+  startTrace(userPrompt);
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
   const model = options?.model || MODEL;
   const seenRequesterMessageIds = new Set<string>();
 
+  let taskSucceeded = false;
   try {
     emitAgentLoopEvent(options, 'agent_loop_started', { sessionId: sid, userPrompt });
     const refreshTabContext = async (): Promise<TabInfo[]> => {
@@ -211,6 +250,12 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
     };
 
     let tabs = await refreshTabContext();
+    let minedMacros: Macro[] = [];
+    try {
+      minedMacros = await refreshMacroTools();
+    } catch (error) {
+      console.warn('[MacroMining] failed to refresh mined macros:', error);
+    }
 
     const messages: ApiMessage[] = [
       { role: 'user', content: userPrompt },
@@ -286,9 +331,13 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
         });
       }
       const quickAccessPrompt = buildQuickAccessPrompt(useStore.getState().quickAccessLinks);
+      const actionLibraryPrompt = [
+        buildActionLibraryPrompt(actionMacros, activeUrl),
+        buildMinedMacroPrompt(minedMacros, activeUrl),
+      ].filter(Boolean).join('\n\n');
       const systemPrompt = buildSystemPrompt(
         tabs,
-        buildActionLibraryPrompt(actionMacros, activeUrl),
+        actionLibraryPrompt,
         quickAccessPrompt,
       );
 
@@ -513,6 +562,7 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
 
       messages.push({ role: 'user', content: toolResults });
     }
+    taskSucceeded = !useStore.getState().getError(sid);
   } catch (e: unknown) {
     const errMsg = e instanceof Error ? e.message : String(e);
     emitAgentLoopEvent(options, 'agent_loop_error', { error: errMsg });
@@ -521,6 +571,17 @@ export async function runAgentLoop(userPrompt: string, sessionId?: string, optio
     await sendToBackground({ type: 'cdp-detach-all' }).catch(() => {});
     h.setIsRunning(false);
     h.setCurrentTool(null);
+
+    const domain = await finalizeTrace(taskSucceeded).catch((error) => {
+      console.warn('[TraceLogger] trace finalization failed:', error);
+      return null;
+    });
+    if (domain && apiKey) {
+      maybeRunMiningPass(domain, apiKey).catch((e) =>
+        console.error('[MacroMining] mining pass failed:', e),
+      );
+    }
+
     emitAgentLoopEvent(options, 'agent_loop_finished', {
       sessionId: sid,
       error: useStore.getState().getError(sid),
