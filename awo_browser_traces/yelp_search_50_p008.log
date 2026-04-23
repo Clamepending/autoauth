@@ -1,0 +1,337 @@
+2026-04-21 18:52:01,702 INFO Dataset: /Users/abhayp/Documents/browser_use/prompt_datasets/yelp_search_50_p008.json
+2026-04-21 18:52:01,702 INFO Output: /Users/abhayp/Documents/browser_use/awo_browser_traces/yelp_search_50_p008.json
+2026-04-21 18:52:01,702 INFO Costs sidecar: /Users/abhayp/Documents/browser_use/awo_browser_traces/yelp_search_50_p008.costs.json
+2026-04-21 18:52:01,703 INFO Provider=anthropic model=claude-sonnet-4-6
+2026-04-21 18:52:01,703 INFO Headless=False max_steps=120 max_runtime_seconds=900 step_timeout=180 stall_window=8
+2026-04-21 18:52:01,703 INFO user_data_dir=None profile_directory=Default
+2026-04-21 18:52:01,703 INFO Resume mode: True existing traces: 0
+2026-04-21 18:52:01,703 INFO [1/50] starting trace_001
+2026-04-21 18:52:07,323 INFO step=1 url=about:blank actions=navigate
+2026-04-21 18:52:16,946 INFO step=2 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Cincinnati%2C+OH actions=wait
+2026-04-21 18:52:40,376 INFO step=3 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Cincinnati%2C+OH&dd_referrer= actions=extract
+2026-04-21 18:53:00,034 INFO step=4 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Cincinnati%2C+OH&dd_referrer= actions=done
+2026-04-21 18:53:10,662 INFO finished trace_001 success=True events=10 total_cost=0.1803621
+2026-04-21 18:53:10,662 INFO [2/50] starting trace_002
+2026-04-21 18:53:16,578 INFO step=1 url=about:blank actions=navigate
+2026-04-21 18:53:25,530 INFO step=2 url=https://www.yelp.com/search?find_desc=Thai+Restaurants&find_loc=New+Orleans%2C+LA actions=wait
+2026-04-21 18:53:48,573 INFO step=3 url=https://www.yelp.com/search?find_desc=Thai+Restaurants&find_loc=New+Orleans%2C+LA&dd_referrer= actions=extract
+2026-04-21 18:54:07,556 INFO step=4 url=https://www.yelp.com/search?find_desc=Thai+Restaurants&find_loc=New+Orleans%2C+LA&dd_referrer= actions=done
+2026-04-21 18:54:20,605 INFO finished trace_002 success=True events=10 total_cost=0.17575860000000001
+2026-04-21 18:54:20,605 INFO [3/50] starting trace_003
+2026-04-21 18:54:33,205 INFO step=1 url=about:blank actions=navigate
+2026-04-21 18:54:54,829 INFO step=2 url=https://www.yelp.com/search?find_desc=Spanish+Restaurants&find_loc=San+Diego%2C+CA&dd_referrer= actions=extract
+2026-04-21 18:55:12,748 INFO step=3 url=https://www.yelp.com/search?find_desc=Spanish+Restaurants&find_loc=San+Diego%2C+CA&dd_referrer= actions=done
+2026-04-21 18:55:24,414 INFO finished trace_003 success=True events=9 total_cost=0.16709595000000002
+2026-04-21 18:55:24,414 INFO [4/50] starting trace_004
+2026-04-21 18:55:37,222 INFO step=1 url=about:blank actions=navigate
+2026-04-21 18:56:00,658 INFO step=2 url=https://www.yelp.com/search?find_desc=Steakhouse&find_loc=Columbus%2C+OH&dd_referrer= actions=extract
+2026-04-21 18:56:19,550 INFO step=3 url=https://www.yelp.com/search?find_desc=Steakhouse&find_loc=Columbus%2C+OH&dd_referrer= actions=done
+2026-04-21 18:56:30,322 INFO finished trace_004 success=True events=9 total_cost=0.15844845000000002
+2026-04-21 18:56:30,323 INFO [5/50] starting trace_005
+2026-04-21 18:56:43,989 INFO step=1 url=about:blank actions=navigate
+2026-04-21 18:57:12,149 INFO step=2 url=https://www.yelp.com/search?find_desc=Vegan+Restaurants&find_loc=Boston%2C+MA&dd_referrer= actions=extract
+2026-04-21 18:57:32,871 INFO step=3 url=https://www.yelp.com/search?find_desc=Vegan+Restaurants&find_loc=Boston%2C+MA&dd_referrer= actions=done
+2026-04-21 18:57:49,233 INFO finished trace_005 success=True events=9 total_cost=0.16921995
+2026-04-21 18:57:49,233 INFO [6/50] starting trace_006
+2026-04-21 18:57:54,162 INFO step=1 url=about:blank actions=navigate
+2026-04-21 18:58:03,618 INFO step=2 url=https://www.yelp.com/search?find_desc=Breakfast+Restaurants&find_loc=Las+Vegas%2C+NV actions=wait
+2026-04-21 18:58:24,897 INFO step=3 url=https://www.yelp.com/search?find_desc=Breakfast+Restaurants&find_loc=Las+Vegas%2C+NV&dd_referrer= actions=extract
+2026-04-21 18:58:52,367 INFO step=4 url=https://www.yelp.com/search?find_desc=Breakfast+Restaurants&find_loc=Las+Vegas%2C+NV&dd_referrer= actions=done
+2026-04-21 18:59:04,378 INFO finished trace_006 success=True events=10 total_cost=0.21779235
+2026-04-21 18:59:04,378 INFO [7/50] starting trace_007
+2026-04-21 18:59:17,219 INFO step=1 url=about:blank actions=navigate
+2026-04-21 18:59:39,706 INFO step=2 url=https://www.yelp.com/search?find_desc=Indian+Restaurants&find_loc=Phoenix%2C+AZ&dd_referrer= actions=extract
+2026-04-21 18:59:57,895 INFO step=3 url=https://www.yelp.com/search?find_desc=Indian+Restaurants&find_loc=Phoenix%2C+AZ&dd_referrer= actions=done
+2026-04-21 19:00:09,452 INFO finished trace_007 success=True events=9 total_cost=0.16989045000000003
+2026-04-21 19:00:09,452 INFO [8/50] starting trace_008
+2026-04-21 19:00:15,217 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:00:24,431 INFO step=2 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Detroit%2C+MI actions=wait
+2026-04-21 19:00:46,062 INFO step=3 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Detroit%2C+MI&dd_referrer= actions=extract
+2026-04-21 19:01:05,235 INFO step=4 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Detroit%2C+MI&dd_referrer= actions=done
+2026-04-21 19:01:18,038 INFO finished trace_008 success=True events=10 total_cost=0.18838560000000001
+2026-04-21 19:01:18,038 INFO [9/50] starting trace_009
+2026-04-21 19:01:23,360 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:01:32,584 INFO step=2 url=https://www.yelp.com/search?find_desc=Chinese+Restaurants&find_loc=Chicago%2C+IL actions=wait
+2026-04-21 19:01:58,954 INFO step=3 url=https://www.yelp.com/search?find_desc=Chinese+Restaurants&find_loc=Chicago%2C+IL&dd_referrer= actions=extract
+2026-04-21 19:02:23,855 INFO step=4 url=https://www.yelp.com/search?find_desc=Chinese+Restaurants&find_loc=Chicago%2C+IL&dd_referrer= actions=done
+2026-04-21 19:02:35,018 INFO finished trace_009 success=True events=10 total_cost=0.2153721
+2026-04-21 19:02:35,018 INFO [10/50] starting trace_010
+2026-04-21 19:02:39,798 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:02:51,263 INFO step=2 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Phoenix%2C+AZ actions=wait
+2026-04-21 19:03:15,258 INFO step=3 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Phoenix%2C+AZ&dd_referrer= actions=extract
+2026-04-21 19:03:36,674 INFO step=4 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Phoenix%2C+AZ&dd_referrer= actions=done
+2026-04-21 19:03:49,354 INFO finished trace_010 success=True events=10 total_cost=0.19669785000000004
+2026-04-21 19:03:49,354 INFO [11/50] starting trace_011
+2026-04-21 19:03:54,711 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:04:04,825 INFO step=2 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=St.+Louis%2C+MO actions=wait
+2026-04-21 19:04:25,304 INFO step=3 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=St.+Louis%2C+MO&dd_referrer= actions=extract
+2026-04-21 19:04:45,372 INFO step=4 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=St.+Louis%2C+MO&dd_referrer= actions=done
+2026-04-21 19:05:01,964 INFO finished trace_011 success=True events=10 total_cost=0.19270485
+2026-04-21 19:05:01,965 INFO [12/50] starting trace_012
+2026-04-21 19:05:07,073 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:05:16,882 INFO step=2 url=https://www.yelp.com/search?find_desc=BBQ&find_loc=San+Jose%2C+CA actions=wait
+2026-04-21 19:05:37,023 INFO step=3 url=https://www.yelp.com/search?find_desc=BBQ&find_loc=San+Jose%2C+CA&dd_referrer= actions=extract
+2026-04-21 19:05:54,547 INFO step=4 url=https://www.yelp.com/search?find_desc=BBQ&find_loc=San+Jose%2C+CA&dd_referrer= actions=done
+2026-04-21 19:06:08,277 INFO finished trace_012 success=True events=10 total_cost=0.1852401
+2026-04-21 19:06:08,277 INFO [13/50] starting trace_013
+2026-04-21 19:06:14,012 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:06:23,559 INFO step=2 url=https://www.yelp.com/search?find_desc=French+Restaurants&find_loc=Detroit%2C+MI actions=wait
+2026-04-21 19:06:46,615 INFO step=3 url=https://www.yelp.com/search?find_desc=French+Restaurants&find_loc=Detroit%2C+MI&dd_referrer= actions=extract
+2026-04-21 19:07:06,173 INFO step=4 url=https://www.yelp.com/search?find_desc=French+Restaurants&find_loc=Detroit%2C+MI&dd_referrer= actions=done
+2026-04-21 19:07:18,772 INFO finished trace_013 success=True events=10 total_cost=0.1764426
+2026-04-21 19:07:18,772 INFO [14/50] starting trace_014
+2026-04-21 19:07:24,944 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:07:34,951 INFO step=2 url=https://www.yelp.com/search?find_desc=Spanish+Restaurants&find_loc=Houston%2C+TX actions=wait
+2026-04-21 19:07:53,484 INFO step=3 url=https://www.yelp.com/search?find_desc=Spanish+Restaurants&find_loc=Houston%2C+TX&dd_referrer= actions=extract
+2026-04-21 19:08:09,939 INFO step=4 url=https://www.yelp.com/search?find_desc=Spanish+Restaurants&find_loc=Houston%2C+TX&dd_referrer= actions=done
+2026-04-21 19:08:23,350 INFO finished trace_014 success=True events=10 total_cost=0.19077285000000002
+2026-04-21 19:08:23,350 INFO [15/50] starting trace_015
+2026-04-21 19:08:38,024 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:08:57,957 INFO step=2 url=https://www.yelp.com/search?find_desc=Steakhouse&find_loc=Indianapolis%2C+IN&dd_referrer= actions=extract
+2026-04-21 19:09:17,916 INFO step=3 url=https://www.yelp.com/search?find_desc=Steakhouse&find_loc=Indianapolis%2C+IN&dd_referrer= actions=done
+2026-04-21 19:09:29,304 INFO finished trace_015 success=True events=9 total_cost=0.17017770000000004
+2026-04-21 19:09:29,304 INFO [16/50] starting trace_016
+2026-04-21 19:09:42,026 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:09:59,322 INFO step=2 url=https://www.yelp.com/search?find_desc=Thai+Restaurants&find_loc=Columbus%2C+OH&dd_referrer= actions=extract
+2026-04-21 19:10:13,773 INFO step=3 url=https://www.yelp.com/search?find_desc=Thai+Restaurants&find_loc=Columbus%2C+OH&dd_referrer= actions=done
+2026-04-21 19:10:24,451 INFO finished trace_016 success=True events=9 total_cost=0.1404612
+2026-04-21 19:10:24,451 INFO [17/50] starting trace_017
+2026-04-21 19:10:37,245 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:11:04,064 INFO step=2 url=https://www.yelp.com/search?find_desc=Greek+Restaurants&find_loc=Austin%2C+TX&dd_referrer= actions=extract
+2026-04-21 19:11:20,501 INFO step=3 url=https://www.yelp.com/search?find_desc=Greek+Restaurants&find_loc=Austin%2C+TX&dd_referrer= actions=done
+2026-04-21 19:11:32,391 INFO finished trace_017 success=True events=9 total_cost=0.17944620000000003
+2026-04-21 19:11:32,391 INFO [18/50] starting trace_018
+2026-04-21 19:11:37,859 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:11:46,278 INFO step=2 url=https://www.yelp.com/search?find_desc=Indian+Restaurants&find_loc=Raleigh%2C+NC actions=wait
+2026-04-21 19:12:07,026 INFO step=3 url=https://www.yelp.com/search?find_desc=Indian+Restaurants&find_loc=Raleigh%2C+NC&dd_referrer= actions=extract
+2026-04-21 19:12:24,955 INFO step=4 url=https://www.yelp.com/search?find_desc=Indian+Restaurants&find_loc=Raleigh%2C+NC&dd_referrer= actions=done
+2026-04-21 19:12:38,572 INFO finished trace_018 success=True events=10 total_cost=0.19428285
+2026-04-21 19:12:38,573 INFO [19/50] starting trace_019
+2026-04-21 19:12:54,986 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:13:13,381 INFO step=2 url=https://www.yelp.com/search?find_desc=Vietnamese+Restaurants&find_loc=Detroit%2C+MI&dd_referrer= actions=extract
+2026-04-21 19:13:29,664 INFO step=3 url=https://www.yelp.com/search?find_desc=Vietnamese+Restaurants&find_loc=Detroit%2C+MI&dd_referrer= actions=done
+2026-04-21 19:13:39,090 INFO finished trace_019 success=True events=9 total_cost=0.14050545000000003
+2026-04-21 19:13:39,090 INFO [20/50] starting trace_020
+2026-04-21 19:13:51,869 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:14:13,593 INFO step=2 url=https://www.yelp.com/search?find_desc=Peruvian+Restaurants&find_loc=Miami%2C+FL&dd_referrer= actions=extract
+2026-04-21 19:14:32,230 INFO step=3 url=https://www.yelp.com/search?find_desc=Peruvian+Restaurants&find_loc=Miami%2C+FL&dd_referrer= actions=done
+2026-04-21 19:14:41,557 INFO finished trace_020 success=True events=9 total_cost=0.15187095
+2026-04-21 19:14:41,557 INFO [21/50] starting trace_021
+2026-04-21 19:14:47,933 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:14:57,282 INFO step=2 url=https://www.yelp.com/search?find_desc=Peruvian+Restaurants&find_loc=Cleveland%2C+OH&sortby=rating actions=wait
+2026-04-21 19:15:14,344 INFO step=3 url=https://www.yelp.com/search?find_desc=Peruvian+Restaurants&find_loc=Cleveland%2C+OH&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:15:24,624 INFO step=4 url=https://www.yelp.com/biz/quintaesencia-parma-2?osq=Peruvian+Restaurants actions=click
+2026-04-21 19:15:35,051 INFO step=5 url=https://www.yelp.com/biz/quintaesencia-parma-2?osq=Peruvian+Restaurants#location-and-hours actions=search_page
+2026-04-21 19:15:44,712 INFO step=6 url=https://www.yelp.com/biz/quintaesencia-parma-2?osq=Peruvian+Restaurants#location-and-hours actions=search_page
+2026-04-21 19:16:03,022 INFO step=7 url=https://www.yelp.com/biz/quintaesencia-parma-2?osq=Peruvian+Restaurants#location-and-hours actions=extract
+2026-04-21 19:16:19,115 INFO step=8 url=https://www.yelp.com/biz/quintaesencia-parma-2?osq=Peruvian+Restaurants#location-and-hours actions=done
+2026-04-21 19:16:36,701 INFO finished trace_021 success=True events=14 total_cost=0.35927220000000004
+2026-04-21 19:16:36,701 INFO [22/50] starting trace_022
+2026-04-21 19:16:49,838 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:16:59,197 INFO step=2 url=https://www.yelp.com/search?find_desc=Vegan&find_loc=Salt+Lake+City%2C+UT&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:17:08,986 INFO step=3 url=https://www.yelp.com/biz/blatchs-backyard-bbq-salt-lake-city?osq=Vegan actions=click
+2026-04-21 19:17:24,217 INFO step=4 url=https://www.yelp.com/biz/blatchs-backyard-bbq-salt-lake-city?osq=Vegan#location-and-hours actions=done
+2026-04-21 19:17:36,820 INFO finished trace_022 success=True events=9 total_cost=0.1461741
+2026-04-21 19:17:36,820 INFO [23/50] starting trace_023
+2026-04-21 19:17:50,182 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:18:03,007 INFO step=2 url=https://www.yelp.com/search?find_desc=Japanese+Restaurants&find_loc=Sacramento%2C+CA&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:18:18,870 INFO step=3 url=https://www.yelp.com/biz/hikari-sushi-and-omakase-davis?osq=Japanese+Restaurants actions=click
+2026-04-21 19:18:37,197 INFO step=4 url=https://www.yelp.com/biz/hikari-sushi-and-omakase-davis?osq=Japanese+Restaurants#location-and-hours actions=done
+2026-04-21 19:18:55,823 INFO finished trace_023 success=True events=9 total_cost=0.1684611
+2026-04-21 19:18:55,823 INFO [24/50] starting trace_024
+2026-04-21 19:19:02,037 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:19:10,922 INFO step=2 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Dallas%2C+TX&sortby=rating actions=wait
+2026-04-21 19:19:20,181 INFO step=3 url=https://www.yelp.com/search?find_desc=Turkish+Restaurants&find_loc=Dallas%2C+TX&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:19:30,282 INFO step=4 url=https://www.yelp.com/biz/selda-irving?osq=Turkish+Restaurants actions=scroll
+2026-04-21 19:19:43,777 INFO step=5 url=https://www.yelp.com/biz/selda-irving?osq=Turkish+Restaurants actions=extract
+2026-04-21 19:19:56,906 INFO step=6 url=https://www.yelp.com/biz/selda-irving?osq=Turkish+Restaurants actions=navigate
+2026-04-21 19:20:06,810 INFO step=7 url=https://www.seldadallas.com/ actions=click
+2026-04-21 19:20:16,614 INFO step=8 url=https://internaladmin.zingmyorder.com/restaurants/selda-mediterranean-irving-7750-n-macarthur-blvd-ste-160-irving-tx-75063-usa actions=switch
+2026-04-21 19:20:26,206 INFO step=9 url=https://www.seldadallas.com/ actions=click
+2026-04-21 19:20:58,452 INFO step=10 url=https://www.seldadallas.com/locations actions=click
+2026-04-21 19:21:18,453 INFO step=11 url=https://www.seldadallas.com/locations actions=click
+2026-04-21 19:21:44,439 INFO step=12 url=https://internaladmin.zingmyorder.com/restaurants/selda-mediterranean-irving-7750-n-macarthur-blvd-ste-160-irving-tx-75063-usa actions=switch
+2026-04-21 19:22:14,318 INFO step=13 url=https://www.seldadallas.com/locations actions=scroll
+2026-04-21 19:22:53,062 INFO step=14 url=https://www.seldadallas.com/locations actions=done
+2026-04-21 19:22:55,142 INFO finished trace_024 success=True events=21 total_cost=0.5126001
+2026-04-21 19:22:55,142 INFO [25/50] starting trace_025
+2026-04-21 19:23:00,795 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:23:10,232 INFO step=2 url=https://www.yelp.com/search?find_desc=Korean+Restaurants&find_loc=Seattle%2C+WA&sortby=rating actions=wait
+2026-04-21 19:23:23,603 INFO step=3 url=https://www.yelp.com/search?find_desc=Korean+Restaurants&find_loc=Seattle%2C+WA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:23:36,969 INFO step=4 url=https://www.yelp.com/search?find_desc=Korean+Restaurants&find_loc=Seattle%2C+WA&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:23:47,156 INFO step=5 url=https://www.yelp.com/biz/kind-seattle-2?osq=Korean+Restaurants actions=click
+2026-04-21 19:24:04,442 INFO step=6 url=https://www.yelp.com/biz/kind-seattle-2?osq=Korean+Restaurants#location-and-hours actions=done
+2026-04-21 19:24:22,601 INFO finished trace_025 success=True events=11 total_cost=0.23430464999999998
+2026-04-21 19:24:22,601 INFO [26/50] starting trace_026
+2026-04-21 19:24:28,588 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:24:37,679 INFO step=2 url=https://www.yelp.com/search?find_desc=Vegetarian+Restaurants&find_loc=Boston%2C+MA&sortby=rating actions=wait
+2026-04-21 19:25:00,151 INFO step=3 url=https://www.yelp.com/search?find_desc=Vegetarian+Restaurants&find_loc=Boston%2C+MA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:25:25,705 INFO step=4 url=https://www.yelp.com/search?find_desc=Vegetarian+Restaurants&find_loc=Boston%2C+MA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:25:38,995 INFO step=5 url=https://www.yelp.com/search?find_desc=Vegetarian+Restaurants&find_loc=Boston%2C+MA&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:25:50,115 INFO step=6 url=https://www.yelp.com/biz/krasi-boston-2?osq=Vegetarian+Restaurants actions=click
+2026-04-21 19:26:07,948 INFO step=7 url=https://www.yelp.com/biz/krasi-boston-2?osq=Vegetarian+Restaurants#location-and-hours actions=done
+2026-04-21 19:26:38,208 INFO finished trace_026 success=True events=12 total_cost=0.3138183
+2026-04-21 19:26:38,208 INFO [27/50] starting trace_027
+2026-04-21 19:26:52,953 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:27:03,811 INFO step=2 url=https://www.yelp.com/search?find_desc=Caribbean+Restaurants&find_loc=Detroit%2C+MI&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:27:19,237 INFO step=3 url=https://www.yelp.com/biz/xavs-jammin-caribbean-fusion-farmington-hills?osq=Caribbean+Restaurants actions=done
+2026-04-21 19:27:37,767 INFO finished trace_027 success=True events=8 total_cost=0.11243370000000001
+2026-04-21 19:27:37,767 INFO [28/50] starting trace_028
+2026-04-21 19:27:51,499 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:28:02,727 INFO step=2 url=https://www.yelp.com/search?find_desc=Peruvian+Restaurants&find_loc=Columbus%2C+OH&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:28:15,766 INFO step=3 url=https://www.yelp.com/biz/s%C3%AD-se%C3%B1or-peruvian-sandwiches-columbus?osq=Peruvian+Restaurants actions=done
+2026-04-21 19:28:37,467 INFO finished trace_028 success=True events=8 total_cost=0.1138077
+2026-04-21 19:28:37,467 INFO [29/50] starting trace_029
+2026-04-21 19:28:50,441 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:29:06,327 INFO step=2 url=https://www.yelp.com/search?find_desc=Middle+Eastern&find_loc=San+Jose%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:29:21,181 INFO step=3 url=https://www.yelp.com/search?find_desc=Middle+Eastern&find_loc=San+Jose%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:29:40,933 INFO step=4 url=https://www.yelp.com/search?find_desc=Middle+Eastern&find_loc=San+Jose%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:29:50,445 INFO step=5 url=https://www.yelp.com/search?find_desc=Middle+Eastern&find_loc=San+Jose%2C+CA&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:30:00,683 INFO step=6 url=https://www.yelp.com/biz/iraklis-santa-clara?osq=Middle+Eastern actions=click
+2026-04-21 19:30:18,001 INFO step=7 url=https://www.yelp.com/biz/iraklis-santa-clara?osq=Middle+Eastern#location-and-hours actions=done
+2026-04-21 19:30:40,849 INFO finished trace_029 success=True events=12 total_cost=0.3220788
+2026-04-21 19:30:40,849 INFO [30/50] starting trace_030
+2026-04-21 19:30:46,191 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:30:55,208 INFO step=2 url=https://www.yelp.com/search?find_desc=Burgers&find_loc=Miami%2C+FL&sortby=rating actions=wait
+2026-04-21 19:31:08,816 INFO step=3 url=https://www.yelp.com/search?find_desc=Burgers&find_loc=Miami%2C+FL&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:31:21,081 INFO step=4 url=https://www.yelp.com/search?find_desc=Burgers&find_loc=Miami%2C+FL&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:31:30,177 INFO step=5 url=https://www.yelp.com/biz/the-chopping-block-miami?osq=Burgers actions=click
+2026-04-21 19:31:41,562 INFO step=6 url=https://www.yelp.com/biz/the-chopping-block-miami?osq=Burgers#location-and-hours actions=search_page
+2026-04-21 19:31:55,592 INFO step=7 url=https://www.yelp.com/biz/the-chopping-block-miami?osq=Burgers#location-and-hours actions=done
+2026-04-21 19:32:14,704 INFO finished trace_030 success=True events=12 total_cost=0.27121005000000004
+2026-04-21 19:32:14,704 INFO [31/50] starting trace_031
+2026-04-21 19:32:28,382 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:32:41,214 INFO step=2 url=https://www.yelp.com/search?find_desc=Steakhouses&find_loc=Los+Angeles%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:32:53,172 INFO step=3 url=https://www.yelp.com/search?find_desc=Steakhouses&find_loc=Los+Angeles%2C+CA&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:33:02,759 INFO step=4 url=https://www.yelp.com/biz/chubby-cattle-little-tokyo-los-angeles-2?osq=Steakhouses actions=click
+2026-04-21 19:33:18,509 INFO step=5 url=https://www.yelp.com/biz/chubby-cattle-little-tokyo-los-angeles-2?osq=Steakhouses#location-and-hours actions=done
+2026-04-21 19:33:45,836 INFO finished trace_031 success=True events=10 total_cost=0.222024
+2026-04-21 19:33:45,836 INFO [32/50] starting trace_032
+2026-04-21 19:33:58,713 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:34:09,539 INFO step=2 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=Detroit%2C+MI&sortby=rating actions=wait
+2026-04-21 19:34:22,163 INFO step=3 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=Detroit%2C+MI&sortby=rating actions=wait
+2026-04-21 19:34:40,453 INFO step=4 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=Detroit%2C+MI&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:34:59,056 INFO step=5 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=Detroit%2C+MI&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:35:09,752 INFO step=6 url=https://www.yelp.com/biz/fred-s-detroit?osq=Brunch actions=search_page
+2026-04-21 19:35:22,350 INFO step=7 url=https://www.yelp.com/biz/fred-s-detroit?osq=Brunch actions=search_page
+2026-04-21 19:35:34,543 INFO step=8 url=https://www.yelp.com/biz/fred-s-detroit?osq=Brunch actions=search_page
+2026-04-21 19:35:49,894 INFO step=9 url=https://www.yelp.com/biz/fred-s-detroit?osq=Brunch actions=search_page
+2026-04-21 19:36:08,004 INFO step=10 url=https://www.yelp.com/biz/fred-s-detroit?osq=Brunch actions=done
+2026-04-21 19:36:32,404 INFO finished trace_032 success=True events=15 total_cost=0.406308
+2026-04-21 19:36:32,404 INFO [33/50] starting trace_033
+2026-04-21 19:36:38,209 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:36:48,027 INFO step=2 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=Albuquerque%2C+NM&sortby=rating actions=wait
+2026-04-21 19:36:57,556 INFO step=3 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=Albuquerque%2C+NM&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:37:11,724 INFO step=4 url=https://www.yelp.com/search?find_desc=Brunch&find_loc=Albuquerque%2C+NM&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:37:23,242 INFO step=5 url=https://www.yelp.com/biz/buen-provecho-albuquerque-2?osq=Brunch actions=click
+2026-04-21 19:37:37,650 INFO step=6 url=https://www.yelp.com/biz/buen-provecho-albuquerque-2?osq=Brunch#location-and-hours actions=done
+2026-04-21 19:38:07,650 INFO finished trace_033 success=True events=11 total_cost=0.2457204
+2026-04-21 19:38:07,650 INFO [34/50] starting trace_034
+2026-04-21 19:38:21,206 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:38:31,706 INFO step=2 url=https://www.yelp.com/search?find_desc=Middle+Eastern+Restaurants&find_loc=Pittsburgh%2C+PA&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:38:41,659 INFO step=3 url=https://www.yelp.com/biz/mezze-pittsburgh-2?osq=Middle+Eastern+Restaurants actions=scroll
+2026-04-21 19:38:54,049 INFO step=4 url=https://www.yelp.com/biz/mezze-pittsburgh-2?osq=Middle+Eastern+Restaurants actions=click
+2026-04-21 19:39:11,508 INFO step=5 url=https://www.yelp.com/biz/mezze-pittsburgh-2?osq=Middle+Eastern+Restaurants actions=done
+2026-04-21 19:39:32,642 INFO finished trace_034 success=True events=10 total_cost=0.19976100000000002
+2026-04-21 19:39:32,642 INFO [35/50] starting trace_035
+2026-04-21 19:39:45,475 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:40:14,661 INFO step=2 url=https://www.yelp.com/search?find_desc=Seafood&find_loc=Nashville%2C+TN&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:40:43,337 INFO step=3 url=https://www.yelp.com/search?find_desc=Seafood&find_loc=Nashville%2C+TN&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:42:07,167 INFO step=4 url=https://www.yelp.com/search?find_desc=Seafood&find_loc=Nashville%2C+TN&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:42:17,543 INFO step=5 url=https://www.yelp.com/biz/gannons-nashville-nashville actions=click
+2026-04-21 19:42:35,895 INFO step=6 url=https://www.yelp.com/biz/gannons-nashville-nashville#location-and-hours actions=done
+2026-04-21 19:42:59,314 INFO finished trace_035 success=True events=11 total_cost=0.36188565000000006
+2026-04-21 19:42:59,315 INFO [36/50] starting trace_036
+2026-04-21 19:43:12,535 INFO step=1 url=about:blank actions=navigate
+2026-04-21 19:43:31,812 INFO step=2 url=https://www.yelp.com/search?find_desc=Lebanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:44:09,167 INFO step=3 url=https://www.yelp.com/search?find_desc=Lebanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:44:25,850 INFO step=4 url=https://www.yelp.com/search?find_desc=Lebanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 19:44:43,585 INFO step=5 url=https://www.yelp.com/search?find_desc=Lebanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:44:53,531 INFO step=6 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=search_page
+2026-04-21 19:45:03,474 INFO step=7 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=search_page
+2026-04-21 19:45:17,596 INFO step=8 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=extract
+2026-04-21 19:45:31,323 INFO step=9 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=search_page
+2026-04-21 19:45:46,950 INFO step=10 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=scroll
+2026-04-21 19:45:59,998 INFO step=11 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=scroll
+2026-04-21 19:46:19,655 INFO step=12 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=search_page
+2026-04-21 19:46:49,449 INFO step=13 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=find_elements
+2026-04-21 19:47:09,304 INFO step=14 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=evaluate
+2026-04-21 19:47:22,541 INFO step=15 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=evaluate
+2026-04-21 19:47:46,696 INFO step=16 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=evaluate
+2026-04-21 19:48:13,905 INFO step=17 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=evaluate
+2026-04-21 19:48:39,717 INFO step=18 url=https://www.yelp.com/biz/karam-san-francisco?osq=Lebanese+Restaurants actions=switch
+2026-04-21 19:48:54,110 INFO step=19 url=https://www.yelp.com/search?find_desc=Lebanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=click
+2026-04-21 19:49:06,558 INFO step=20 url=https://www.yelp.com/biz/falasteen-san-francisco?osq=Lebanese+Restaurants actions=evaluate
+2026-04-21 19:49:33,563 INFO step=21 url=https://www.yelp.com/biz/falasteen-san-francisco?osq=Lebanese+Restaurants actions=extract
+2026-04-21 19:50:07,083 INFO step=22 url=https://www.yelp.com/biz/falasteen-san-francisco?osq=Lebanese+Restaurants actions=evaluate
+2026-04-21 19:50:57,524 INFO step=23 url=https://www.yelp.com/biz/falasteen-san-francisco?osq=Lebanese+Restaurants actions=none
+2026-04-21 20:00:39,068 INFO Dataset: /Users/abhayp/Documents/browser_use/prompt_datasets/yelp_search_50_p008.json
+2026-04-21 20:00:39,068 INFO Output: /Users/abhayp/Documents/browser_use/awo_browser_traces/yelp_search_50_p008.json
+2026-04-21 20:00:39,068 INFO Costs sidecar: /Users/abhayp/Documents/browser_use/awo_browser_traces/yelp_search_50_p008.costs.json
+2026-04-21 20:00:39,068 INFO Provider=anthropic model=claude-sonnet-4-6
+2026-04-21 20:00:39,068 INFO Headless=False max_steps=120 max_runtime_seconds=900 step_timeout=180 stall_window=8
+2026-04-21 20:00:39,068 INFO user_data_dir=None profile_directory=Default
+2026-04-21 20:00:39,070 INFO Resume mode: True existing traces: 35
+2026-04-21 20:00:39,070 INFO Skipping trace_001 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_002 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_003 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_004 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_005 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_006 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_007 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_008 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_009 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_010 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_011 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_012 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_013 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_014 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_015 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_016 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_017 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_018 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_019 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_020 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_021 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_022 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_023 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_024 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_025 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_026 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_027 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_028 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_029 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_030 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_031 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_032 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_033 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_034 (already present)
+2026-04-21 20:00:39,070 INFO Skipping trace_035 (already present)
+2026-04-21 20:00:39,070 INFO [36/50] starting trace_036
+2026-04-21 20:00:54,060 INFO step=1 url=about:blank actions=navigate
+2026-04-21 20:01:04,312 INFO step=2 url=https://www.yelp.com/search?find_desc=Lebanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 20:01:39,172 INFO step=3 url=https://www.yelp.com/search?find_desc=Lebanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=done
+2026-04-21 20:02:02,563 INFO finished trace_036 success=True events=8 total_cost=0.19009979999999999
+2026-04-21 20:02:02,563 INFO [37/50] starting trace_037
+2026-04-21 20:02:07,868 INFO step=1 url=about:blank actions=navigate
+2026-04-21 20:02:17,831 INFO step=2 url=https://www.yelp.com/search?find_desc=Japanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating actions=wait
+2026-04-21 20:02:29,334 INFO step=3 url=https://www.yelp.com/search?find_desc=Japanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 20:02:54,005 INFO step=4 url=https://www.yelp.com/search?find_desc=Japanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 20:03:15,878 INFO step=5 url=https://www.yelp.com/search?find_desc=Japanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 20:03:45,008 INFO step=6 url=https://www.yelp.com/search?find_desc=Japanese+Restaurants&find_loc=San+Francisco%2C+CA&sortby=rating&dd_referrer= actions=done
+2026-04-21 20:04:12,061 INFO finished trace_037 success=True events=11 total_cost=0.29744040000000005
+2026-04-21 20:04:12,061 INFO [38/50] starting trace_038
+2026-04-21 20:04:25,126 INFO step=1 url=about:blank actions=navigate
+2026-04-21 20:04:53,271 INFO step=2 url=https://www.yelp.com/search?find_desc=Mediterranean&find_loc=Charlotte%2C+NC&sortby=rating&dd_referrer= actions=done
+2026-04-21 20:05:12,199 INFO finished trace_038 success=True events=7 total_cost=0.09541005000000001
+2026-04-21 20:05:12,199 INFO [39/50] starting trace_039
+2026-04-21 20:05:25,331 INFO step=1 url=about:blank actions=navigate
+2026-04-21 20:05:44,634 INFO step=2 url=https://www.yelp.com/search?find_desc=Steakhouses&find_loc=Minneapolis%2C+MN&sortby=rating&dd_referrer= actions=done
+2026-04-21 20:05:55,860 INFO finished trace_039 success=True events=7 total_cost=0.08418780000000001
+2026-04-21 20:05:55,860 INFO [40/50] starting trace_040
+2026-04-21 20:06:10,150 INFO step=1 url=about:blank actions=navigate
+2026-04-21 20:06:20,576 INFO step=2 url=https://www.yelp.com/search?find_desc=Breakfast&find_loc=Boise%2C+ID&sortby=rating&dd_referrer= actions=scroll
+2026-04-21 20:06:43,356 INFO step=3 url=https://www.yelp.com/search?find_desc=Breakfast&find_loc=Boise%2C+ID&sortby=rating&dd_referrer= actions=done
+2026-04-21 20:07:07,725 INFO finished trace_040 success=True events=8 total_cost=0.14003745
+2026-04-21 20:07:07,725 INFO [41/50] starting trace_041
+2026-04-21 20:07:20,813 INFO step=1 url=about:blank actions=navigate
