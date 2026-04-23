@@ -1,6 +1,6 @@
 import type { ToolResultContent } from '../../shared/types';
 import { useStore } from '../store';
-import { loadMacros, saveMacros, type Macro, type MacroStep } from './macroMiner';
+import { loadMacros, saveMacros, reportMacroOutcome, type Macro, type MacroStep } from './macroMiner';
 import { setMacroReplayFlag } from './traceLogger';
 import { resolveSemanticTarget, type ResolvedElement } from './semanticResolver';
 
@@ -53,6 +53,7 @@ export async function executeMacro(
         if (!resolved) {
           console.error(`[MacroExecutor]   ✗ Element not found: ${step.semanticTarget.role} "${step.semanticTarget.name}"`);
           results.push(`Step ${i + 1}/${macro.steps.length}: ${stepLabel} — ELEMENT NOT FOUND`);
+          reportMacroOutcome(macro.id, false).catch(() => {});
 
           const content: ToolResultContent[] = [
             { type: 'text', text: `Macro "${macro.name}" failed at step ${i + 1}/${macro.steps.length}: Could not find element ${step.semanticTarget.role} "${step.semanticTarget.name}" (${step.semanticTarget.description}).\n\nCompleted steps:\n${results.join('\n')}\n\nFalling back to primitive tools. Take a screenshot and continue manually.` },
@@ -91,6 +92,7 @@ export async function executeMacro(
           const errorText = textParts.join('\n');
           console.error(`[MacroExecutor]   ✗ Step failed: ${errorText}`);
           results.push(`  FAILED: ${errorText}`);
+          reportMacroOutcome(macro.id, false).catch(() => {});
 
           const content: ToolResultContent[] = [
             { type: 'text', text: `Macro "${macro.name}" failed at step ${i + 1}/${macro.steps.length}: ${errorText}\n\nCompleted steps:\n${results.join('\n')}\n\nFalling back to primitive tools. Take a screenshot and continue manually.` },
@@ -105,6 +107,7 @@ export async function executeMacro(
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
         console.error(`[MacroExecutor]   ✗ Step threw: ${errMsg}`);
+        reportMacroOutcome(macro.id, false).catch(() => {});
 
         const content: ToolResultContent[] = [
           { type: 'text', text: `Macro "${macro.name}" failed at step ${i + 1}/${macro.steps.length}: ${errMsg}\n\nCompleted steps:\n${results.join('\n')}\n\nFalling back to primitive tools.` },
@@ -123,6 +126,7 @@ export async function executeMacro(
 
     results.push('All steps completed successfully.');
     console.log(`[MacroExecutor] ✓ Macro "${macro.name}" completed all ${macro.steps.length} steps`);
+    reportMacroOutcome(macro.id, true).catch(() => {});
 
     if (!lastScreenshot) {
       try {

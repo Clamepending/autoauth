@@ -1,3 +1,5 @@
+import { STORAGE_KEY_OTTOAUTH_URL } from '../../shared/constants';
+
 export interface SemanticTarget {
   role: string;
   name: string;
@@ -125,6 +127,9 @@ export async function finalizeTrace(success: boolean): Promise<string | null> {
   currentTrace = null;
 
   await persistTrace(domain, trace);
+  uploadTraceToBackend(domain, trace).catch((e) =>
+    console.warn('[TraceLogger] backend upload failed (non-fatal):', e),
+  );
   return domain;
 }
 
@@ -179,4 +184,27 @@ async function getLastMineTime(domain: string): Promise<number> {
 
 function normalizeDomain(domain: string): string {
   return domain.replace(/[^a-zA-Z0-9.-]/g, '_');
+}
+
+async function getBackendUrl(): Promise<string | null> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([STORAGE_KEY_OTTOAUTH_URL], (result) => {
+      resolve((result[STORAGE_KEY_OTTOAUTH_URL] as string) || null);
+    });
+  });
+}
+
+async function uploadTraceToBackend(domain: string, trace: TaskTrace): Promise<void> {
+  const backendUrl = await getBackendUrl();
+  if (!backendUrl) return;
+
+  const res = await fetch(`${backendUrl}/api/macros/traces`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain, trace }),
+  });
+
+  if (!res.ok) {
+    console.warn(`[TraceLogger] backend returned ${res.status}`);
+  }
 }

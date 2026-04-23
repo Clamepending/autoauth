@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getTracesSinceLastMine, setLastMineTime } from './traceLogger';
 import type { TaskTrace, TraceEvent, SemanticTarget } from './traceLogger';
+import { STORAGE_KEY_OTTOAUTH_URL } from '../../shared/constants';
 
 export interface MacroStepSemantic {
   role: string;
@@ -36,20 +37,51 @@ export interface Macro {
 }
 
 const MACRO_STORAGE_KEY = 'macro_registry';
+const REMOTE_MACRO_CACHE_KEY = 'macro_remote_cache';
 const MIN_TRACES_FOR_MINING = 5;
 const MINING_MODEL = 'claude-haiku-4-5-20251001';
 
 let miningInProgress = false;
 
+async function getBackendUrl(): Promise<string | null> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([STORAGE_KEY_OTTOAUTH_URL], (result) => {
+      resolve((result[STORAGE_KEY_OTTOAUTH_URL] as string) || null);
+    });
+  });
+}
+
+/**
+ * After a task completes, optionally trigger a server-side mining run.
+ * Falls back to local LLM mining if no backend is configured.
+ */
 export async function maybeRunMiningPass(domain: string, apiKey: string): Promise<void> {
   if (miningInProgress) return;
+
+  const backendUrl = await getBackendUrl();
+  if (backendUrl) {
+    try {
+      const res = await fetch(`${backendUrl}/api/macros/mine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        console.log(`[MacroMining] Server mining: ${data.macrosFound} macros from ${data.tracesUsed} traces`);
+      }
+    } catch (e) {
+      console.warn('[MacroMining] Server mining trigger failed (non-fatal):', e);
+    }
+    return;
+  }
 
   const traces = await getTracesSinceLastMine(domain);
   if (traces.length < MIN_TRACES_FOR_MINING) return;
 
   miningInProgress = true;
   try {
-    console.log(`[MacroMining] Starting mining pass for ${domain} with ${traces.length} traces`);
+    console.log(`[MacroMining] Starting local mining pass for ${domain} with ${traces.length} traces`);
     const newMacros = await mineMacros(domain, traces, apiKey);
 
     if (newMacros.length > 0) {
@@ -276,11 +308,55 @@ function mergeMacros(existing: Macro[], newMacros: Macro[]): Macro[] {
 }
 
 export async function loadMacros(): Promise<Macro[]> {
+  const local = await loadLocalMacros();
+  const remote = await fetchRemoteMacros().catch(() => [] as Macro[]);
+  return mergeMacros(local, remote);
+}
+
+async function loadLocalMacros(): Promise<Macro[]> {
   return new Promise((resolve) => {
     chrome.storage.local.get([MACRO_STORAGE_KEY], (result) => {
       resolve((result[MACRO_STORAGE_KEY] as Macro[]) || []);
     });
   });
+}
+
+async function fetchRemoteMacros(): Promise<Macro[]> {
+  const backendUrl = await getBackendUrl();
+  if (!backendUrl) return [];
+
+  let activeDomains: string[] = [];
+  try {
+    const tabs = await chrome.tabs.query({});
+    const domains = new Set<string>();
+    for (const tab of tabs) {
+      if (tab.url) {
+        try { domains.add(new URL(tab.url).hostname); } catch { /* skip */ }
+      }
+    }
+    activeDomains = Array.from(domains).filter((d) => d && !d.startsWith('chrome'));
+  } catch {
+    return [];
+  }
+
+  const all: Macro[] = [];
+  for (const domain of activeDomains.slice(0, 5)) {
+    try {
+      const res = await fetch(`${backendUrl}/api/macros/${encodeURIComponent(domain)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.macros)) {
+          all.push(...(data.macros as Macro[]));
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  if (all.length > 0) {
+    chrome.storage.local.set({ [REMOTE_MACRO_CACHE_KEY]: all });
+  }
+
+  return all;
 }
 
 export async function saveMacros(macros: Macro[]): Promise<void> {
@@ -292,4 +368,19 @@ export async function saveMacros(macros: Macro[]): Promise<void> {
 export async function getMacrosForDomain(domain: string): Promise<Macro[]> {
   const all = await loadMacros();
   return all.filter((m) => domain.includes(m.domain) || m.domain.includes(domain));
+}
+
+export async function reportMacroOutcome(macroId: string, success: boolean): Promise<void> {
+  const backendUrl = await getBackendUrl();
+  if (!backendUrl) return;
+
+  try {
+    await fetch(`${backendUrl}/api/macros/outcome`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ macroId, success }),
+    });
+  } catch (e) {
+    console.warn('[MacroMining] outcome report failed (non-fatal):', e);
+  }
 }
