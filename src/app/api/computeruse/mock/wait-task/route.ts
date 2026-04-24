@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
 import {
   normalizeMockDeviceId,
 } from "@/lib/computeruse-mock";
@@ -66,13 +65,8 @@ export async function GET(request: Request) {
   }
   await touchComputerUseDeviceSeen(deviceId).catch(() => null);
 
-  const waitMsRaw = Number(url.searchParams.get("waitMs") ?? "");
-  const waitMs = Number.isFinite(waitMsRaw) ? waitMsRaw : 25000;
-
   const result = await waitForComputerUseTaskForDevice({
     deviceId,
-    timeoutMs: waitMs,
-    intervalMs: 400,
   });
 
   if (!result) {

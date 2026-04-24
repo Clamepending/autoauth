@@ -664,20 +664,16 @@ export async function waitForComputerUseTaskForDevice(params: {
   timeoutMs?: number;
   intervalMs?: number;
 }) {
-  const timeoutMs = Math.max(100, Math.min(params.timeoutMs ?? 25000, 30000));
-  const intervalMs = Math.max(100, Math.min(params.intervalMs ?? 500, 2000));
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const claimed = await claimNextComputerUseTaskForDevice(params.deviceId);
-    if (claimed) {
-      return {
-        ...claimed,
-        waitedMs: Date.now() - started,
-      };
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  // Keep wait-task requests short-lived so idle fulfillers do not pin a Fluid
+  // function open. Clients are responsible for backing off between checks.
+  const claimed = await claimNextComputerUseTaskForDevice(params.deviceId);
+  if (!claimed) {
+    return null;
   }
-  return null;
+  return {
+    ...claimed,
+    waitedMs: 0,
+  };
 }
 
 export async function getComputerUseTaskById(taskId: string) {

@@ -217,7 +217,7 @@ Useful flags:
 - `--browser-path /path/to/chrome`
 - `--model claude-sonnet-4-5-20250929`
 - `--keep-tabs` keeps old tabs open between tasks
-- `--wait-ms 25000` changes long-poll wait duration
+- `--poll-interval-ms 10000` changes how long the worker waits between empty queue checks
 
 For a one-shot smoke test:
 

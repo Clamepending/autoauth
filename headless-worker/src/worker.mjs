@@ -378,11 +378,12 @@ export async function runWorker({
   browserPath = null,
   keepTabs = false,
   strictHumanInput = false,
-  waitMs = 25000,
+  pollIntervalMs = 10000,
   model = null,
   recordVideo = envFlagEnabled(process.env.OTTOAUTH_RECORD_VIDEO, true),
   logger = console,
 }) {
+  const idlePollIntervalMs = Math.max(1000, Number(pollIntervalMs) || 10000);
   let stopRequested = false;
   const requestStop = () => {
     stopRequested = true;
@@ -395,13 +396,13 @@ export async function runWorker({
     while (!stopRequested) {
       let task = null;
       try {
-        task = await waitForTask(config, waitMs);
+        task = await waitForTask(config);
       } catch (error) {
         logger.warn?.(`[ottoauth-headless] wait-task failed: ${stringifyError(error)}`);
         if (once) {
           throw error;
         }
-        await sleep(2000);
+        await sleep(idlePollIntervalMs);
         continue;
       }
 
@@ -410,6 +411,7 @@ export async function runWorker({
           logger.log?.('[ottoauth-headless] No task available.');
           break;
         }
+        await sleep(idlePollIntervalMs);
         continue;
       }
 

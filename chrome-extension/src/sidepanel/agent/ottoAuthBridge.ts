@@ -22,7 +22,6 @@ import {
   STORAGE_KEY_OTTOAUTH_DEVICE_ID,
   STORAGE_KEY_OTTOAUTH_AUTH_TOKEN,
   OTTOAUTH_POLL_INTERVAL_MS,
-  OTTOAUTH_POLL_TIMEOUT_MS,
   OTTOAUTH_TASK_HEARTBEAT_INTERVAL_MS,
   OTTOAUTH_TASK_TIMEOUT_MS,
 } from '../../shared/constants';
@@ -173,17 +172,14 @@ async function pollForTask(): Promise<void> {
   try {
     controller = new AbortController();
     pollAbortController = controller;
-    const res = await fetch(
-      `${ottoAuthUrl}/api/computeruse/device/wait-task?waitMs=${OTTOAUTH_POLL_TIMEOUT_MS}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${ottoAuthToken}`,
-          'X-OttoAuth-Mock-Device': ottoAuthDeviceId,
-        },
-        signal: controller.signal,
+    const res = await fetch(`${ottoAuthUrl}/api/computeruse/device/wait-task`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${ottoAuthToken}`,
+        'X-OttoAuth-Mock-Device': ottoAuthDeviceId,
       },
-    );
+      signal: controller.signal,
+    });
     if (pollAbortController === controller) {
       pollAbortController = null;
     }

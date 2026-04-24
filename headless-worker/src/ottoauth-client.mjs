@@ -57,14 +57,11 @@ export async function pairDevice({
   };
 }
 
-export async function waitForTask(config, waitMs = 25000) {
-  const response = await fetch(
-    `${normalizeServerUrl(config.serverUrl)}/api/computeruse/device/wait-task?waitMs=${Math.max(1, waitMs)}`,
-    {
-      method: 'GET',
-      headers: buildDeviceHeaders(config),
-    },
-  );
+export async function waitForTask(config) {
+  const response = await fetch(`${normalizeServerUrl(config.serverUrl)}/api/computeruse/device/wait-task`, {
+    method: 'GET',
+    headers: buildDeviceHeaders(config),
+  });
 
   if (response.status === 204) {
     return null;

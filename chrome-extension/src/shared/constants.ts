@@ -23,8 +23,7 @@ export const STORAGE_KEY_QUICK_ACCESS_LINKS = 'ottoauth_quick_access_links';
 
 export const STORAGE_KEY_SESSIONS = 'extension_sessions';
 
-export const OTTOAUTH_POLL_INTERVAL_MS = 2000;
-export const OTTOAUTH_POLL_TIMEOUT_MS = 25000;
+export const OTTOAUTH_POLL_INTERVAL_MS = 10000;
 export const OTTOAUTH_TASK_HEARTBEAT_INTERVAL_MS = 5000;
 export const OTTOAUTH_TASK_TIMEOUT_MS = 8 * 60 * 1000;
 export const OTTOAUTH_TOOL_TIMEOUT_MS = 45000;

@@ -28,7 +28,7 @@ Common flags:
   --keep-tabs
   --strict-human-input
   --model claude-sonnet-4-5-20250929
-  --wait-ms 25000
+  --poll-interval-ms 10000
 `);
 }
 
@@ -283,7 +283,16 @@ async function commandRun(flags, once) {
       ? boolFromFlag(flags['keep-tabs'], false)
       : boolFromFlag(process.env.OTTOAUTH_KEEP_TABS, false);
   const strictHumanInput = resolveStrictHumanInput(flags, false);
-  const waitMs = intFromFlag(flags['wait-ms'] ?? process.env.OTTOAUTH_WAIT_MS, 25000);
+  const pollIntervalMs = Math.max(
+    1000,
+    intFromFlag(
+      flags['poll-interval-ms']
+        ?? flags['wait-ms']
+        ?? process.env.OTTOAUTH_POLL_INTERVAL_MS
+        ?? process.env.OTTOAUTH_WAIT_MS,
+      10000,
+    ),
+  );
   const model = typeof flags.model === 'string' && flags.model.trim() ? flags.model.trim() : null;
 
   console.log(`[ottoauth-headless] Starting ${once ? 'one-shot' : 'continuous'} worker for ${config.deviceId} on ${config.serverUrl}.`);
@@ -297,7 +306,7 @@ async function commandRun(flags, once) {
     browserPath,
     keepTabs,
     strictHumanInput,
-    waitMs,
+    pollIntervalMs,
     model,
     logger: console,
   });
