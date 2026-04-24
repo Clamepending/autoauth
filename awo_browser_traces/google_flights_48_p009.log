@@ -1,0 +1,833 @@
+2026-04-23 13:40:48,835 INFO Dataset: /Users/abhayp/Documents/browser_use/prompt_datasets/google_flights_48_p009.json
+2026-04-23 13:40:48,835 INFO Output: /Users/abhayp/Documents/browser_use/awo_browser_traces/google_flights_48_p009.json
+2026-04-23 13:40:48,835 INFO Costs sidecar: /Users/abhayp/Documents/browser_use/awo_browser_traces/google_flights_48_p009.costs.json
+2026-04-23 13:40:48,835 INFO Provider=anthropic model=claude-sonnet-4-6
+2026-04-23 13:40:48,835 INFO Headless=True max_steps=120 max_runtime_seconds=900 step_timeout=180 stall_window=8
+2026-04-23 13:40:48,835 INFO user_data_dir=None profile_directory=Default
+2026-04-23 13:40:48,836 INFO Resume mode: True existing traces: 0
+2026-04-23 13:40:48,836 INFO [1/48] starting trace_001
+2026-04-23 13:41:02,023 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:41:09,179 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:41:17,810 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:41:25,204 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:41:32,767 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:41:40,619 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDT1JEQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:41:47,461 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDT1JEQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 13:41:54,859 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDT1JEQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:42:02,361 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDT1JEcgcIARIDUEhYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:42:10,254 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDT1JEcgcIARIDUEhYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:42:19,932 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDT1JEcgcIARIDUEhYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:42:28,330 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTA3agcIARIDT1JEcgcIARIDUEhYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:42:46,819 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTA3agcIARIDT1JEcgcIARIDUEhYQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 13:43:04,122 INFO finished trace_001 success=True events=14 total_cost=0.52782255
+2026-04-23 13:43:04,122 INFO [2/48] starting trace_002
+2026-04-23 13:43:22,197 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:43:30,240 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:43:39,530 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click,input
+2026-04-23 13:43:47,349 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:43:54,681 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:44:02,976 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:44:11,131 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:44:19,013 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:44:26,429 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARojEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHByBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:44:35,941 INFO step=11 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHByBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAg actions=wait
+2026-04-23 13:44:55,893 INFO step=12 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHByBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAg actions=done
+2026-04-23 13:45:15,450 INFO finished trace_002 success=True events=13 total_cost=0.4305864000000001
+2026-04-23 13:45:15,450 INFO [3/48] starting trace_003
+2026-04-23 13:45:27,043 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:45:33,438 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:45:41,316 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:45:48,874 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:45:56,868 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:46:03,909 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:46:11,319 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:46:18,565 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=wait
+2026-04-23 13:46:26,458 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:46:35,905 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:46:45,773 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARojEgoyMDI2LTA1LTExagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:47:09,353 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTExagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg actions=done
+2026-04-23 13:47:28,257 INFO finished trace_003 success=True events=13 total_cost=0.4604028
+2026-04-23 13:47:28,257 INFO [4/48] starting trace_004
+2026-04-23 13:47:38,667 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:47:45,375 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:47:54,591 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:48:06,122 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:48:13,645 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:48:22,055 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:48:29,370 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 13:48:36,591 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:48:45,210 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:48:53,075 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:49:01,349 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:49:09,741 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTEzagcIARIDTUlBcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:49:28,066 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTEzagcIARIDTUlBcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 13:49:45,333 INFO finished trace_004 success=True events=14 total_cost=0.49266119999999997
+2026-04-23 13:49:45,333 INFO [5/48] starting trace_005
+2026-04-23 13:49:56,765 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:50:03,212 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:50:14,776 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:50:22,557 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:50:29,758 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:50:37,109 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTEFTQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:50:44,080 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTEFTQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 13:50:52,575 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTEFTQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:51:00,439 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTEFTcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:51:08,999 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTEFTcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:51:17,674 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTEFTcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:51:25,694 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE1agcIARIDTEFTcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:51:38,323 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE1agcIARIDTEFTcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 13:51:53,841 INFO finished trace_005 success=True events=14 total_cost=0.48539220000000005
+2026-04-23 13:51:53,842 INFO [6/48] starting trace_006
+2026-04-23 13:52:12,638 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:52:18,991 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:52:27,325 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:52:35,226 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:52:43,962 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:52:51,055 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:52:58,499 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 13:53:05,783 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:53:18,090 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:53:26,328 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:53:36,706 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:53:45,409 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE3agcIARIDQVRMcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:54:04,036 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE3agcIARIDQVRMcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 13:54:21,753 INFO finished trace_006 success=True events=14 total_cost=0.4943412
+2026-04-23 13:54:21,753 INFO [7/48] starting trace_007
+2026-04-23 13:54:31,565 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:54:39,906 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:54:51,775 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:54:59,170 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:55:06,194 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:55:14,613 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:55:21,780 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 13:55:28,971 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:55:36,861 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:55:44,921 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:55:53,086 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:56:00,859 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE5agcIARIDQk9TcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:56:10,367 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE5agcIARIDQk9TcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI actions=wait
+2026-04-23 13:56:36,577 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE5agcIARIDQk9TcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 13:56:54,238 INFO finished trace_007 success=True events=15 total_cost=0.5306496
+2026-04-23 13:56:54,238 INFO [8/48] starting trace_008
+2026-04-23 13:57:06,299 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:57:12,680 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:57:20,984 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:57:28,500 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 13:57:36,965 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 13:57:45,109 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:57:52,685 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 13:57:59,843 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:58:08,343 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDREZXQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:58:16,665 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDREZXQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:58:24,563 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDREZXQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:58:33,055 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDU0VBcgcIARIDREZXQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 13:59:00,555 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDU0VBcgcIARIDREZXQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 13:59:17,152 INFO finished trace_008 success=True events=14 total_cost=0.48076919999999995
+2026-04-23 13:59:17,152 INFO [9/48] starting trace_009
+2026-04-23 13:59:27,847 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:59:38,110 INFO step=3 url=https://www.google.com/travel/flights actions=input
+2026-04-23 13:59:44,918 INFO step=4 url=https://www.google.com/travel/flights actions=click
+2026-04-23 13:59:52,410 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDREVOGglyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 13:59:59,370 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDREVOGglyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=input
+2026-04-23 14:00:10,051 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDREVOGglyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:00:18,387 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDREVOcgcIARIDU0VBGhJqBwgBEgNTRUFyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:00:29,108 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDREVOcgcIARIDU0VBGhJqBwgBEgNTRUFyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=wait
+2026-04-23 14:00:36,988 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDREVOcgcIARIDU0VBGhJqBwgBEgNTRUFyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:00:49,736 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDREVOcgcIARIDU0VBGhJqBwgBEgNTRUFyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:00:59,585 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDREVOcgcIARIDU0VBGhJqBwgBEgNTRUFyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:01:08,196 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE0agcIARIDREVOcgcIARIDU0VBGh4SCjIwMjYtMDUtMTdqBwgBEgNTRUFyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:01:22,583 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE0agcIARIDREVOcgcIARIDU0VBGh4SCjIwMjYtMDUtMTdqBwgBEgNTRUFyBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAQ actions=done
+2026-04-23 14:01:39,995 INFO finished trace_009 success=True events=14 total_cost=0.5052852
+2026-04-23 14:01:39,996 INFO [10/48] starting trace_010
+2026-04-23 14:01:53,068 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:02:00,335 INFO step=3 url=https://www.google.com/travel/flights actions=input
+2026-04-23 14:02:08,631 INFO step=4 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:02:16,984 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTVNQGglyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:02:24,012 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTVNQGglyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=input
+2026-04-23 14:02:31,507 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTVNQGglyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:02:40,307 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTVNQcgcIARIDU0FOGhJqBwgBEgNTQU5yBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:02:49,197 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTVNQcgcIARIDU0FOGhJqBwgBEgNTQU5yBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:02:56,662 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTVNQcgcIARIDU0FOGhJqBwgBEgNTQU5yBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:03:09,966 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTVNQcgcIARIDU0FOGhJqBwgBEgNTQU5yBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:03:20,296 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE3agcIARIDTVNQcgcIARIDU0FOGh4SCjIwMjYtMDUtMjFqBwgBEgNTQU5yBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:03:30,248 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE3agcIARIDTVNQcgcIARIDU0FOGh4SCjIwMjYtMDUtMjFqBwgBEgNTQU5yBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ actions=wait
+2026-04-23 14:03:50,658 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE3agcIARIDTVNQcgcIARIDU0FOGh4SCjIwMjYtMDUtMjFqBwgBEgNTQU5yBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ actions=done
+2026-04-23 14:04:08,741 INFO finished trace_010 success=True events=14 total_cost=0.5100671999999999
+2026-04-23 14:04:08,742 INFO [11/48] starting trace_011
+2026-04-23 14:04:18,667 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:04:25,761 INFO step=3 url=https://www.google.com/travel/flights actions=input
+2026-04-23 14:04:33,724 INFO step=4 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:04:41,199 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNNU1AaF2oHCAESA01TUHIMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQE&tfu=KgIIAw actions=click
+2026-04-23 14:04:50,544 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNNU1AaF2oHCAESA01TUHIMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQE&tfu=KgIIAw actions=click
+2026-04-23 14:04:58,214 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNNU1AaF2oHCAESA01TUHIMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQE&tfu=KgIIAw actions=click
+2026-04-23 14:05:06,688 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNNU1AaF2oHCAESA01TUHIMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQE&tfu=KgIIAw actions=click
+2026-04-23 14:05:14,577 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARojEgoyMDI2LTA1LTIwagwIAhIIL20vMGQ2bHByBwgBEgNNU1AaIxIKMjAyNi0wNS0yNWoHCAESA01TUHIMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQE&tfu=KgIIAw actions=click
+2026-04-23 14:05:41,001 INFO step=10 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTIwagwIAhIIL20vMGQ2bHByBwgBEgNNU1AaIxIKMjAyNi0wNS0yNWoHCAESA01TUHIMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQE actions=done
+2026-04-23 14:06:01,668 INFO finished trace_011 success=True events=10 total_cost=0.3902226
+2026-04-23 14:06:01,668 INFO [12/48] starting trace_012
+2026-04-23 14:06:19,153 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:06:27,370 INFO step=3 url=https://www.google.com/travel/flights actions=input
+2026-04-23 14:06:34,891 INFO step=4 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:06:43,810 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBGglyBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click,input
+2026-04-23 14:06:57,589 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBGglyBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=input
+2026-04-23 14:07:05,391 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBGglyBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:07:13,896 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDU0FOGhJqBwgBEgNTQU5yBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:07:21,892 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDU0FOGhJqBwgBEgNTQU5yBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:07:31,197 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDU0FOGhJqBwgBEgNTQU5yBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:07:41,624 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDU0FOGhJqBwgBEgNTQU5yBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:07:49,617 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIzagcIARIDU0VBcgcIARIDU0FOGh4SCjIwMjYtMDUtMjlqBwgBEgNTQU5yBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:08:10,347 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIzagcIARIDU0VBcgcIARIDU0FOGh4SCjIwMjYtMDUtMjlqBwgBEgNTQU5yBwgBEgNTRUFAAUgBcAGCAQsI____________AZgBAQ actions=done
+2026-04-23 14:08:33,211 INFO finished trace_012 success=True events=14 total_cost=0.49332780000000004
+2026-04-23 14:08:33,211 INFO [13/48] starting trace_013
+2026-04-23 14:08:46,057 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:08:54,135 INFO step=3 url=https://www.google.com/travel/flights actions=input
+2026-04-23 14:09:00,750 INFO step=4 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:09:08,781 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTVNQGglyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:09:15,798 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTVNQGglyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=input
+2026-04-23 14:09:23,829 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTVNQGglyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:09:32,135 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTVNQcgcIARIDQVRMGhJqBwgBEgNBVExyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:09:39,759 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTVNQcgcIARIDQVRMGhJqBwgBEgNBVExyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:09:47,543 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTVNQcgcIARIDQVRMGhJqBwgBEgNBVExyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:09:56,368 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTVNQcgcIARIDQVRMGhJqBwgBEgNBVExyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:10:04,476 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTI2agcIARIDTVNQcgcIARIDQVRMGh4SCjIwMjYtMDUtMjlqBwgBEgNBVExyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:10:21,414 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTI2agcIARIDTVNQcgcIARIDQVRMGh4SCjIwMjYtMDUtMjlqBwgBEgNBVExyBwgBEgNNU1BAAUgBcAGCAQsI____________AZgBAQ actions=done
+2026-04-23 14:10:39,815 INFO finished trace_013 success=True events=13 total_cost=0.47867580000000004
+2026-04-23 14:10:39,815 INFO [14/48] starting trace_014
+2026-04-23 14:10:51,983 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:10:59,145 INFO step=3 url=https://www.google.com/travel/flights actions=input
+2026-04-23 14:11:05,930 INFO step=4 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:11:13,915 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBGglyBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:11:20,975 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBGglyBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=input
+2026-04-23 14:11:28,552 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBGglyBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:11:37,746 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDU0ZPGhJqBwgBEgNTRk9yBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:11:45,323 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDU0ZPGhJqBwgBEgNTRk9yBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:11:55,792 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDU0ZPGhJqBwgBEgNTRk9yBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:12:07,287 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDU0ZPGhJqBwgBEgNTRk9yBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:12:14,781 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTI5agcIARIDTUlBcgcIARIDU0ZPGh4SCjIwMjYtMDYtMDJqBwgBEgNTRk9yBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:12:39,548 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTI5agcIARIDTUlBcgcIARIDU0ZPGh4SCjIwMjYtMDYtMDJqBwgBEgNTRk9yBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAQ actions=done
+2026-04-23 14:12:59,365 INFO finished trace_014 success=True events=13 total_cost=0.49804980000000004
+2026-04-23 14:12:59,366 INFO [15/48] starting trace_015
+2026-04-23 14:13:19,131 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:13:25,959 INFO step=3 url=https://www.google.com/travel/flights actions=input
+2026-04-23 14:13:33,107 INFO step=4 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:13:40,051 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TGglyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:13:48,161 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TGglyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=input
+2026-04-23 14:13:55,595 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TGglyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:14:04,956 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDSUFIGhJqBwgBEgNJQUhyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:14:19,618 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDSUFIGhJqBwgBEgNJQUhyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:14:27,967 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDSUFIGhJqBwgBEgNJQUhyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:14:41,361 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDSUFIGhJqBwgBEgNJQUhyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:14:49,217 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA2LTAxagcIARIDQk9TcgcIARIDSUFIGh4SCjIwMjYtMDYtMDZqBwgBEgNJQUhyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:15:13,200 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA2LTAxagcIARIDQk9TcgcIARIDSUFIGh4SCjIwMjYtMDYtMDZqBwgBEgNJQUhyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ actions=done
+2026-04-23 14:15:32,709 INFO finished trace_015 success=True events=13 total_cost=0.5026068
+2026-04-23 14:15:32,709 INFO [16/48] starting trace_016
+2026-04-23 14:15:52,200 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:16:01,048 INFO step=3 url=https://www.google.com/travel/flights actions=input
+2026-04-23 14:16:10,322 INFO step=4 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:16:17,477 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TGglyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:16:23,685 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TGglyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=input
+2026-04-23 14:16:31,310 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TGglyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:16:40,396 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDT1JEGhJqBwgBEgNPUkRyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:16:48,765 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDT1JEGhJqBwgBEgNPUkRyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:16:56,694 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDT1JEGhJqBwgBEgNPUkRyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:17:06,607 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDT1JEGhJqBwgBEgNPUkRyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:17:14,412 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA2LTA0agcIARIDQk9TcgcIARIDT1JEGh4SCjIwMjYtMDYtMTBqBwgBEgNPUkRyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ&tfu=KgIIAw actions=click
+2026-04-23 14:17:36,212 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA2LTA0agcIARIDQk9TcgcIARIDT1JEGh4SCjIwMjYtMDYtMTBqBwgBEgNPUkRyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAQ actions=done
+2026-04-23 14:17:54,366 INFO finished trace_016 success=True events=13 total_cost=0.5086038
+2026-04-23 14:17:54,366 INFO [17/48] starting trace_017
+2026-04-23 14:18:13,585 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:18:20,036 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:18:28,421 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:18:36,872 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:18:43,906 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:18:52,403 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDREZXQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:18:58,955 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDREZXQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:19:05,720 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDREZXQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:19:14,325 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDREZXcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:19:21,794 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDREZXcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:19:29,869 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDREZXcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:19:38,666 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTExagcIARIDREZXcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:19:59,923 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTExagcIARIDREZXcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:20:12,053 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTExagcIARIDREZXcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:20:25,260 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTExKAFqBwgBEgNERldyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:20:42,572 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTExKAFqBwgBEgNERldyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:21:12,280 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTExKAFqBwgBEgNERldyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:21:39,534 INFO step=19 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTExKABqBwgBEgNERldyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:21:59,023 INFO step=20 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTExKABqBwgBEgNERldyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=done
+2026-04-23 14:22:22,080 INFO finished trace_017 success=True events=20 total_cost=0.9756546
+2026-04-23 14:22:22,080 INFO [18/48] starting trace_018
+2026-04-23 14:22:39,716 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:22:46,275 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:22:54,982 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:23:04,873 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:23:13,079 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:23:22,442 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUNPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:23:29,601 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUNPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:23:37,468 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUNPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:23:45,392 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUNPcgcIARIDUEhMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:23:53,176 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUNPcgcIARIDUEhMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:24:01,385 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUNPcgcIARIDUEhMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:24:10,450 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTEzagcIARIDTUNPcgcIARIDUEhMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:24:29,963 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTEzagcIARIDTUNPcgcIARIDUEhMQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 14:24:48,835 INFO finished trace_018 success=True events=14 total_cost=0.5002842000000001
+2026-04-23 14:24:48,836 INFO [19/48] starting trace_019
+2026-04-23 14:25:07,102 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:25:13,748 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:25:22,862 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:25:30,887 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:25:38,317 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:25:46,910 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:25:53,866 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:26:00,956 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:26:10,361 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:26:18,994 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:26:27,816 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:26:36,101 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE1agcIARIDQk9TcgcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:26:58,335 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE1agcIARIDQk9TcgcIARIDTUlBQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:27:08,432 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE1agcIARIDQk9TcgcIARIDTUlBQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:27:35,562 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE1KAFqBwgBEgNCT1NyBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:27:56,047 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE1KABqBwgBEgNCT1NyBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:28:13,199 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE1KABqBwgBEgNCT1NyBwgBEgNNSUFAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=done
+2026-04-23 14:28:36,965 INFO finished trace_019 success=True events=18 total_cost=0.7918398000000001
+2026-04-23 14:28:36,965 INFO [20/48] starting trace_020
+2026-04-23 14:28:54,941 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:29:01,390 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:29:09,502 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:29:16,112 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:29:24,054 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:29:31,092 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:29:38,780 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:29:45,806 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:29:53,733 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:30:01,831 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSUFIcgcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:30:12,277 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSUFIcgcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:30:22,157 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSUFIcgcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:30:30,715 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE3agcIARIDSUFIcgcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:30:40,964 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE3agcIARIDSUFIcgcIARIDQVRMQAFIAXABggELCP___________wGYAQI actions=wait
+2026-04-23 14:31:13,708 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE3agcIARIDSUFIcgcIARIDQVRMQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 14:31:37,541 INFO finished trace_020 success=True events=16 total_cost=0.5743259999999999
+2026-04-23 14:31:37,541 INFO [21/48] starting trace_021
+2026-04-23 14:31:55,868 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:32:02,499 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:32:11,950 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:32:20,665 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:32:27,968 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:32:35,314 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:32:43,028 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:32:51,372 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:33:01,502 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:33:10,430 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:33:19,178 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:33:27,889 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE5agcIARIDRENBcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:33:44,162 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE5agcIARIDRENBcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:33:55,997 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE5agcIARIDRENBcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:34:16,600 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE5KAFqBwgBEgNEQ0FyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:34:32,059 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE5KAFqBwgBEgNEQ0FyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:35:08,508 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE5KAFqBwgBEgNEQ0FyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:35:41,660 INFO step=19 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE5KAFqBwgBEgNEQ0FyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:35:59,708 INFO step=20 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE5KABqBwgBEgNEQ0FyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:36:14,277 INFO step=21 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTE5KABqBwgBEgNEQ0FyBwgBEgNTRk9AAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=done
+2026-04-23 14:36:35,193 INFO finished trace_021 success=True events=21 total_cost=1.035885
+2026-04-23 14:36:35,193 INFO [22/48] starting trace_022
+2026-04-23 14:36:53,707 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:37:00,101 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:37:07,409 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:37:15,503 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:37:23,067 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:37:31,187 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0FOQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:37:38,773 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0FOQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:37:46,236 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0FOQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:37:54,940 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0FOcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:38:02,727 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0FOcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:38:12,583 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0FOcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:38:20,593 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDU0FOcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:38:36,868 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDU0FOcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:38:45,993 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDU0FOcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:39:05,452 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTIxKAFqBwgBEgNTQU5yBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:39:27,306 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTIxKABqBwgBEgNTQU5yBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:39:46,454 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTIxKABqBwgBEgNTQU5yBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=done
+2026-04-23 14:40:07,798 INFO finished trace_022 success=True events=18 total_cost=0.7285848
+2026-04-23 14:40:07,798 INFO [23/48] starting trace_023
+2026-04-23 14:40:18,678 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:40:24,826 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:40:32,815 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:40:40,368 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:40:50,549 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:40:58,409 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:41:05,248 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:41:12,959 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:41:21,126 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:41:29,581 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:41:37,910 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQk9TcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:41:46,260 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIzagcIARIDQk9TcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:42:08,194 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIzagcIARIDQk9TcgcIARIDU0VBQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 14:42:30,470 INFO finished trace_023 success=True events=14 total_cost=0.48859020000000003
+2026-04-23 14:42:30,470 INFO [24/48] starting trace_024
+2026-04-23 14:42:49,153 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:42:55,442 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:43:03,668 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:43:10,654 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:43:17,993 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:43:25,050 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:43:32,494 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:43:39,421 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:43:47,395 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:43:54,964 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:44:03,952 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:44:13,080 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTI1agcIARIDQVRMcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:44:31,670 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTI1agcIARIDQVRMcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:44:47,082 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTI1agcIARIDQVRMcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:45:10,749 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTI1KABqBwgBEgNBVExyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:45:27,433 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhogEgoyMDI2LTA1LTI1KABqBwgBEgNBVExyBwgBEgNCT1NAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=done
+2026-04-23 14:45:48,766 INFO finished trace_024 success=True events=17 total_cost=0.7183554
+2026-04-23 14:45:48,766 INFO [25/48] starting trace_025
+2026-04-23 14:46:06,802 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:46:13,193 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:46:21,585 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:46:28,866 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:46:36,351 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:46:43,813 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:46:51,358 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 14:46:58,846 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:47:06,887 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:47:14,255 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:47:22,289 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUlBcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:47:30,656 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE3agcIARIDTUlBcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 14:47:42,165 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE3agcIARIDTUlBcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:47:56,725 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE3agcIARIDTUlBcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:49:10,347 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE3agcIARIDTUlBcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 14:49:29,088 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTE3MgJETGoHCAESA01JQXIHCAESA0xBWEABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=done
+2026-04-23 14:49:49,126 INFO finished trace_025 success=True events=17 total_cost=0.7280664
+2026-04-23 14:49:49,126 INFO [26/48] starting trace_026
+2026-04-23 14:50:00,831 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:50:07,755 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:50:16,575 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:50:23,947 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:50:36,274 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:50:43,835 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:50:51,305 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:50:58,782 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=wait
+2026-04-23 14:51:06,958 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:51:15,123 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:51:23,636 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:51:44,277 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg actions=click
+2026-04-23 14:52:07,756 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg actions=scroll,click
+2026-04-23 14:52:30,724 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg actions=click
+2026-04-23 14:52:52,007 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhonEgoyMDI2LTA1LTE4MgJWQWoMCAISCC9tLzBkNmxwcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:53:37,486 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhonEgoyMDI2LTA1LTE4MgJWQWoMCAISCC9tLzBkNmxwcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:54:31,561 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=evaluate
+2026-04-23 14:55:05,445 INFO step=19 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=click
+2026-04-23 14:56:27,869 INFO step=20 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=EgYIABAAGAA actions=none
+2026-04-23 14:57:45,636 INFO Dataset: /Users/abhayp/Documents/browser_use/prompt_datasets/google_flights_48_p009.json
+2026-04-23 14:57:45,636 INFO Output: /Users/abhayp/Documents/browser_use/awo_browser_traces/google_flights_48_p009.json
+2026-04-23 14:57:45,636 INFO Costs sidecar: /Users/abhayp/Documents/browser_use/awo_browser_traces/google_flights_48_p009.costs.json
+2026-04-23 14:57:45,636 INFO Provider=anthropic model=claude-sonnet-4-6
+2026-04-23 14:57:45,636 INFO Headless=True max_steps=120 max_runtime_seconds=900 step_timeout=180 stall_window=8
+2026-04-23 14:57:45,636 INFO user_data_dir=None profile_directory=Default
+2026-04-23 14:57:45,637 INFO Resume mode: True existing traces: 25
+2026-04-23 14:57:45,637 INFO Skipping trace_001 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_002 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_003 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_004 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_005 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_006 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_007 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_008 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_009 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_010 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_011 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_012 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_013 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_014 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_015 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_016 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_017 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_018 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_019 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_020 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_021 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_022 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_023 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_024 (already present)
+2026-04-23 14:57:45,637 INFO Skipping trace_025 (already present)
+2026-04-23 14:57:45,637 INFO [26/48] starting trace_026
+2026-04-23 14:58:05,671 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:58:11,709 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 14:58:20,254 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:58:27,705 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:58:35,414 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 14:58:42,775 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:58:50,541 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:58:58,616 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:59:07,790 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:59:15,719 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 14:59:33,041 INFO step=12 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg actions=click
+2026-04-23 15:00:06,368 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg actions=scroll,click
+2026-04-23 15:01:00,680 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTE4agwIAhIIL20vMGQ2bHByBwgBEgNJQUhAAUgBcAGCAQsI____________AZgBAg actions=click
+2026-04-23 15:01:11,320 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhonEgoyMDI2LTA1LTE4OgJWQWoMCAISCC9tLzBkNmxwcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:01:31,798 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhonEgoyMDI2LTA1LTE4MgJVQWoMCAISCC9tLzBkNmxwcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:01:54,685 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhonEgoyMDI2LTA1LTE4MgJVQWoMCAISCC9tLzBkNmxwcgcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=EgYIABAAGAA actions=done
+2026-04-23 15:02:14,918 INFO finished trace_026 success=True events=18 total_cost=0.8632194000000001
+2026-04-23 15:02:14,918 INFO [27/48] starting trace_027
+2026-04-23 15:02:25,483 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:02:31,605 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:02:39,499 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:02:47,272 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:02:55,988 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:03:03,660 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:03:11,050 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:03:18,612 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:03:28,766 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTEFYcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:03:36,926 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTEFYcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:03:44,819 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTEFYcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:03:52,397 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE5agcIARIDTEFYcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:04:07,203 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE5agcIARIDTEFYcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:04:27,321 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE5agcIARIDTEFYcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:05:58,119 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE5agcIARIDTEFYcgcIARIDQk9TQAFIAXABggELCP___________wGYAQI actions=none
+2026-04-23 15:06:17,775 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTE5MgJBQWoHCAESA0xBWHIHCAESA0JPU0ABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:06:46,609 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTE5MgJBQWoHCAESA0xBWHIHCAESA0JPU0ABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=done
+2026-04-23 15:07:08,297 INFO finished trace_027 success=True events=17 total_cost=0.7340004
+2026-04-23 15:07:08,297 INFO [28/48] starting trace_028
+2026-04-23 15:07:19,414 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:07:26,594 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:07:34,412 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:07:41,620 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:07:49,876 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:07:57,728 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSkZLQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:08:05,335 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSkZLQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:08:13,067 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSkZLQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:08:20,914 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSkZLcgcIARIDTVNQQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:08:28,293 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSkZLcgcIARIDTVNQQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=wait
+2026-04-23 15:08:36,443 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSkZLcgcIARIDTVNQQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:08:45,625 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSkZLcgcIARIDTVNQQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:08:53,961 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIwagcIARIDSkZLcgcIARIDTVNQQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:09:08,549 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIwagcIARIDSkZLcgcIARIDTVNQQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:09:53,821 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIwagcIARIDSkZLcgcIARIDTVNQQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:10:39,127 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIwagcIARIDSkZLcgcIARIDTVNQQAFIAXABggELCP___________wGYAQI actions=evaluate
+2026-04-23 15:10:46,427 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTIwMgJETGoHCAESA0pGS3IHCAESA01TUEABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=done
+2026-04-23 15:11:07,458 INFO finished trace_028 success=True events=19 total_cost=0.7684518
+2026-04-23 15:11:07,459 INFO [29/48] starting trace_029
+2026-04-23 15:11:18,557 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:11:24,713 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:11:33,827 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:11:41,547 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:11:48,640 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:11:56,562 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:12:03,462 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:12:10,255 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:12:19,208 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDU0FOQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:12:27,164 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDU0FOQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:12:35,464 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDU0FOQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:12:43,575 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDRENBcgcIARIDU0FOQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:12:53,926 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDRENBcgcIARIDU0FOQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:13:16,379 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDRENBcgcIARIDU0FOQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:13:59,399 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDRENBcgcIARIDU0FOQAFIAXABggELCP___________wGYAQI actions=evaluate
+2026-04-23 15:14:17,062 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTIxMgJBU2oHCAESA0RDQXIHCAESA1NBTkABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:14:33,473 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTIxMgJBU2oHCAESA0RDQXIHCAESA1NBTkABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=done
+2026-04-23 15:14:57,685 INFO finished trace_029 success=True events=19 total_cost=0.7646508000000001
+2026-04-23 15:14:57,685 INFO [30/48] starting trace_030
+2026-04-23 15:15:08,548 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:15:15,212 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:15:23,613 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:15:30,516 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:15:38,161 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:15:48,197 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:15:55,100 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:16:02,782 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDRENBQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:16:11,448 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDT1JEQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:16:19,248 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDT1JEQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:16:28,015 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDRENBcgcIARIDT1JEQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:16:35,984 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIyagcIARIDRENBcgcIARIDT1JEQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:16:45,609 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIyagcIARIDRENBcgcIARIDT1JEQAFIAXABggELCP___________wGYAQI actions=wait
+2026-04-23 15:16:55,425 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIyagcIARIDRENBcgcIARIDT1JEQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:17:26,902 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIyagcIARIDRENBcgcIARIDT1JEQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:18:51,236 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIyagcIARIDRENBcgcIARIDT1JEQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:19:23,481 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTIyMgJBVGoHCAESA0RDQXIHCAESA09SREABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:20:42,413 INFO step=19 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTIyMgJBVGoHCAESA0RDQXIHCAESA09SREABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:21:01,719 INFO step=20 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTIyMgJBVGoHCAESA0RDQXIHCAESA09SREABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:21:22,167 INFO step=21 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTIyMgJCNmoHCAESA0RDQXIHCAESA09SREABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=done
+2026-04-23 15:21:42,842 INFO finished trace_030 success=True events=21 total_cost=0.9884280000000001
+2026-04-23 15:21:42,843 INFO [31/48] starting trace_031
+2026-04-23 15:21:54,176 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:22:01,652 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:22:10,604 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:22:17,263 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:22:24,131 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:22:32,155 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:22:40,053 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:22:48,197 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:22:56,582 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARojEgoyMDI2LTA1LTIzagwIAhIIL20vMGQ2bHByBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:23:07,121 INFO step=11 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTIzagwIAhIIL20vMGQ2bHByBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAg actions=click
+2026-04-23 15:23:29,612 INFO step=12 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTIzagwIAhIIL20vMGQ2bHByBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAg actions=click
+2026-04-23 15:25:00,161 INFO step=13 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTIzagwIAhIIL20vMGQ2bHByBwgBEgNERU5AAUgBcAGCAQsI____________AZgBAg actions=none
+2026-04-23 15:25:14,075 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhonEgoyMDI2LTA1LTIzMgJETGoMCAISCC9tLzBkNmxwcgcIARIDREVOQAFIAXABggELCP___________wGYAQI&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:25:29,005 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhonEgoyMDI2LTA1LTIzMgJETGoMCAISCC9tLzBkNmxwcgcIARIDREVOQAFIAXABggELCP___________wGYAQI&tfu=EgYIABAAGAA actions=done
+2026-04-23 15:25:50,204 INFO finished trace_031 success=True events=14 total_cost=0.5803392
+2026-04-23 15:25:50,204 INFO [32/48] starting trace_032
+2026-04-23 15:26:01,163 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:26:07,315 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:26:15,334 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:26:23,158 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:26:37,167 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:26:43,879 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:26:52,760 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:27:00,035 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:27:07,221 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDSUFIQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:27:15,666 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSUFIcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:27:23,378 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSUFIcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:27:31,987 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDSUFIcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:27:40,356 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTI0agcIARIDSUFIcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:27:53,205 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTI0agcIARIDSUFIcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:28:13,997 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTI0agcIARIDSUFIcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI actions=scroll
+2026-04-23 15:28:37,166 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTI0agcIARIDSUFIcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI actions=click
+2026-04-23 15:29:39,821 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTI0agcIARIDSUFIcgcIARIDTEFYQAFIAXABggELCP___________wGYAQI actions=none
+2026-04-23 15:30:02,530 INFO step=19 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTI0MgJZNGoHCAESA0lBSHIHCAESA0xBWEABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:30:14,042 INFO step=20 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTI0MgJZNGoHCAESA0lBSHIHCAESA0xBWEABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:30:29,661 INFO step=21 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTI0MgJZNGoHCAESA0lBSHIHCAESA0xBWEABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:31:37,460 INFO step=22 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoiEgoyMDI2LTA1LTI0MgJZNGoHCAESA0lBSHIHCAESA0xBWEABSAFwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA actions=click
+2026-04-23 15:31:37,460 WARNING Detected non-progressing loop over the last 8 steps (unique_signatures=2, unique_urls=2).
+2026-04-23 15:31:37,991 INFO finished trace_032 success=False events=22 total_cost=0.8057249999999999
+2026-04-23 15:31:37,991 INFO [33/48] starting trace_033
+2026-04-23 15:31:56,496 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:32:02,914 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:32:11,268 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:32:19,249 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:32:27,180 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:32:35,625 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:32:43,590 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=input
+2026-04-23 15:32:50,503 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:32:58,783 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNCT1NAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:33:06,595 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNCT1NAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:33:15,554 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoXagwIAhIIL20vMGQ2bHByBwgBEgNCT1NAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:33:23,807 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARojEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHByBwgBEgNCT1NAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:33:34,070 INFO step=14 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHByBwgBEgNCT1NAAUABSAFwAYIBCwj___________8BmAEC actions=wait
+2026-04-23 15:33:57,480 INFO step=15 url=https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHByBwgBEgNCT1NAAUABSAFwAYIBCwj___________8BmAEC actions=done
+2026-04-23 15:34:18,244 INFO finished trace_033 success=True events=15 total_cost=0.5269836
+2026-04-23 15:34:18,244 INFO [34/48] starting trace_034
+2026-04-23 15:34:29,174 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:34:35,879 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:34:44,410 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:34:53,977 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click,click,click
+2026-04-23 15:35:03,185 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:35:10,040 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:35:17,010 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:35:25,101 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0FOQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:35:32,134 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0FOQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=input
+2026-04-23 15:35:40,272 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0FOQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:35:48,868 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0FOcgcIARIDQk9TQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:35:56,955 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0FOcgcIARIDQk9TQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:36:06,356 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0FOcgcIARIDQk9TQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:36:14,854 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTEwagcIARIDU0FOcgcIARIDQk9TQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:36:33,133 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTEwagcIARIDU0FOcgcIARIDQk9TQAFAAUABSAFwAYIBCwj___________8BmAEC actions=done
+2026-04-23 15:36:50,819 INFO finished trace_034 success=True events=18 total_cost=0.536892
+2026-04-23 15:36:50,819 INFO [35/48] starting trace_035
+2026-04-23 15:37:09,579 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:37:15,897 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:37:24,783 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:37:34,479 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click,click,click
+2026-04-23 15:37:42,088 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:37:51,599 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:37:59,402 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:38:06,290 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:38:14,875 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUNPQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:38:21,916 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUNPQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:38:29,075 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDTUNPQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:38:37,321 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUNPcgcIARIDREZXQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:38:46,427 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUNPcgcIARIDREZXQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=wait
+2026-04-23 15:38:54,833 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUNPcgcIARIDREZXQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:39:03,088 INFO step=16 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDTUNPcgcIARIDREZXQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:39:10,874 INFO step=17 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTExagcIARIDTUNPcgcIARIDREZXQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:39:36,839 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTExagcIARIDTUNPcgcIARIDREZXQAFAAUABQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 15:39:55,532 INFO finished trace_035 success=True events=20 total_cost=0.6208728
+2026-04-23 15:39:55,532 INFO [36/48] starting trace_036
+2026-04-23 15:40:06,848 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:40:13,253 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:40:22,652 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:40:32,879 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click,click,click,click
+2026-04-23 15:40:40,450 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:40:49,296 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:40:56,046 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=input
+2026-04-23 15:41:06,063 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:41:14,086 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDUEhYQAFAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:41:21,082 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDUEhYQAFAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:41:28,049 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDUEhYQAFAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:41:36,624 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDUEhYcgcIARIDUEhMQAFAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:41:44,585 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDUEhYcgcIARIDUEhMQAFAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:41:54,474 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDUEhYcgcIARIDUEhMQAFAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:42:03,146 INFO step=16 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTEyagcIARIDUEhYcgcIARIDUEhMQAFAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:42:24,617 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTEyagcIARIDUEhYcgcIARIDUEhMQAFAAUABQAFAAUgBcAGCAQsI____________AZgBAg actions=done
+2026-04-23 15:42:46,327 INFO finished trace_036 success=True events=20 total_cost=0.5587674000000001
+2026-04-23 15:42:46,327 INFO [37/48] starting trace_037
+2026-04-23 15:42:57,961 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:43:05,180 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:43:14,435 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:43:26,032 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click,click,click,click,click
+2026-04-23 15:43:35,014 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:43:43,797 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:43:51,452 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:43:59,150 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:44:07,766 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDUEhYQAFAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:44:15,175 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDUEhYQAFAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=input
+2026-04-23 15:44:22,204 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDUEhYQAFAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:44:31,216 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDUEhYcgcIARIDREZXQAFAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:44:39,612 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDUEhYcgcIARIDREZXQAFAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:44:49,287 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDUEhYcgcIARIDREZXQAFAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:44:56,898 INFO step=16 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTEzagcIARIDUEhYcgcIARIDREZXQAFAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:45:24,904 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTEzagcIARIDUEhYcgcIARIDREZXQAFAAUABQAFAAUABSAFwAYIBCwj___________8BmAEC actions=done
+2026-04-23 15:45:45,017 INFO finished trace_037 success=True events=21 total_cost=0.5700324000000001
+2026-04-23 15:45:45,017 INFO [38/48] starting trace_038
+2026-04-23 15:46:03,989 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:46:10,117 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:46:18,934 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:46:27,893 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click,click
+2026-04-23 15:46:36,585 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:46:43,878 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=input
+2026-04-23 15:46:51,909 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:46:59,567 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:47:06,275 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:47:14,358 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDQVRMQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:47:22,821 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDREZXQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:47:30,319 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDREZXQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:47:38,498 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDQVRMcgcIARIDREZXQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:47:46,049 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE0agcIARIDQVRMcgcIARIDREZXQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:48:03,726 INFO step=16 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE0agcIARIDQVRMcgcIARIDREZXQAFAAUgBcAGCAQsI____________AZgBAg actions=done
+2026-04-23 15:48:24,303 INFO finished trace_038 success=True events=17 total_cost=0.549726
+2026-04-23 15:48:24,303 INFO [39/48] starting trace_039
+2026-04-23 15:48:42,527 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:48:50,167 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:48:58,459 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:49:06,229 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click,click
+2026-04-23 15:49:14,408 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:49:24,472 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:49:32,935 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:49:41,385 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:49:50,474 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDT1JEQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:49:57,657 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDT1JEQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=input
+2026-04-23 15:50:06,059 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDT1JEQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:50:15,063 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDT1JEcgcIARIDTEFTQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:50:23,488 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDT1JEcgcIARIDTEFTQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:50:32,208 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDT1JEcgcIARIDTEFTQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:50:41,121 INFO step=16 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE1agcIARIDT1JEcgcIARIDTEFTQAFAAUABSAFwAYIBCwj___________8BmAEC&tfu=KgIIAw actions=click
+2026-04-23 15:50:57,132 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE1agcIARIDT1JEcgcIARIDTEFTQAFAAUABSAFwAYIBCwj___________8BmAEC actions=scroll
+2026-04-23 15:51:28,535 INFO step=18 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE1agcIARIDT1JEcgcIARIDTEFTQAFAAUABSAFwAYIBCwj___________8BmAEC actions=done
+2026-04-23 15:51:44,678 INFO finished trace_039 success=True events=19 total_cost=0.6396228
+2026-04-23 15:51:44,679 INFO [40/48] starting trace_040
+2026-04-23 15:52:03,302 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:52:09,852 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:52:19,065 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:52:29,784 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click,click,click
+2026-04-23 15:52:37,713 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:52:47,313 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:52:58,577 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=input
+2026-04-23 15:53:06,703 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoOagwIAhIIL20vMGQ2bHBAAUABQAFAAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw actions=click
+2026-04-23 15:53:15,149 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:53:22,618 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=input
+2026-04-23 15:53:30,611 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoJagcIARIDU0VBQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:53:38,562 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDUEhMQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:53:49,408 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDUEhMQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:54:01,560 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoSagcIARIDU0VBcgcIARIDUEhMQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:54:10,279 INFO step=16 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTE2agcIARIDU0VBcgcIARIDUEhMQAFAAUABQAFIAXABggELCP___________wGYAQI&tfu=KgIIAw actions=click
+2026-04-23 15:54:32,767 INFO step=17 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTE2agcIARIDU0VBcgcIARIDUEhMQAFAAUABQAFIAXABggELCP___________wGYAQI actions=done
+2026-04-23 15:54:50,687 INFO finished trace_040 success=True events=19 total_cost=0.5745204
+2026-04-23 15:54:50,688 INFO [41/48] starting trace_041
+2026-04-23 15:55:08,870 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:55:15,627 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 15:55:27,732 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoaEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHAaGhIKMjAyNi0wNS0xM3IMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQM&tfu=KgIIAw actions=click
+2026-04-23 15:55:35,536 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoaEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHAaGhIKMjAyNi0wNS0xM3IMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQM&tfu=KgIIAw actions=input
+2026-04-23 15:55:42,884 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoaEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHAaGhIKMjAyNi0wNS0xM3IMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQM&tfu=KgIIAw actions=click
+2026-04-23 15:55:54,442 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoVEgoyMDI2LTA1LTA5agcIARIDTEFYGhoSCjIwMjYtMDUtMTNyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 15:56:01,322 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoVEgoyMDI2LTA1LTA5agcIARIDTEFYGhoSCjIwMjYtMDUtMTNyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=input
+2026-04-23 15:56:08,856 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoVEgoyMDI2LTA1LTA5agcIARIDTEFYGhoSCjIwMjYtMDUtMTNyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 15:56:19,112 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTA5agcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMTNqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 15:56:27,514 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTA5agcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMTNqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 15:56:37,223 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTA5agcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMTNqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 15:56:47,700 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMjFqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 15:56:59,336 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMjFqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=input
+2026-04-23 15:57:08,392 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMjFqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 15:57:20,163 INFO step=16 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjFqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw&tfu=KgIIAw actions=click
+2026-04-23 15:57:34,888 INFO step=17 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjFqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw&tfu=KgIIAw actions=click
+2026-04-23 15:57:43,982 INFO step=18 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjFqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw&tfu=KgIIAw actions=click
+2026-04-23 15:57:53,925 INFO step=19 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw&tfu=KgIIAw actions=click
+2026-04-23 15:58:04,870 INFO step=20 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=wait
+2026-04-23 15:58:18,517 INFO step=21 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=wait,scroll
+2026-04-23 15:58:31,770 INFO step=22 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=wait,scroll
+2026-04-23 15:58:45,873 INFO step=23 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=wait,scroll
+2026-04-23 15:59:10,593 INFO step=24 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=scroll,wait
+2026-04-23 15:59:23,087 INFO step=25 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=click
+2026-04-23 15:59:37,560 INFO step=26 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=wait,scroll
+2026-04-23 15:59:53,983 INFO step=27 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=click,wait
+2026-04-23 16:00:05,726 INFO step=28 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=scroll,wait
+2026-04-23 16:00:22,685 INFO Dataset: /Users/abhayp/Documents/browser_use/prompt_datasets/google_flights_48_p009.json
+2026-04-23 16:00:22,685 INFO Output: /Users/abhayp/Documents/browser_use/awo_browser_traces/google_flights_48_p009.json
+2026-04-23 16:00:22,685 INFO Costs sidecar: /Users/abhayp/Documents/browser_use/awo_browser_traces/google_flights_48_p009.costs.json
+2026-04-23 16:00:22,685 INFO Provider=anthropic model=claude-sonnet-4-6
+2026-04-23 16:00:22,685 INFO Headless=True max_steps=120 max_runtime_seconds=900 step_timeout=180 stall_window=8
+2026-04-23 16:00:22,685 INFO user_data_dir=None profile_directory=Default
+2026-04-23 16:00:22,687 INFO Resume mode: True existing traces: 40
+2026-04-23 16:00:22,687 INFO Skipping trace_001 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_002 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_003 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_004 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_005 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_006 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_007 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_008 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_009 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_010 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_011 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_012 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_013 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_014 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_015 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_016 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_017 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_018 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_019 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_020 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_021 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_022 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_023 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_024 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_025 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_026 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_027 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_028 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_029 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_030 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_031 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_032 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_033 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_034 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_035 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_036 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_037 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_038 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_039 (already present)
+2026-04-23 16:00:22,688 INFO Skipping trace_040 (already present)
+2026-04-23 16:00:22,688 INFO [41/48] starting trace_041
+2026-04-23 16:00:34,108 INFO step=2 url=https://www.google.com/travel/flights actions=click
+2026-04-23 16:00:40,955 INFO step=3 url=https://www.google.com/travel/flights actions=click
+2026-04-23 16:00:54,120 INFO step=4 url=https://www.google.com/travel/flights?tfs=CBwQARoaEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHAaGhIKMjAyNi0wNS0xM3IMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQM&tfu=KgIIAw actions=click
+2026-04-23 16:01:02,600 INFO step=5 url=https://www.google.com/travel/flights?tfs=CBwQARoaEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHAaGhIKMjAyNi0wNS0xM3IMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQM&tfu=KgIIAw actions=input
+2026-04-23 16:01:10,050 INFO step=6 url=https://www.google.com/travel/flights?tfs=CBwQARoaEgoyMDI2LTA1LTA5agwIAhIIL20vMGQ2bHAaGhIKMjAyNi0wNS0xM3IMCAISCC9tLzBkNmxwQAFIAXABggELCP___________wGYAQM&tfu=KgIIAw actions=click
+2026-04-23 16:01:19,882 INFO step=7 url=https://www.google.com/travel/flights?tfs=CBwQARoVEgoyMDI2LTA1LTA5agcIARIDTEFYGhoSCjIwMjYtMDUtMTNyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 16:01:27,235 INFO step=8 url=https://www.google.com/travel/flights?tfs=CBwQARoVEgoyMDI2LTA1LTA5agcIARIDTEFYGhoSCjIwMjYtMDUtMTNyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=input
+2026-04-23 16:01:35,172 INFO step=9 url=https://www.google.com/travel/flights?tfs=CBwQARoVEgoyMDI2LTA1LTA5agcIARIDTEFYGhoSCjIwMjYtMDUtMTNyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 16:01:45,550 INFO step=10 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTA5agcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMTNqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 16:01:55,703 INFO step=11 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTA5agcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMTNqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 16:02:06,532 INFO step=12 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTA5agcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMTNqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 16:02:16,106 INFO step=13 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMjFqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 16:02:25,144 INFO step=14 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMjFqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=input
+2026-04-23 16:02:34,229 INFO step=15 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGiMSCjIwMjYtMDUtMjFqBwgBEgNJQUhyDAgCEggvbS8wZDZscEABSAFwAYIBCwj___________8BmAED&tfu=KgIIAw actions=click
+2026-04-23 16:02:47,145 INFO step=16 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjFqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw&tfu=KgIIAw actions=click
+2026-04-23 16:02:58,266 INFO step=17 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjFqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw&tfu=KgIIAw actions=click
+2026-04-23 16:03:08,508 INFO step=18 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjFqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw&tfu=KgIIAw actions=click
+2026-04-23 16:03:18,338 INFO step=19 url=https://www.google.com/travel/flights?tfs=CBwQARoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw&tfu=KgIIAw actions=click
+2026-04-23 16:03:29,728 INFO step=20 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=wait
+2026-04-23 16:03:42,220 INFO step=21 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=wait,scroll
+2026-04-23 16:03:54,919 INFO step=22 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=scroll,wait
+2026-04-23 16:04:08,645 INFO step=23 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=wait,scroll
+2026-04-23 16:04:26,507 INFO step=24 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=scroll,wait
+2026-04-23 16:04:34,632 INFO step=25 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=click
+2026-04-23 16:04:44,899 INFO step=26 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=click
+2026-04-23 16:04:54,481 INFO step=27 url=https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA1LTIxagcIARIDTEFYcgcIARIDSUFIGh4SCjIwMjYtMDUtMjNqBwgBEgNJQUhyBwgBEgNNQ09AAUgBcAGCAQsI____________AZgBAw actions=click
