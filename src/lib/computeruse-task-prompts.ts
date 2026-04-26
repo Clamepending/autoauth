@@ -103,10 +103,15 @@ export function buildGenericTaskGoal(params: {
     : snackpassMerchantName
       ? `"${snackpassMerchantName}" Snackpass`
       : "the requested store name plus Snackpass";
-  const websiteSection = params.websiteUrl
-    ? isSnackpassTask
-      ? knownSnackpassStore
-        ? `
+  const snackpassSearchInstruction = snackpassMerchantName
+    ? `First find the store-specific Snackpass ordering page by searching the browser address/search bar for ${snackpassSearchQuery}.`
+    : `Identify the specific store or restaurant name mentioned in the task description below (for example, a phrase like "the X site on snackpass" or "order from X on snackpass"), then search the browser address/search bar for that store name plus the word Snackpass.`;
+  const snackpassFallbackSearch = snackpassMerchantName
+    ? `If you land on www.snackpass.co without a store menu, immediately search for ${snackpassSearchQuery} or use order.snackpass.co's own store search instead of exploring the homepage.`
+    : `If you land on www.snackpass.co without a store menu, immediately search again for the requested store name plus Snackpass, or use order.snackpass.co's own store search, instead of exploring the homepage.`;
+  const websiteSection = isSnackpassTask
+    ? knownSnackpassStore
+      ? `
 Preferred website:
 - This is a Snackpass order for the known store ${knownSnackpassStore.canonicalName}.
 - Start directly on ${knownSnackpassStore.orderingUrl}.
@@ -114,19 +119,20 @@ Preferred website:
 - Do not browse the generic Snackpass marketing homepage unless the store-specific ordering URL is unavailable.
 - Do not open news, blog, map, social, or guide results merely because they mention Snackpass; ignore results like Daily Cal articles or generic Snackpass cheat sheets.
 - Stay on Snackpass ordering pages once you find the requested store.`
-        : `
+      : `
 Preferred website:
-- This is a Snackpass order. Do not begin by browsing the generic Snackpass marketing homepage.
-- First find the store-specific Snackpass ordering page by searching the browser address/search bar for ${snackpassSearchQuery}.
+- This is a Snackpass order. Do not begin by browsing the generic www.snackpass.co marketing homepage, even if the task or a "preferred website" hint mentions www.snackpass.co — that page lists no menus and is not the right starting point.
+- ${snackpassSearchInstruction}
 - Prefer a result on order.snackpass.co or another official Snackpass ordering URL for the requested store.
 - Do not open news, blog, map, social, or guide results merely because they mention Snackpass; ignore results like Daily Cal articles or generic Snackpass cheat sheets.
-- If you land on www.snackpass.co without a store menu, immediately search for ${snackpassSearchQuery} or use order.snackpass.co's own store search instead of exploring the homepage.
+- ${snackpassFallbackSearch}
 - Stay on Snackpass ordering pages once you find the requested store.`
-      : `
+    : params.websiteUrl
+      ? `
 Preferred website:
 - Start on ${params.websiteUrl}.
 - Stay on that website unless the task clearly requires leaving it.`
-    : "";
+      : "";
   const shippingSection = params.shippingAddress
     ? `
 Shipping address:
@@ -141,7 +147,7 @@ Search policy:
 - If the task needs a generic web search and does not require a specific engine, prefer DuckDuckGo first, then Bing, before Google.
 - If Google shows an unusual-traffic page, a "sorry" page, or any CAPTCHA/robot check, switch to DuckDuckGo or Bing instead of retrying Google repeatedly.`
     : "";
-  const foodPlatformSection = !params.websiteUrl
+  const foodPlatformSection = !params.websiteUrl && !isSnackpassTask
     ? `
 Food ordering policy:
 - If the task is about ordering food and no preferred website is provided, start on Fantuan first and use Fantuan's own restaurant search.
@@ -158,7 +164,7 @@ Grocery policy:
     ? `
 Snackpass note:
 - For Snackpass tasks, the first milestone is the requested store's Snackpass menu, not the Snackpass public homepage.
-${knownSnackpassStore ? `- For ${knownSnackpassStore.canonicalName}, use ${knownSnackpassStore.orderingUrl} as the primary ordering URL.` : `- Search for ${snackpassSearchQuery} and choose the official Snackpass ordering result for that store.`}
+${knownSnackpassStore ? `- For ${knownSnackpassStore.canonicalName}, use ${knownSnackpassStore.orderingUrl} as the primary ordering URL.` : snackpassMerchantName ? `- Search for ${snackpassSearchQuery} and choose the official Snackpass ordering result for that store.` : `- Extract the store or restaurant name from the task description, then search for that name plus Snackpass and choose the official order.snackpass.co result for that store.`}
 - If search results include articles, guides, campus newspaper pages, or other pages about Snackpass, skip them unless they directly link to the official store-specific Snackpass ordering page.
 - After checkout, do not stop on the Receipt tab if it omits the operational pickup info.
 - Switch to the Order tab or active order status view and read the order number and ready time shown there.
