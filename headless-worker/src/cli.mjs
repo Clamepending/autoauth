@@ -28,7 +28,7 @@ Common flags:
   --keep-tabs
   --strict-human-input
   --model claude-sonnet-4-5-20250929
-  --poll-interval-ms 10000
+  --poll-interval-ms 30000
 `);
 }
 
@@ -290,7 +290,7 @@ async function commandRun(flags, once) {
         ?? flags['wait-ms']
         ?? process.env.OTTOAUTH_POLL_INTERVAL_MS
         ?? process.env.OTTOAUTH_WAIT_MS,
-      10000,
+      30000,
     ),
   );
   const model = typeof flags.model === 'string' && flags.model.trim() ? flags.model.trim() : null;

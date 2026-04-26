@@ -14,6 +14,11 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function jitter(baseMs, ratio = 0.25) {
+  const span = Math.max(0, Math.floor(baseMs * ratio));
+  return Math.floor(baseMs + Math.random() * span);
+}
+
 function stringifyError(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -272,9 +277,13 @@ async function handleTask({
     await safeSnapshotUpload({ runtime, config, taskId: task.id, logger });
     await recorder.note('task_initial_snapshot_uploaded');
 
+    const snapshotIntervalMs = Math.max(
+      1000,
+      Number(process.env.OTTOAUTH_SNAPSHOT_INTERVAL_MS) || 10000,
+    );
     snapshotIntervalId = setInterval(() => {
       safeSnapshotUpload({ runtime, config, taskId: task.id, logger }).catch(() => {});
-    }, 4000);
+    }, snapshotIntervalMs);
     snapshotIntervalId.unref?.();
 
     const { result, messages, modelUsages: usedUsages } = await runAgentLoop({
@@ -383,7 +392,10 @@ export async function runWorker({
   recordVideo = envFlagEnabled(process.env.OTTOAUTH_RECORD_VIDEO, true),
   logger = console,
 }) {
-  const idlePollIntervalMs = Math.max(1000, Number(pollIntervalMs) || 10000);
+  const idlePollIntervalMs = Math.max(1000, Number(pollIntervalMs) || 30000);
+  const errorBackoffStartMs = Math.max(idlePollIntervalMs, 5000);
+  const errorBackoffMaxMs = Math.max(errorBackoffStartMs, 5 * 60 * 1000);
+  let consecutiveWaitErrors = 0;
   let stopRequested = false;
   const requestStop = () => {
     stopRequested = true;
@@ -397,12 +409,21 @@ export async function runWorker({
       let task = null;
       try {
         task = await waitForTask(config);
+        consecutiveWaitErrors = 0;
       } catch (error) {
-        logger.warn?.(`[ottoauth-headless] wait-task failed: ${stringifyError(error)}`);
+        consecutiveWaitErrors += 1;
+        const backoffBase = Math.min(
+          errorBackoffMaxMs,
+          errorBackoffStartMs * 2 ** Math.min(consecutiveWaitErrors - 1, 6),
+        );
+        const backoffMs = jitter(backoffBase);
+        logger.warn?.(
+          `[ottoauth-headless] wait-task failed (attempt ${consecutiveWaitErrors}, backing off ${backoffMs}ms): ${stringifyError(error)}`,
+        );
         if (once) {
           throw error;
         }
-        await sleep(idlePollIntervalMs);
+        await sleep(backoffMs);
         continue;
       }
 
@@ -411,7 +432,7 @@ export async function runWorker({
           logger.log?.('[ottoauth-headless] No task available.');
           break;
         }
-        await sleep(idlePollIntervalMs);
+        await sleep(jitter(idlePollIntervalMs));
         continue;
       }
 

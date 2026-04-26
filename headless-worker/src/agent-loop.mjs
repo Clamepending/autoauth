@@ -257,9 +257,17 @@ export async function runAgentLoop({
 
   const modelUsages = [];
   const maxLoops = parseMaxLoops(process.env.OTTOAUTH_AGENT_MAX_LOOPS);
+  const requesterFetchMinIntervalMs = Math.max(
+    0,
+    Number(process.env.OTTOAUTH_REQUESTER_FETCH_INTERVAL_MS) || 5000,
+  );
+  let lastRequesterFetchAt = 0;
 
   for (let loop = 0; loop < maxLoops; loop += 1) {
-    if (taskChat?.fetchRequesterMessages) {
+    const now = Date.now();
+    const sinceLastFetch = now - lastRequesterFetchAt;
+    if (taskChat?.fetchRequesterMessages && sinceLastFetch >= requesterFetchMinIntervalMs) {
+      lastRequesterFetchAt = now;
       const incomingMessages = await taskChat.fetchRequesterMessages().catch((error) => {
         onEvent?.('requester_message_fetch_failed', {
           loop: loop + 1,

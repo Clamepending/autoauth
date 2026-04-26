@@ -67,6 +67,12 @@ export async function waitForTask(config) {
     return null;
   }
 
+  // Server-side per-device cooldown. Treat as "no task right now"; the caller
+  // will sleep its normal idle interval before trying again.
+  if (response.status === 429) {
+    return null;
+  }
+
   const payload = await parseJsonSafe(response);
   if (!response.ok) {
     throw new Error(payload?.error || `wait-task failed with HTTP ${response.status}.`);
