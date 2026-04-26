@@ -244,6 +244,7 @@ export async function runAgentLoop({
   onEvent,
   onModelUsage,
   taskChat,
+  abortRef,
 }) {
   const client = new Anthropic({ apiKey });
   const selectedModel =
@@ -264,6 +265,19 @@ export async function runAgentLoop({
   let lastRequesterFetchAt = 0;
 
   for (let loop = 0; loop < maxLoops; loop += 1) {
+    if (abortRef?.aborted) {
+      const abortReason = abortRef.reason || 'aborted by server';
+      onEvent?.('agent_loop_aborted', { loop: loop + 1, reason: abortReason });
+      return {
+        result: {
+          status: 'failed',
+          summary: 'Task cancelled by requester before completion.',
+          error: `Task aborted: ${abortReason}`,
+        },
+        messages,
+        modelUsages,
+      };
+    }
     const now = Date.now();
     const sinceLastFetch = now - lastRequesterFetchAt;
     if (taskChat?.fetchRequesterMessages && sinceLastFetch >= requesterFetchMinIntervalMs) {
