@@ -1134,6 +1134,37 @@ export async function cancelGenericBrowserTaskAwaitingClarification(params: {
   return getGenericBrowserTaskById(existing.id);
 }
 
+export async function cancelInFlightGenericBrowserTask(params: {
+  taskId: number;
+  reason: string;
+}) {
+  await ensureGenericBrowserTaskSchema();
+  const existing = await getGenericBrowserTaskById(params.taskId);
+  if (!existing) return null;
+  if (existing.status === "completed" || existing.status === "failed") {
+    return existing;
+  }
+
+  const now = new Date().toISOString();
+  const reason = params.reason.trim().slice(0, 2000) || "Task cancelled by requester.";
+  const client = getTursoClient();
+  await client.execute({
+    sql: `UPDATE generic_browser_tasks
+          SET status = 'failed',
+              billing_status = 'not_charged',
+              payout_cents = 0,
+              payout_status = 'not_charged',
+              payout_credited_at = NULL,
+              summary = ?,
+              error = ?,
+              completed_at = ?,
+              updated_at = ?
+          WHERE id = ?`,
+    args: [reason, reason, now, now, existing.id],
+  });
+  return getGenericBrowserTaskById(existing.id);
+}
+
 export async function listGenericBrowserTasksForHuman(humanUserId: number, limit = 50) {
   await ensureGenericBrowserTaskSchema();
   const client = getTursoClient();
