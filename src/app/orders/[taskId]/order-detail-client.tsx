@@ -652,7 +652,7 @@ export function OrderDetailClient(props: {
     };
 
     poll();
-    const intervalId = window.setInterval(poll, 2500);
+    const intervalId = window.setInterval(poll, 5000);
     return () => {
       stopped = true;
       window.clearInterval(intervalId);

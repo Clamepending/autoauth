@@ -476,9 +476,21 @@ export class BrowserRuntime {
   async snapshotForOttoAuth() {
     const page = await this.getActivePage();
     const tabs = await this.tabsContext();
-    const shot = await this.takeScreenshot(page);
+    const ottoFormat =
+      String(process.env.OTTOAUTH_SNAPSHOT_FORMAT || 'jpeg').toLowerCase() === 'png'
+        ? 'png'
+        : 'jpeg';
+    const ottoQuality = Math.max(
+      20,
+      Math.min(95, Number(process.env.OTTOAUTH_SNAPSHOT_QUALITY) || 60),
+    );
+    const shot = await this.takeScreenshot(page, null, {
+      format: ottoFormat,
+      quality: ottoQuality,
+    });
     return {
       image_base64: shot.base64,
+      image_mime: shot.mime,
       width: shot.width,
       height: shot.height,
       tabs: tabs.map((tab) => ({
@@ -678,15 +690,25 @@ export class BrowserRuntime {
     return created.page;
   }
 
-  async takeScreenshot(page, clip = null) {
+  async takeScreenshot(page, clip = null, options = {}) {
+    const format = options.format === 'jpeg' ? 'jpeg' : 'png';
     const buffer = await page.screenshot({
-      type: 'png',
+      type: format,
       scale: 'css',
+      ...(format === 'jpeg'
+        ? {
+            quality:
+              typeof options.quality === 'number'
+                ? Math.max(1, Math.min(100, options.quality))
+                : 60,
+          }
+        : {}),
       ...(clip ? { clip } : {}),
     });
     const viewport = page.viewportSize() || this.viewport;
     return {
       base64: buffer.toString('base64'),
+      mime: format === 'jpeg' ? 'image/jpeg' : 'image/png',
       width: clip ? Math.round(clip.width) : viewport.width,
       height: clip ? Math.round(clip.height) : viewport.height,
     };

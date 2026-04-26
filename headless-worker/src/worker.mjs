@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { runAgentLoop } from './agent-loop.mjs';
 import { BrowserRuntime } from './browser-runtime.mjs';
@@ -218,9 +219,16 @@ function normalizeOttoAuthCompletion(result, messages) {
   };
 }
 
-async function safeSnapshotUpload({ runtime, config, taskId, logger }) {
+async function safeSnapshotUpload({ runtime, config, taskId, logger, hashRef = null, force = false }) {
   try {
     const payload = await runtime.snapshotForOttoAuth();
+    if (hashRef) {
+      const hash = createHash('sha1').update(payload.image_base64).digest('hex');
+      if (!force && hash === hashRef.value) {
+        return;
+      }
+      hashRef.value = hash;
+    }
     await uploadTaskSnapshot(config, taskId, payload);
   } catch (error) {
     logger.warn?.(`[ottoauth-headless] Snapshot upload failed for task ${taskId}: ${stringifyError(error)}`);
@@ -268,13 +276,21 @@ async function handleTask({
 
   let snapshotIntervalId = null;
   let completedTaskPayload = null;
+  const snapshotHashRef = { value: null };
   try {
     await recorder.note('task_workspace_preparing');
     await runtime.prepareTaskWorkspace();
     await recorder.note('task_workspace_ready');
     await runtime.startTaskTrace(recorder.playwrightTracePath);
     await recorder.note('task_trace_started');
-    await safeSnapshotUpload({ runtime, config, taskId: task.id, logger });
+    await safeSnapshotUpload({
+      runtime,
+      config,
+      taskId: task.id,
+      logger,
+      hashRef: snapshotHashRef,
+      force: true,
+    });
     await recorder.note('task_initial_snapshot_uploaded');
 
     const snapshotIntervalMs = Math.max(
@@ -282,7 +298,13 @@ async function handleTask({
       Number(process.env.OTTOAUTH_SNAPSHOT_INTERVAL_MS) || 10000,
     );
     snapshotIntervalId = setInterval(() => {
-      safeSnapshotUpload({ runtime, config, taskId: task.id, logger }).catch(() => {});
+      safeSnapshotUpload({
+        runtime,
+        config,
+        taskId: task.id,
+        logger,
+        hashRef: snapshotHashRef,
+      }).catch(() => {});
     }, snapshotIntervalMs);
     snapshotIntervalId.unref?.();
 
@@ -303,7 +325,14 @@ async function handleTask({
 
     await recorder.setTranscript(messages);
     await recorder.setModelUsages(usedUsages);
-    await safeSnapshotUpload({ runtime, config, taskId: task.id, logger });
+    await safeSnapshotUpload({
+      runtime,
+      config,
+      taskId: task.id,
+      logger,
+      hashRef: snapshotHashRef,
+      force: true,
+    });
     const normalizedCompletion = normalizeOttoAuthCompletion(result, messages);
     completedTaskPayload = {
       status: normalizedCompletion.status,
@@ -321,7 +350,14 @@ async function handleTask({
     });
   } catch (error) {
     const message = stringifyError(error);
-    await safeSnapshotUpload({ runtime, config, taskId: task.id, logger });
+    await safeSnapshotUpload({
+      runtime,
+      config,
+      taskId: task.id,
+      logger,
+      hashRef: snapshotHashRef,
+      force: true,
+    });
     await reportTaskResult(config, task.id, {
       status: 'failed',
       result: null,
