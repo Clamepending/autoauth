@@ -219,7 +219,15 @@ function normalizeOttoAuthCompletion(result, messages) {
   };
 }
 
-async function safeSnapshotUpload({ runtime, config, taskId, logger, hashRef = null, force = false }) {
+async function safeSnapshotUpload({
+  runtime,
+  config,
+  taskId,
+  logger,
+  hashRef = null,
+  force = false,
+  abortRef = null,
+}) {
   try {
     const payload = await runtime.snapshotForOttoAuth();
     if (hashRef) {
@@ -229,7 +237,14 @@ async function safeSnapshotUpload({ runtime, config, taskId, logger, hashRef = n
       }
       hashRef.value = hash;
     }
-    await uploadTaskSnapshot(config, taskId, payload);
+    const response = await uploadTaskSnapshot(config, taskId, payload);
+    if (abortRef && response && response.task_aborted) {
+      if (!abortRef.aborted) {
+        abortRef.aborted = true;
+        abortRef.reason = `server reported task_aborted (status=${response.task_status ?? 'failed'})`;
+        logger.warn?.(`[ottoauth-headless] Task ${taskId} aborted by server: ${abortRef.reason}`);
+      }
+    }
   } catch (error) {
     logger.warn?.(`[ottoauth-headless] Snapshot upload failed for task ${taskId}: ${stringifyError(error)}`);
   }
@@ -277,6 +292,7 @@ async function handleTask({
   let snapshotIntervalId = null;
   let completedTaskPayload = null;
   const snapshotHashRef = { value: null };
+  const abortRef = { aborted: false, reason: null };
   try {
     await recorder.note('task_workspace_preparing');
     await runtime.prepareTaskWorkspace();
@@ -290,6 +306,7 @@ async function handleTask({
       logger,
       hashRef: snapshotHashRef,
       force: true,
+      abortRef,
     });
     await recorder.note('task_initial_snapshot_uploaded');
 
@@ -304,6 +321,7 @@ async function handleTask({
         taskId: task.id,
         logger,
         hashRef: snapshotHashRef,
+        abortRef,
       }).catch(() => {});
     }, snapshotIntervalMs);
     snapshotIntervalId.unref?.();
@@ -313,6 +331,7 @@ async function handleTask({
       prompt: goal,
       apiKey,
       model,
+      abortRef,
       taskChat: {
         fetchRequesterMessages: () => fetchTaskMessages(config, task.id),
         sendAgentMessage: (message) => sendTaskMessage(config, task.id, message),

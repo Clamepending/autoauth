@@ -115,10 +115,16 @@ export async function POST(request: Request, context: Context) {
   });
   await touchComputerUseDeviceSeen(deviceId).catch(() => null);
 
+  const latestTask = await getComputerUseTaskById(taskId);
+  const taskAborted =
+    latestTask?.status === "failed" || latestTask?.status === "completed";
+
   return NextResponse.json(
     {
       ok: true,
       snapshot,
+      task_aborted: taskAborted,
+      task_status: latestTask?.status ?? task.status,
     },
     { headers: corsHeaders() }
   );
