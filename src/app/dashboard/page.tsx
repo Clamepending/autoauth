@@ -10,7 +10,6 @@ import {
   listCreditLedgerEntries,
 } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
-import { getHumanFulfillmentRatingStats } from "@/lib/generic-browser-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +26,6 @@ export default async function DashboardPage() {
     devices,
     pairingCodes,
     ledger,
-    fulfillmentStats,
     referralStats,
   ] = await Promise.all([
     getHumanCreditBalance(user.id),
@@ -35,7 +33,6 @@ export default async function DashboardPage() {
     listComputerUseDevicesForHuman(user.id),
     getActiveHumanDevicePairingCodes(user.id),
     listCreditLedgerEntries(user.id, 20),
-    getHumanFulfillmentRatingStats(user.id),
     getHumanReferralStats(user.id),
   ]);
 
@@ -50,7 +47,6 @@ export default async function DashboardPage() {
         devices={devices}
         pairingCodes={pairingCodes}
         ledger={ledger}
-        fulfillmentStats={fulfillmentStats}
         serverUrl={baseUrl}
         agentSkillCommand={`curl -s ${baseUrl}/skill.md`}
       />

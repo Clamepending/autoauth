@@ -12,14 +12,9 @@ import type {
   HumanDevicePairingCodeRecord,
   HumanUserRecord,
 } from "@/lib/human-accounts";
-import type { HumanFulfillmentRatingStats } from "@/lib/generic-browser-tasks";
 
 function fmtUsd(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
-}
-
-function fmtRating(value: number | null) {
-  return value == null ? "No ratings yet" : `${value.toFixed(1)} / 5`;
 }
 
 function TrashIcon() {
@@ -46,7 +41,6 @@ export function DashboardClient(props: {
   devices: ComputerUseDeviceRecord[];
   pairingCodes: HumanDevicePairingCodeRecord[];
   ledger: CreditLedgerRecord[];
-  fulfillmentStats: HumanFulfillmentRatingStats;
   serverUrl: string;
   agentSkillCommand: string;
 }) {
@@ -309,36 +303,13 @@ export function DashboardClient(props: {
 
         {statusMessage && <div className="auth-success">{statusMessage}</div>}
 
-        <section className="dashboard-grid metrics-grid">
+        <section className="dashboard-grid mobile-priority-grid">
           <article className="dashboard-card highlight">
             <div className="supported-accounts-title">Credits</div>
             <div className="dashboard-balance">{fmtUsd(props.balanceCents)}</div>
             <Link className="auth-button primary" href="/credits/refill">
               Refill credits
             </Link>
-          </article>
-
-          <article className="dashboard-card">
-            <div className="supported-accounts-title">Linked Agents</div>
-            <div className="dashboard-stat">{props.linkedAgents.length}</div>
-          </article>
-
-          <article className="dashboard-card">
-            <div className="supported-accounts-title">Orders Submitted</div>
-            <div className="dashboard-stat">{props.fulfillmentStats.submitted_task_count}</div>
-          </article>
-
-          <article className="dashboard-card">
-            <div className="supported-accounts-title">Orders Fulfilled</div>
-            <div className="dashboard-stat">{props.fulfillmentStats.fulfilled_task_count}</div>
-            <p className="dashboard-muted">
-              Fulfillment rating: {fmtRating(props.fulfillmentStats.average_rating)}
-              {props.fulfillmentStats.rating_count > 0
-                ? ` from ${props.fulfillmentStats.rating_count} rating${
-                    props.fulfillmentStats.rating_count === 1 ? "" : "s"
-                  }.`
-                : ". Completed fulfillment orders will start building your score once requesters rate them."}
-            </p>
           </article>
         </section>
 
