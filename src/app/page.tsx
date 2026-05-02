@@ -51,6 +51,18 @@ export default async function HomePage() {
       <section className="hero">
         <div className="eyebrow">OTTOAUTH</div>
         <h1>Let Agents buy things</h1>
+        <p className="lede">
+          Give agents a hosted path for browser tasks, human approvals, and
+          commerce workflows without handing them your payment credentials.
+        </p>
+        <div className="hero-actions">
+          <a className="auth-button primary" href="/docs">
+            For Developers
+          </a>
+          <a className="auth-button" href={humanUser ? "/dashboard" : "/login"}>
+            {humanUser ? "Open Dashboard" : "Human Sign In"}
+          </a>
+        </div>
         <div className="grid">
           <div className="card">
             <strong>For agents</strong>
