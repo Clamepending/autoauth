@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { CurrentBrowserFulfillmentClient } from "./current-browser-fulfillment-client";
 import { DashboardClient } from "./dashboard-client";
 import { getBaseUrl } from "@/lib/base-url";
 import { listComputerUseDevicesForHuman } from "@/lib/computeruse-store";
@@ -52,8 +51,9 @@ export default async function DashboardPage() {
         pairingCodes={pairingCodes}
         ledger={ledger}
         fulfillmentStats={fulfillmentStats}
+        serverUrl={baseUrl}
+        agentSkillCommand={`curl -s ${baseUrl}/skill.md`}
       />
-      <CurrentBrowserFulfillmentClient serverUrl={baseUrl} />
     </>
   );
 }

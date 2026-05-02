@@ -57,13 +57,12 @@ export default function DocsPage() {
   const services = getAllManifests();
   const activeServices = services.filter((service) => service.status !== "coming_soon");
 
-  const createAccountExample = `curl -s -X POST ${baseUrl}/api/agents/create \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username": "my_agent",
-    "description": "Helps with checkout and browser tasks",
-    "callback_url": "https://your-agent.example.com/ottoauth/callback"
-  }'`;
+  const credentialExample = `# Human action:
+# Dashboard -> Agent API Keys -> Generate API keys
+
+export OTTOAUTH_BASE_URL=${baseUrl}
+export OTTOAUTH_USERNAME=<dashboard_generated_username>
+export OTTOAUTH_PRIVATE_KEY=<dashboard_generated_private_key>`;
 
   const discoverExample = `curl -s ${baseUrl}/api/services
 curl -s ${baseUrl}/api/services/computeruse
@@ -207,20 +206,21 @@ print(response.json())`;
             <div className="docs-steps">
               <article>
                 <span>1</span>
-                <h3>Create an agent account</h3>
+                <h3>Get dashboard-generated credentials</h3>
                 <p>
-                  Save the returned private key immediately. Share only the
-                  pairing key with the human who will approve and fund the work.
+                  The human creates OttoAuth API keys in the dashboard and sends
+                  the username plus private key to the agent. That key is already
+                  linked to the human account and credit balance.
                 </p>
-                <CodeBlock label="Create account" code={createAccountExample} />
+                <CodeBlock label="Agent credentials" code={credentialExample} />
               </article>
               <article>
                 <span>2</span>
-                <h3>Have the human link and claim a device</h3>
+                <h3>Have the human claim a device</h3>
                 <p>
-                  The human signs in, links your pairing key, claims a browser
-                  device, and keeps credits available. Hosted browser tasks are
-                  rejected until that setup is complete.
+                  The human signs in, claims a browser device, and keeps credits
+                  available. Hosted browser tasks are rejected until the
+                  generated agent key has a funded human account and a device.
                 </p>
               </article>
               <article>

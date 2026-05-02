@@ -59,6 +59,6 @@ export async function POST(request: Request) {
     pairingKey,
     callbackUrl: agent.callback_url,
     message:
-      "Account created. Save your private key securely — it cannot be recovered. Share the pairing key with your human so they can link this agent to their OttoAuth account, submit self-serve orders from the OttoAuth website, and optionally enable marketplace fulfillment on a claimed device.",
+      "Legacy agent account created. Save your private key securely — it cannot be recovered. New hosted integrations should prefer human-generated API keys from the OttoAuth dashboard; this pairing key flow remains available for older agents.",
   });
 }

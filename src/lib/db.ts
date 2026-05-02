@@ -356,7 +356,7 @@ export async function createAgent(params: {
   usernameDisplay: string;
   privateKey: string;
   pairingKey?: string | null;
-  callbackUrl: string;
+  callbackUrl?: string | null;
   description?: string | null;
 }) {
   await ensureSchema();
@@ -373,7 +373,7 @@ export async function createAgent(params: {
       params.pairingKey ?? null,
       params.pairingKey ? now : null,
       null,
-      params.callbackUrl,
+      params.callbackUrl ?? null,
       params.description ?? null,
       now,
       now,

@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Client, Transaction } from "@libsql/client";
-import { normalizePairingKey } from "@/lib/agent-auth";
+import { generatePrivateKey, normalizePairingKey } from "@/lib/agent-auth";
 import {
+  createAgent,
   ensureSchema,
   getAgentByPairingKey,
   markAgentPairingKeyConsumed,
@@ -97,6 +98,17 @@ function displayToken(raw: string) {
 
 function randomDisplayToken(byteLength = 10) {
   return displayToken(randomBytes(byteLength).toString("hex").toUpperCase());
+}
+
+function normalizeGeneratedAgentUsernameBase(value: string, humanUserId: number) {
+  const cleaned = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^[_-]+|[_-]+$/g, "");
+  const base = cleaned.length >= 3 ? cleaned : `agent_${humanUserId}`;
+  return base.slice(0, 21).replace(/^[_-]+|[_-]+$/g, "") || `agent_${humanUserId}`;
 }
 
 function hashSessionToken(token: string) {
@@ -934,6 +946,64 @@ export async function linkAgentToHumanByPairingKey(params: {
   return {
     agent,
     status: "linked" as const,
+  };
+}
+
+export async function createHumanGeneratedAgentApiKey(params: {
+  humanUserId: number;
+  agentName?: string | null;
+  callbackUrl?: string | null;
+}) {
+  await ensureHumanAccountSchema();
+
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  const label = params.agentName?.trim() || "AI agent";
+  const usernameBase = normalizeGeneratedAgentUsernameBase(label, params.humanUserId);
+  const privateKey = generatePrivateKey();
+  let createdAgent: AgentRecord | null = null;
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const suffix = randomBytes(3).toString("hex");
+    const usernameLower = `${usernameBase.slice(0, 25)}_${suffix}`.slice(0, 32);
+    try {
+      createdAgent = await createAgent({
+        usernameLower,
+        usernameDisplay: usernameLower,
+        privateKey,
+        pairingKey: null,
+        callbackUrl: params.callbackUrl?.trim() || null,
+        description: label.slice(0, 100),
+      });
+      break;
+    } catch (error) {
+      if (attempt === 5) {
+        throw error;
+      }
+    }
+  }
+
+  if (!createdAgent) {
+    throw new Error("Could not generate an agent API key.");
+  }
+
+  await client.execute({
+    sql: `INSERT INTO human_agent_links
+          (human_user_id, agent_id, pairing_key_used, linked_at, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [
+      params.humanUserId,
+      createdAgent.id,
+      "HUMAN_GENERATED_API_KEY",
+      now,
+      now,
+      now,
+    ],
+  });
+
+  return {
+    agent: createdAgent,
+    privateKey,
   };
 }
 
