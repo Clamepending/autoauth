@@ -1753,6 +1753,13 @@ footer {
   scroll-margin-top: 24px;
 }
 
+.docs-agent-sendoff {
+  border-color: rgba(15, 140, 123, 0.2);
+  background:
+    linear-gradient(135deg, rgba(15, 140, 123, 0.08), rgba(50, 104, 255, 0.06)),
+    #fbfffe;
+}
+
 .docs-section-heading {
   display: grid;
   gap: 6px;

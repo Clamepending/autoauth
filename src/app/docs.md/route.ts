@@ -1,13 +1,11 @@
 import { getBaseUrl } from "@/lib/base-url";
-import { getLlmsTxt } from "@/lib/llm-docs";
+import { getDocsMarkdown } from "@/lib/llm-docs";
 import { getAllManifests } from "@/services/registry";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const baseUrl = getBaseUrl();
-  const services = getAllManifests();
-  const body = getLlmsTxt(baseUrl, services);
+  const body = getDocsMarkdown(getBaseUrl(), getAllManifests());
 
   return new Response(body, {
     headers: {

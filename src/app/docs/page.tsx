@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getBaseUrl } from "@/lib/base-url";
+import { getAgentIntegrationPrompt } from "@/lib/llm-docs";
 import { getAllManifests } from "@/services/registry";
 
 export const metadata: Metadata = {
@@ -55,6 +56,7 @@ function FieldList({
 export default function DocsPage() {
   const baseUrl = getBaseUrl();
   const services = getAllManifests();
+  const agentIntegrationPrompt = getAgentIntegrationPrompt(baseUrl);
 
   const credentialExample = `# Human action:
 # Dashboard -> Agent API Keys -> Generate API keys
@@ -67,18 +69,8 @@ export OTTOAUTH_PRIVATE_KEY=<dashboard_generated_private_key>`;
 curl -s ${baseUrl}/api/services/order
 curl -s ${baseUrl}/api/services/order/docs`;
 
-  const agentBootstrapExample = `Give this to your agent:
-
-Read ${baseUrl}/llms.txt first.
-Then read ${baseUrl}/skill.md.
-Use ${baseUrl}/api/services for machine-readable tool discovery.
-Use only services with status "active" or "beta".
-For commerce tasks, use the order service and set store/merchant fields.
-Ask me for dashboard-generated OttoAuth username + private_key.
-Never ask me for retailer passwords or card numbers.
-After submitting a task, save task.id and run_id, poll task status, and answer clarification requests before the deadline.`;
-
   const agentPreflightExample = `curl -s ${baseUrl}/llms.txt
+curl -s ${baseUrl}/llms-full.txt
 curl -s ${baseUrl}/skill.md
 curl -s ${baseUrl}/api/services
 curl -s ${baseUrl}/api/services/order`;
@@ -215,6 +207,7 @@ print(response.json())`;
             </span>
           </a>
           <nav>
+            <a href="#send-to-agent">Send to Agent</a>
             <a href="#introduction">Introduction</a>
             <a href="#agent-start">Agent Start</a>
             <a href="#features">Features</a>
@@ -235,9 +228,29 @@ print(response.json())`;
             <div className="docs-topbar-actions">
               <a className="auth-button" href="/dashboard">Dashboard</a>
               <a className="auth-button" href="/llms.txt">llms.txt</a>
+              <a className="auth-button" href="/llms-full.txt">llms-full.txt</a>
               <a className="auth-button primary" href="/skill.md">Agent skill</a>
             </div>
           </header>
+
+          <section id="send-to-agent" className="docs-section docs-agent-sendoff">
+            <div className="docs-section-heading">
+              <span className="docs-kicker">For humans</span>
+              <h2>Send this to your coding agent to integrate this API</h2>
+            </div>
+            <p>
+              Copy this block into Codex, Cursor, Claude Code, or another coding
+              agent. The visual docs below are written for humans; the linked
+              Markdown files are the source of truth for agents.
+            </p>
+            <CodeBlock label="Coding agent prompt" code={agentIntegrationPrompt} />
+            <div className="docs-index-links">
+              <a href="/llms.txt">Short agent index</a>
+              <a href="/llms-full.txt">Full Markdown context</a>
+              <a href="/docs.md">This page as Markdown</a>
+              <a href="/api/services/order/docs">Order API Markdown</a>
+            </div>
+          </section>
 
           <section id="introduction" className="docs-section">
             <p className="lede">
@@ -250,16 +263,19 @@ print(response.json())`;
             <div className="docs-index">
               <div>
                 <span className="docs-index-label">Docs index</span>
-                <h2>Machine-readable first</h2>
+                <h2>Human docs plus agent-readable Markdown</h2>
                 <p>
-                  Agents should start with <code>/llms.txt</code> and{" "}
-                  <code>/skill.md</code>, then load the service index and the
-                  specific tool docs for the task they need to perform.
+                  Humans can skim this page to understand the product and API.
+                  Coding agents should read <code>/llms.txt</code>,{" "}
+                  <code>/llms-full.txt</code>, <code>/skill.md</code>, and the
+                  service Markdown docs.
                 </p>
               </div>
               <div className="docs-index-links">
                 <a href="/skill.md">GET /skill.md</a>
                 <a href="/llms.txt">GET /llms.txt</a>
+                <a href="/llms-full.txt">GET /llms-full.txt</a>
+                <a href="/docs.md">GET /docs.md</a>
                 <a href="/api/services">GET /api/services</a>
                 <a href="/api/services/order">GET /api/services/order</a>
               </div>
@@ -269,13 +285,14 @@ print(response.json())`;
           <section id="agent-start" className="docs-section">
             <div className="docs-section-heading">
               <span className="docs-kicker">Agent Bootstrap</span>
-              <h2>If an AI agent is reading this, start here</h2>
+              <h2>How the agent-readable docs are organized</h2>
             </div>
             <p>
-              OttoAuth is designed so a developer can point an agent at the docs
-              and let it discover the current API surface. The durable contract is
-              <code>/llms.txt</code>, <code>/skill.md</code>, and the{" "}
-              <code>/api/services</code> registry.
+              OttoAuth follows the common agent-docs pattern: a short{" "}
+              <code>/llms.txt</code> index, a full-context{" "}
+              <code>/llms-full.txt</code> bundle, page-level Markdown, and a
+              machine-readable service registry. This visual page stays
+              human-readable.
             </p>
             <div className="docs-callouts">
               <article>
@@ -307,7 +324,6 @@ print(response.json())`;
                 </p>
               </article>
             </div>
-            <CodeBlock label="Agent bootstrap prompt" code={agentBootstrapExample} />
             <CodeBlock label="Agent preflight reads" code={agentPreflightExample} />
           </section>
 
