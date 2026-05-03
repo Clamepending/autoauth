@@ -1706,6 +1706,17 @@ footer {
   gap: 10px;
 }
 
+.docs-toc-card li {
+  display: grid;
+  gap: 3px;
+}
+
+.docs-toc-status {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
 @media (max-width: 960px) {
   .auth-page,
   .dashboard-page {

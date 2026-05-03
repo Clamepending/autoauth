@@ -55,7 +55,6 @@ function FieldList({
 export default function DocsPage() {
   const baseUrl = getBaseUrl();
   const services = getAllManifests();
-  const activeServices = services.filter((service) => service.status !== "coming_soon");
 
   const credentialExample = `# Human action:
 # Dashboard -> Agent API Keys -> Generate API keys
@@ -607,11 +606,14 @@ print(response.json())`;
 
         <aside className="docs-toc" aria-label="Current docs summary">
           <div className="docs-toc-card">
-            <span className="docs-kicker">Available now</span>
+            <span className="docs-kicker">Service catalog</span>
             <ul>
-              {activeServices.map((service) => (
+              {services.map((service) => (
                 <li key={service.id}>
                   <a href={`/api/services/${service.id}`}>{service.name}</a>
+                  <span className="docs-toc-status">
+                    {service.status.replace("_", " ")}
+                  </span>
                 </li>
               ))}
             </ul>
