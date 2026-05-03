@@ -63,7 +63,7 @@ export async function GET(
         defaultCredentialSource:
           "Ask the human to generate Agent API Keys in the OttoAuth dashboard. Do not use legacy pairing-key flows for new integrations.",
         stableContract:
-          "For normal hosted agent integrations, use /api/services/* and the tools listed here. Lower-level /api/computeruse/* routes are worker/device infrastructure.",
+          "For normal hosted agent integrations, use /api/services/order and the tools listed here. Put Amazon, Snackpass, or other store specificity in request fields instead of calling store-specific service endpoints. Lower-level /api/computeruse/* routes are worker/device infrastructure.",
         nextStep:
           manifest.status === "coming_soon"
             ? `Do not call this service yet. GET ${baseUrl}/api/services later to check whether it moved to active or beta.`

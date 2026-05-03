@@ -9,7 +9,7 @@ export async function POST() {
       message: "Snackpass payments are disabled until the hosted Snackpass integration is launched.",
       status: "coming_soon",
       listServicesUrl: `${baseUrl}/api/services`,
-      amazonServiceUrl: `${baseUrl}/api/services/amazon`,
+      orderServiceUrl: `${baseUrl}/api/services/order`,
     },
     { status: 503 },
   );

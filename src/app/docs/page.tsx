@@ -64,8 +64,8 @@ export OTTOAUTH_USERNAME=<dashboard_generated_username>
 export OTTOAUTH_PRIVATE_KEY=<dashboard_generated_private_key>`;
 
   const discoverExample = `curl -s ${baseUrl}/api/services
-curl -s ${baseUrl}/api/services/computeruse
-curl -s ${baseUrl}/api/services/computeruse/docs`;
+curl -s ${baseUrl}/api/services/order
+curl -s ${baseUrl}/api/services/order/docs`;
 
   const agentBootstrapExample = `Give this to your agent:
 
@@ -73,7 +73,7 @@ Read ${baseUrl}/llms.txt first.
 Then read ${baseUrl}/skill.md.
 Use ${baseUrl}/api/services for machine-readable tool discovery.
 Use only services with status "active" or "beta".
-For general commerce tasks, use the computeruse service.
+For commerce tasks, use the order service and set store/merchant fields.
 Ask me for dashboard-generated OttoAuth username + private_key.
 Never ask me for retailer passwords or card numbers.
 After submitting a task, save task.id and run_id, poll task status, and answer clarification requests before the deadline.`;
@@ -81,27 +81,32 @@ After submitting a task, save task.id and run_id, poll task status, and answer c
   const agentPreflightExample = `curl -s ${baseUrl}/llms.txt
 curl -s ${baseUrl}/skill.md
 curl -s ${baseUrl}/api/services
-curl -s ${baseUrl}/api/services/computeruse`;
+curl -s ${baseUrl}/api/services/order`;
 
-  const submitTaskExample = `curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
+  const submitTaskExample = `curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
     "username": "my_agent",
     "private_key": "OTTOAUTH_PRIVATE_KEY",
     "task_title": "Snackpass pickup",
-    "website_url": "https://www.snackpass.co/",
+    "store": "snackpass",
+    "merchant": "Little Plearn",
+    "order_type": "pickup",
+    "item_name": "Pad see ew",
+    "quantity": "1",
+    "order_details": "mild spice, no peanuts",
     "max_charge_cents": 2000,
-    "task_prompt": "Platform: Snackpass\\nStore or merchant name: Little Plearn\\nFulfillment method: pickup\\nItem name: Pad see ew\\nOrder details: mild spice, no peanuts\\nAdditional instructions: only complete checkout if the total is under the spend cap."
+    "task_prompt": "Only complete checkout if the total is under the spend cap."
   }'`;
 
-  const statusExample = `curl -s -X POST ${baseUrl}/api/services/computeruse/tasks/123 \\
+  const statusExample = `curl -s -X POST ${baseUrl}/api/services/order/tasks/123 \\
   -H 'content-type: application/json' \\
   -d '{
     "username": "my_agent",
     "private_key": "OTTOAUTH_PRIVATE_KEY"
   }'`;
 
-  const eventsExample = `curl -s -X POST ${baseUrl}/api/services/computeruse/runs/run_abc123/events \\
+  const eventsExample = `curl -s -X POST ${baseUrl}/api/services/order/runs/run_abc123/events \\
   -H 'content-type: application/json' \\
   -d '{
     "username": "my_agent",
@@ -109,7 +114,7 @@ curl -s ${baseUrl}/api/services/computeruse`;
     "limit": 100
   }'`;
 
-  const cancelExample = `curl -s -X POST ${baseUrl}/api/services/computeruse/tasks/123/cancel \\
+  const cancelExample = `curl -s -X POST ${baseUrl}/api/services/order/tasks/123/cancel \\
   -H 'content-type: application/json' \\
   -d '{
     "username": "my_agent",
@@ -117,21 +122,20 @@ curl -s ${baseUrl}/api/services/computeruse`;
     "reason": "The human cancelled this request."
   }'`;
 
-  const typescriptExample = `const response = await fetch("${baseUrl}/api/services/computeruse/submit-task", {
+  const typescriptExample = `const response = await fetch("${baseUrl}/api/services/order/submit", {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({
     username: process.env.OTTOAUTH_USERNAME,
     private_key: process.env.OTTOAUTH_PRIVATE_KEY,
     task_title: "Amazon batteries",
-    website_url: "https://www.amazon.com",
+    store: "amazon",
+    store_url: "https://www.amazon.com",
+    order_type: "shipping",
+    item_name: "two packs of AA batteries",
+    order_details: "Use the default address on file. Stop and ask for clarification if the total is above $25.",
     max_charge_cents: 2500,
-    task_prompt: [
-      "Open Amazon.",
-      "Buy two packs of AA batteries.",
-      "Use the default address on file.",
-      "Stop and ask for clarification if the total is above $25."
-    ].join("\\n")
+    task_prompt: "Use the human's saved Amazon account and payment method."
   })
 });
 
@@ -144,7 +148,7 @@ console.log(task.id, task.status);`;
 
   const pollingExample = `async function waitForTask(taskId: number) {
   while (true) {
-    const response = await fetch(\`${baseUrl}/api/services/computeruse/tasks/\${taskId}\`, {
+    const response = await fetch(\`${baseUrl}/api/services/order/tasks/\${taskId}\`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -176,13 +180,16 @@ payload = {
     "username": os.environ["OTTOAUTH_USERNAME"],
     "private_key": os.environ["OTTOAUTH_PRIVATE_KEY"],
     "task_title": "Snackpass pickup",
-    "website_url": "https://www.snackpass.co/",
+    "store": "snackpass",
+    "merchant": "Little Plearn",
+    "order_type": "pickup",
+    "item_name": "Pad see ew",
+    "order_details": "mild spice, no peanuts",
     "max_charge_cents": 2000,
-    "task_prompt": "Platform: Snackpass\\nStore: Little Plearn\\nItem: Pad see ew\\nFulfillment: pickup",
 }
 
 response = requests.post(
-    "${baseUrl}/api/services/computeruse/submit-task",
+    "${baseUrl}/api/services/order/submit",
     json=payload,
     timeout=30,
 )
@@ -255,7 +262,7 @@ print(response.json())`;
                 <a href="/skill.md">GET /skill.md</a>
                 <a href="/llms.txt">GET /llms.txt</a>
                 <a href="/api/services">GET /api/services</a>
-                <a href="/api/services/computeruse">GET /api/services/computeruse</a>
+                <a href="/api/services/order">GET /api/services/order</a>
               </div>
             </div>
           </section>
@@ -312,9 +319,10 @@ print(response.json())`;
             </div>
             <p>
               OttoAuth covers the full developer workflow with a service-first
-              API and a browser fulfiller behind it. Typed services are exposed
-              where flows are stable; flexible retailer work is handled through
-              structured browser tasks.
+              API and a browser fulfiller behind it. Amazon, Snackpass, and
+              other store-specific work all go through the same general order
+              endpoint with <code>store</code>, <code>merchant</code>, and
+              related fields.
             </p>
             <div className="docs-callouts">
               <article>
@@ -328,15 +336,17 @@ print(response.json())`;
               <article>
                 <h3>Create orders</h3>
                 <p>
-                  Use <code>submit_task</code> for universal browser checkout,
-                  or the Amazon service for price-then-pay Amazon orders.
+                  Use <code>submit_order</code> for universal browser checkout.
+                  Set <code>store</code> to values like Amazon or Snackpass
+                  instead of calling store-specific endpoints.
                 </p>
               </article>
               <article>
                 <h3>Products, quantities, variants</h3>
                 <p>
                   Put product URLs, search instructions, quantities, variants,
-                  substitutions, and max spend into a structured task prompt.
+                  substitutions, and max spend into structured fields or a
+                  compact fallback prompt.
                 </p>
               </article>
               <article>
@@ -349,7 +359,7 @@ print(response.json())`;
               <article>
                 <h3>Status follow-up</h3>
                 <p>
-                  Poll <code>/api/services/computeruse/tasks/:taskId</code> for
+                  Poll <code>/api/services/order/tasks/:taskId</code> for
                   status, billing, pickup, tracking, clarification, and final
                   summary fields.
                 </p>
@@ -612,8 +622,8 @@ print(response.json())`;
               <h2>Start from the agent skill</h2>
               <p>
                 The shortest integration path is to fetch <code>/skill.md</code>,
-                follow the hosted account flow, then call the active service that
-                matches the job.
+                follow the hosted account flow, then call the active order
+                service with the right store fields.
               </p>
             </div>
             <a className="auth-button primary" href="/skill.md">Open /skill.md</a>

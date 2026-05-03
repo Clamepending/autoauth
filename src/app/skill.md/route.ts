@@ -49,8 +49,8 @@ Read order:
 1. \`${baseUrl}/llms.txt\` — short agent contract and durable links
 2. \`${baseUrl}/skill.md\` — this full hosted-agent operating guide
 3. \`${baseUrl}/api/services\` — machine-readable service index
-4. \`${baseUrl}/api/services/computeruse\` — default browser-task tool JSON
-5. \`${baseUrl}/api/services/computeruse/docs\` — default browser-task markdown docs
+4. \`${baseUrl}/api/services/order\` — default general-order tool JSON
+5. \`${baseUrl}/api/services/order/docs\` — default general-order markdown docs
 
 Your default integration plan:
 
@@ -59,12 +59,12 @@ Your default integration plan:
 3. Store the dashboard-generated \`username\` and \`privateKey\` securely.
 4. Confirm the human has claimed or enabled a fulfillment device and has credits.
 5. Use \`GET ${baseUrl}/api/services\` before calling tools; call only \`active\` or \`beta\` services.
-6. For general purchases, pickup orders, delivery orders, cancellations, returns, refunds, and order follow-up, use \`computeruse\`.
-7. Submit a structured work order with \`POST ${baseUrl}/api/services/computeruse/submit-task\`.
+6. For general purchases, pickup orders, delivery orders, cancellations, returns, refunds, and order follow-up, use \`order\`.
+7. Submit a structured work order with \`POST ${baseUrl}/api/services/order/submit\`.
 8. Save \`task.id\`, \`run_id\`, and \`${baseUrl}/orders/<taskId>\`.
-9. Poll \`POST ${baseUrl}/api/services/computeruse/tasks/<taskId>\` every 15-60 seconds.
+9. Poll \`POST ${baseUrl}/api/services/order/tasks/<taskId>\` every 15-60 seconds.
 10. If the task is \`awaiting_agent_clarification\`, answer through your callback URL or the clarification endpoint before the deadline.
-11. If the human changes their mind before completion, call \`POST ${baseUrl}/api/services/computeruse/tasks/<taskId>/cancel\`.
+11. If the human changes their mind before completion, call \`POST ${baseUrl}/api/services/order/tasks/<taskId>/cancel\`.
 12. On completion, report \`summary\`, \`pickup_details\`, \`tracking_details\`, totals, and any relevant run events.
 
 Hard rules:
@@ -99,7 +99,7 @@ Your human must:
 4. claim or enable a browser fulfillment device
 5. make sure their OttoAuth account has credits available
 
-Until that is done, the main hosted browser-task API will reject your requests.
+Until that is done, the main hosted order API will reject your requests.
 
 ### 3. Claimed browser device
 
@@ -122,20 +122,26 @@ Services with \`status = "coming_soon"\` are discoverable but not callable.
 
 ## Hosted availability (current)
 
-- **computeruse** (\`active\`): the main hosted browser-task service for human-linked agents
-- **amazon** (\`active\`): a separate two-phase Amazon order flow that prices first and then generates a payment link for the human
-- **snackpass** (\`coming_soon\`): discoverable only, not callable on this hosted server yet
+- **order** (\`active\`): the single hosted service for human-linked commerce tasks
+
+Available now through \`order\`:
+
+- Amazon orders: set \`store: "amazon"\` and pass a product URL or clear search/order details.
+- Snackpass orders: set \`store: "snackpass"\`, include \`merchant\`, and pass item/modifier details.
+- Any other supported browser-order work: set \`store\`, \`merchant\`, \`store_url\`, \`order_type\`, \`item_name\`, and \`order_details\` as needed.
+
+Do not call store-specific hosted service endpoints for Amazon or Snackpass. They are intentionally not part of the public agent service registry.
 
 ## E-commerce feature coverage
 
 OttoAuth's hosted service surface covers the core e-commerce automation features agents usually need:
 
 - **Auth and API keys:** humans generate dashboard API keys for you; every hosted service call authenticates with \`username\` + \`private_key\`.
-- **Create orders:** submit concrete purchase, pickup, delivery, reservation, cancellation, or return instructions through \`POST ${baseUrl}/api/services/computeruse/submit-task\`.
-- **Products, quantities, offers, and variants:** include exact product URLs, merchant URLs, item names, quantities, sizes, colors, modifiers, substitutions, and spend caps in the task prompt. OttoAuth executes these as structured browser tasks today; typed catalog/search endpoints can be added as these flows stabilize.
+- **Create orders:** submit concrete purchase, pickup, delivery, reservation, cancellation, or return instructions through \`POST ${baseUrl}/api/services/order/submit\`.
+- **Products, quantities, offers, and variants:** include exact product URLs, merchant URLs, item names, quantities, sizes, colors, modifiers, substitutions, and spend caps in structured order fields or a compact fallback prompt.
 - **Managed retailer accounts:** orders run on the human's claimed browser device, so existing human sessions, payment methods, loyalty accounts, and saved addresses can be used when available.
-- **Status follow-up:** poll \`POST ${baseUrl}/api/services/computeruse/tasks/<taskId>\` for queued, running, clarification, completed, and failed states.
-- **Order history and events:** list recent tasks with \`POST ${baseUrl}/api/services/computeruse/history\` and inspect the underlying execution trail with \`POST ${baseUrl}/api/services/computeruse/runs/<runId>/events\`.
+- **Status follow-up:** poll \`POST ${baseUrl}/api/services/order/tasks/<taskId>\` for queued, running, clarification, completed, and failed states.
+- **Order history and events:** list recent tasks with \`POST ${baseUrl}/api/services/order/history\` and inspect the underlying execution trail with \`POST ${baseUrl}/api/services/order/runs/<runId>/events\`.
 - **Tracking and delivery details:** completed task responses can include \`pickup_details\`, \`tracking_details\`, confirmation data, totals, summaries, and errors.
 - **Webhooks and clarification:** agent-owned accounts can configure a callback URL for \`ottoauth.computeruse.clarification_requested\` events; otherwise answer through the clarification endpoint.
 - **Cancellations and returns:** submit cancellation, return, refund, exchange, or support-contact instructions as browser tasks against the relevant merchant account and order page.
@@ -148,15 +154,15 @@ If you are an OpenClaw-style agent or any general-purpose agent, OttoAuth should
 1. Ask the human to generate OttoAuth API keys for you in \`${baseUrl}/dashboard\`.
 2. Store the dashboard-generated \`username\` and \`privateKey\` securely.
 3. Tell the human to finish OttoAuth's device setup flow and keep credits available.
-4. For browser automation on the hosted OttoAuth server, prefer \`POST ${baseUrl}/api/services/computeruse/submit-task\`.
+4. For browser automation on the hosted OttoAuth server, prefer \`POST ${baseUrl}/api/services/order/submit\`.
 5. When OttoAuth returns a task object, use \`task.id\` as the human-facing order/task id and send the human to \`${baseUrl}/orders/<taskId>\` if they want to watch fulfillment live.
 6. If the human wants to submit a task directly without routing through you, tell them to use \`${baseUrl}/orders/new\`.
-7. Use the Amazon service only when you already have a concrete Amazon product URL and want OttoAuth's price-then-human-payment flow.
+7. Put store-specific intent in the general order request; for example, \`store: "amazon"\` or \`store: "snackpass"\`.
 8. Do not treat \`${baseUrl}/api/requests\` as a live fulfillment path. It is currently a backlog/request channel, not the main execution contract.
 
 ## Browser task authoring guidance
 
-\`computeruse\` works best when tasks read like a compact work order instead of a loose chat message.
+\`order\` works best when requests read like a compact work order instead of a loose chat message.
 
 Recommended shape:
 
@@ -173,11 +179,12 @@ Additional instructions: call or clarify if the requested item is unavailable
 Guidelines:
 
 - Include the platform, store/merchant name, fulfillment method, exact item name, quantity, modifiers, tip, and delivery address when they matter.
-- Pass \`website_url\` when you know the intended site. Use a direct merchant/order URL when you have one.
-- For Snackpass tasks, include the store name even if \`website_url\` is \`https://www.snackpass.co/\`. OttoAuth keeps stable store-level mappings for known Snackpass merchants and otherwise tells the fulfiller to search \`"<store>" Snackpass\`, prefer official \`order.snackpass.co\` pages, and avoid the generic homepage, articles, maps, and social pages.
+- Prefer structured fields: \`store\`, \`merchant\`, \`order_type\`, \`item_name\`, \`quantity\`, \`order_details\`, and \`max_charge_cents\`.
+- Pass \`store_url\` or \`website_url\` when you know the intended site. Use a direct merchant/order URL when you have one.
+- For Snackpass tasks, include the merchant name even if \`store_url\` is \`https://www.snackpass.co/\`. OttoAuth keeps stable store-level mappings for known Snackpass merchants and otherwise tells the fulfiller to search \`"<store>" Snackpass\`, prefer official \`order.snackpass.co\` pages, and avoid the generic homepage, articles, maps, and social pages.
 - Keep onboarding and store mappings at the merchant level. Do not encode item-specific hints such as a single product name or price into the agent onboarding.
 
-For a first generic order test, use the active \`computeruse\` service with a Snackpass-shaped prompt. Do not call the dedicated \`snackpass\` service yet; that service is still \`coming_soon\`.
+For a first generic order test, use the active \`order\` service with \`store: "snackpass"\`, \`merchant\`, and item details. Do not look for a separate Snackpass service.
 
 ## Quick start
 
@@ -222,7 +229,7 @@ Tell your human to do this:
 5. complete OttoAuth's device setup flow for that device
 6. make sure the OttoAuth account has credits available at \`${baseUrl}/credits/refill\` if needed
 
-You cannot use the hosted \`computeruse\` service until:
+You cannot use the hosted \`order\` service until:
 
 - the agent key is linked to a human
 - the human has claimed a device
@@ -245,10 +252,10 @@ This is the shortest correct mental model for a brand-new hosted agent:
    - generated credentials for your agent
    - claimed at least one browser device
    - added enough credits
-5. submit a browser task with \`POST ${baseUrl}/api/services/computeruse/submit-task\`
+5. submit a browser task with \`POST ${baseUrl}/api/services/order/submit\`
 6. save the returned \`task.id\`
 7. send the human to \`${baseUrl}/orders/<task.id>\` if they want to watch fulfillment
-8. poll \`POST ${baseUrl}/api/services/computeruse/tasks/<task.id>\` until the task leaves \`queued\` / \`running\`
+8. poll \`POST ${baseUrl}/api/services/order/tasks/<task.id>\` until the task leaves \`queued\` / \`running\`
 9. if the task becomes \`awaiting_agent_clarification\`, answer through your webhook or \`POST .../clarification\`
 10. treat \`completed\` as the successful end state and read pickup / tracking / summary fields from the returned task object
 
@@ -272,9 +279,9 @@ Agent recovery map:
 For a hosted production agent, the steady-state OttoAuth loop is:
 
 1. \`GET ${baseUrl}/api/services\` once at startup or refresh intervals
-2. ensure \`computeruse\` is still \`active\`
+2. ensure \`order\` is still \`active\`
 3. accept a human request
-4. call \`POST ${baseUrl}/api/services/computeruse/submit-task\`
+4. call \`POST ${baseUrl}/api/services/order/submit\`
 5. expose \`${baseUrl}/orders/<taskId>\` to the human as the live watch URL
 6. poll task status until it reaches \`completed\`, \`failed\`, or \`awaiting_agent_clarification\`
 7. if clarification is requested, respond before the deadline
@@ -329,9 +336,9 @@ ${serviceRows}
 
 Call only services with \`status = "active"\` or \`status = "beta"\`.
 
-## Main hosted service: computeruse
+## Main hosted service: order
 
-\`computeruse\` is the primary hosted service for agent-submitted browser work.
+\`order\` is the primary hosted service for agent-submitted commerce work. Amazon, Snackpass, and other store-specific jobs all use this same service.
 
 What it does:
 
@@ -343,34 +350,42 @@ What it does:
 - queues the task on the linked human's claimed device
 - records a generic browser task for status, billing, summaries, and clarification state
 
-### Submit task
+### Submit order
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"your_agent_name",
     "private_key":"YOUR_PRIVATE_KEY",
-    "task_prompt":"Open Amazon, buy two packs of AA batteries, and ship them to the address below.",
+    "store":"amazon",
+    "item_name":"two packs of AA batteries",
+    "order_type":"shipping",
+    "order_details":"Use the default saved payment method. Stop and ask for clarification if the total is above $25.",
     "task_title":"Buy AA batteries",
-    "website_url":"https://www.amazon.com",
+    "store_url":"https://www.amazon.com",
     "shipping_address":"Jane Doe\\n123 Main St Apt 4B\\nSan Francisco, CA 94110",
     "max_charge_cents": 2500
   }'
 \`\`\`
 
-Recommended generic Snackpass test after the human has linked you, claimed a device, and added credits:
+Recommended Snackpass test after the human has linked you, claimed a device, and added credits:
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"your_agent_name",
     "private_key":"YOUR_PRIVATE_KEY",
     "task_title":"Snackpass pickup: Pad see ew",
-    "website_url":"https://www.snackpass.co/",
+    "store":"snackpass",
+    "merchant":"Little Plearn",
+    "order_type":"pickup",
+    "item_name":"Pad see ew",
+    "quantity":"1",
+    "order_details":"no peanuts",
     "max_charge_cents": 2000,
-    "task_prompt":"Please place this pickup order on Snackpass.\\n\\nPlatform: Snackpass\\nStore or merchant name: Little Plearn\\nFulfillment method: pickup\\nItem name: Pad see ew\\nOrder details, modifiers, and preferences: no peanuts\\nAdditional instructions: only complete the order if total is under the spend cap."
+    "task_prompt":"Only complete the order if total is under the spend cap."
   }'
 \`\`\`
 
@@ -378,10 +393,17 @@ Required:
 
 - \`username\`
 - \`private_key\`
-- \`task_prompt\`
+- enough structured fields or \`task_prompt\` to describe the order
 
 Optional:
 
+- \`store\` or \`platform\`
+- \`merchant\`
+- \`store_url\`
+- \`order_type\`
+- \`item_name\`
+- \`quantity\`
+- \`order_details\`
 - \`task_title\`
 - \`website_url\`
 - \`shipping_address\`
@@ -391,7 +413,7 @@ Important semantics:
 
 - If \`max_charge_cents\` is omitted, OttoAuth uses the human's current credit balance as the spend cap.
 - If \`max_charge_cents\` is provided and exceeds the human's current credit balance, the request is rejected.
-- \`website_url\` and \`shipping_address\` are hints and constraints for the fulfiller, not separate services.
+- \`store\`, \`merchant\`, \`store_url\`, \`website_url\`, and \`shipping_address\` are hints and constraints for the fulfiller, not separate services.
 - Agent-submitted tasks do **not** use live human chat as their main clarification channel. They use the webhook flow described below.
 
 Response includes:
@@ -410,7 +432,7 @@ Use:
 ### Poll task status
 
 \`\`\`
-POST ${baseUrl}/api/services/computeruse/tasks/<taskId>
+POST ${baseUrl}/api/services/order/tasks/<taskId>
 Content-Type: application/json
 
 {
@@ -461,7 +483,7 @@ Polling guidance:
 ### Cancel an in-flight task
 
 \`\`\`
-POST ${baseUrl}/api/services/computeruse/tasks/<taskId>/cancel
+POST ${baseUrl}/api/services/order/tasks/<taskId>/cancel
 Content-Type: application/json
 
 {
@@ -476,7 +498,7 @@ Use this endpoint when the human changes their mind, the requested item is no lo
 ### Get run events
 
 \`\`\`
-POST ${baseUrl}/api/services/computeruse/runs/<runId>/events
+POST ${baseUrl}/api/services/order/runs/<runId>/events
 Content-Type: application/json
 
 {
@@ -491,7 +513,7 @@ Use this endpoint when task status is not enough and you need the recent executi
 ### List recent browser tasks for this agent
 
 \`\`\`
-POST ${baseUrl}/api/services/computeruse/history
+POST ${baseUrl}/api/services/order/history
 Content-Type: application/json
 
 {
@@ -521,7 +543,7 @@ Webhook payload shape:
     "requested_at": "2026-04-11T20:00:00.000Z",
     "deadline_at": "2026-04-11T20:10:00.000Z",
     "timeout_seconds": ${clarificationTimeoutSeconds},
-    "respond_url": "${baseUrl}/api/services/computeruse/tasks/123/clarification",
+    "respond_url": "${baseUrl}/api/services/order/tasks/123/clarification",
     "method": "POST",
     "auth": "Include the agent username and private_key in the JSON body.",
     "body": {
@@ -530,7 +552,7 @@ Webhook payload shape:
       "clarification_response": "<your answer for OttoAuth>"
     }
   },
-  "task_status_url": "${baseUrl}/api/services/computeruse/tasks/123",
+  "task_status_url": "${baseUrl}/api/services/order/tasks/123",
   "order_url": "${baseUrl}/orders/123"
 }
 \`\`\`
@@ -548,7 +570,7 @@ You have two supported ways to answer:
 2. or POST later to the respond URL:
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/computeruse/tasks/123/clarification \\
+curl -s -X POST ${baseUrl}/api/services/order/tasks/123/clarification \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"your_agent_name",
@@ -565,71 +587,17 @@ Important behavior:
 - If your account has no stored callback URL, poll task status and answer through the clarification endpoint.
 - If no successful clarification arrives before the deadline, OttoAuth cancels the task.
 
-## Amazon service
+## Store-specific orders
 
-\`amazon\` is a different execution model from \`computeruse\`.
+There are no public hosted store-specific service endpoints.
 
-It is **not** the same as the human-linked credit-backed browser-task flow.
+Use \`POST ${baseUrl}/api/services/order/submit\` for store-specific work:
 
-Current behavior:
+- Amazon: set \`store: "amazon"\`; pass \`store_url\` for a product page when known, or provide clear search instructions in \`order_details\`.
+- Snackpass: set \`store: "snackpass"\`; include \`merchant\`, \`item_name\`, \`order_type\`, and modifiers.
+- Any other retailer, restaurant, grocery, marketplace, or support flow: set \`store\`, \`merchant\`, \`store_url\`, and \`order_details\` as needed.
 
-1. you already have a concrete Amazon product URL
-2. you call \`POST ${baseUrl}/api/services/amazon/buy\`
-3. OttoAuth runs a browser task to discover the real Amazon total
-4. the order moves to \`pending_payment\`
-5. OttoAuth exposes a \`payment_url\`
-6. your human opens that payment URL and pays
-7. OttoAuth enqueues a second browser task to place the Amazon order
-8. you poll the order status endpoint until fulfillment completes
-
-### Important Amazon notes
-
-- Amazon search is not exposed as a hosted callable tool yet.
-- Use another search method, get the concrete product URL, then call \`/api/services/amazon/buy\`.
-- Amazon order status is tracked separately from the generic browser-task model.
-
-### Buy
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/amazon/buy \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"your_agent_name",
-    "private_key":"YOUR_PRIVATE_KEY",
-    "item_url":"https://www.amazon.com/...",
-    "shipping_address":"Jane Doe\\n123 Main St\\nSan Francisco, CA 94110"
-  }'
-\`\`\`
-
-### Poll order status
-
-\`\`\`
-GET ${baseUrl}/api/services/amazon/orders/<orderId>
-\`\`\`
-
-The order response can include:
-
-- \`status\`
-- \`product_title\`
-- \`estimated_price\`
-- \`estimated_tax\`
-- \`processing_fee\`
-- \`amazon_total\`
-- \`payment_url\` when status is \`pending_payment\`
-- \`confirmation_number\`
-- \`est_delivery\`
-- \`tracking_number\`
-
-### List Amazon history
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/amazon/history \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"your_agent_name",
-    "private_key":"YOUR_PRIVATE_KEY"
-  }'
-\`\`\`
+Then use the same status, history, run-event, clarification, and cancellation endpoints for follow-up.
 
 ## Lower-level and non-default endpoints
 

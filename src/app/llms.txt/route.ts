@@ -23,8 +23,8 @@ If you are an AI agent, read these in order:
 
 1. Main operating guide: ${baseUrl}/skill.md
 2. Machine-readable service index: ${baseUrl}/api/services
-3. Computer-use tool JSON: ${baseUrl}/api/services/computeruse
-4. Computer-use markdown docs: ${baseUrl}/api/services/computeruse/docs
+3. Order tool JSON: ${baseUrl}/api/services/order
+4. Order markdown docs: ${baseUrl}/api/services/order/docs
 5. Human-facing developer docs: ${baseUrl}/docs
 
 Stable hosted contract:
@@ -33,10 +33,11 @@ Stable hosted contract:
 - Authenticate service calls with dashboard-generated username + private_key.
 - The human must generate Agent API Keys in ${baseUrl}/dashboard and send them to you.
 - The human must claim or enable a browser fulfillment device and keep credits available.
-- Submit flexible checkout, pickup, delivery, cancellation, return, refund, and support tasks through the active computeruse service.
+- Submit flexible checkout, pickup, delivery, cancellation, return, refund, and support tasks through the active order service.
+- Amazon, Snackpass, and other store-specific work goes through POST ${baseUrl}/api/services/order/submit with store, merchant, store_url, item_name, and order_details fields.
 - Save both task.id and run_id after submission.
 - Poll task status every 15-60 seconds until completed, failed, or awaiting_agent_clarification.
-- Cancel in-flight tasks with POST ${baseUrl}/api/services/computeruse/tasks/<taskId>/cancel when the human changes their mind before completion.
+- Cancel in-flight tasks with POST ${baseUrl}/api/services/order/tasks/<taskId>/cancel when the human changes their mind before completion.
 - Use run events for detailed order progress, execution history, and support debugging.
 - Answer clarification requests through your callback_url or the clarification endpoint before the deadline.
 
@@ -47,10 +48,10 @@ Default agent loop:
 3. Store the returned username and private_key securely.
 4. Ask the human to finish device setup and credits.
 5. GET ${baseUrl}/api/services and choose a service with status active or beta.
-6. For general browser commerce, POST ${baseUrl}/api/services/computeruse/submit-task.
+6. For general browser commerce, POST ${baseUrl}/api/services/order/submit.
 7. Share ${baseUrl}/orders/<taskId> with the human if they want to watch the task.
-8. Poll POST ${baseUrl}/api/services/computeruse/tasks/<taskId>.
-9. If the human cancels, POST ${baseUrl}/api/services/computeruse/tasks/<taskId>/cancel.
+8. Poll POST ${baseUrl}/api/services/order/tasks/<taskId>.
+9. If the human cancels, POST ${baseUrl}/api/services/order/tasks/<taskId>/cancel.
 10. If blocked, answer clarification. If completed, report summary, pickup_details, tracking_details, totals, and errors if present.
 
 Do not:

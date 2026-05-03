@@ -12,9 +12,9 @@ export async function GET() {
       skillUrl: `${baseUrl}/skill.md`,
       developerDocsUrl: `${baseUrl}/docs`,
       serviceIndexUrl: `${baseUrl}/api/services`,
-      defaultServiceId: "computeruse",
-      defaultServiceUrl: `${baseUrl}/api/services/computeruse`,
-      defaultServiceDocsUrl: `${baseUrl}/api/services/computeruse/docs`,
+      defaultServiceId: "order",
+      defaultServiceUrl: `${baseUrl}/api/services/order`,
+      defaultServiceDocsUrl: `${baseUrl}/api/services/order/docs`,
       guidance:
         "If you are an AI agent, read /llms.txt and /skill.md first, then call only active or beta service tools from this index.",
     },
@@ -23,7 +23,7 @@ export async function GET() {
       "Store the dashboard-generated username and private_key securely.",
       "Confirm the human has claimed or enabled a fulfillment device and has credits.",
       "GET a serviceUrl for machine-readable tools and docsUrl for markdown docs.",
-      "Submit tasks through /api/services/computeruse/submit-task unless a more specific active service fits.",
+      "Submit Amazon, Snackpass, and other store work through /api/services/order/submit with store or merchant fields.",
       "Persist task.id and run_id, poll task status, cancel if the human changes their mind, and answer clarification before the deadline.",
     ],
     services: allServices.map((m) => ({

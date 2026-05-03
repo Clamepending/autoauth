@@ -24,6 +24,22 @@ import {
   getHumanUserById,
 } from "@/lib/human-accounts";
 
+function readTrimmedString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return "";
+}
+
+function readQuantity(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return readTrimmedString(value);
+}
+
 export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as
     | Record<string, unknown>
@@ -35,23 +51,61 @@ export async function POST(request: Request) {
   const auth = await authenticateAgent(payload);
   if (!auth.ok) return auth.response;
 
-  const taskPrompt =
-    typeof payload.task_prompt === "string"
-      ? payload.task_prompt.trim()
-      : typeof payload.taskPrompt === "string"
-        ? payload.taskPrompt.trim()
-        : "";
-  const taskTitle =
-    typeof payload.task_title === "string"
-      ? payload.task_title.trim()
-      : typeof payload.taskTitle === "string"
-        ? payload.taskTitle.trim()
-        : "";
+  const taskPrompt = readTrimmedString(payload.task_prompt, payload.taskPrompt);
+  const taskTitle = readTrimmedString(payload.task_title, payload.taskTitle);
+  const store = readTrimmedString(payload.store, payload.platform);
+  const merchant = readTrimmedString(
+    payload.merchant,
+    payload.store_name,
+    payload.storeName,
+  );
+  const orderType = readTrimmedString(
+    payload.order_type,
+    payload.orderType,
+    payload.fulfillment_method,
+    payload.fulfillmentMethod,
+  );
+  const itemName = readTrimmedString(
+    payload.item_name,
+    payload.itemName,
+    payload.product,
+    payload.product_name,
+    payload.productName,
+  );
+  const quantity = readQuantity(payload.quantity);
+  const orderDetails = readTrimmedString(
+    payload.order_details,
+    payload.orderDetails,
+    payload.instructions,
+  );
+  const additionalInstructions = readTrimmedString(
+    payload.additional_instructions,
+    payload.additionalInstructions,
+  );
+  const structuredLines = [
+    store ? `Platform: ${store}` : "",
+    merchant ? `Store or merchant name: ${merchant}` : "",
+    orderType ? `Fulfillment method: ${orderType}` : "",
+    itemName ? `Item name: ${itemName}` : "",
+    quantity ? `Quantity: ${quantity}` : "",
+    orderDetails
+      ? `Order details, modifiers, and preferences: ${orderDetails}`
+      : "",
+    additionalInstructions
+      ? `Additional instructions: ${additionalInstructions}`
+      : "",
+  ].filter(Boolean);
+  const effectiveTaskPrompt = [...structuredLines, taskPrompt]
+    .filter(Boolean)
+    .join("\n");
   let websiteUrl: string | null = null;
   let shippingAddress: string | null = null;
   try {
     websiteUrl = normalizeOptionalWebsiteUrl(
-      payload.website_url ?? payload.websiteUrl,
+      payload.website_url ??
+        payload.websiteUrl ??
+        payload.store_url ??
+        payload.storeUrl,
     );
     shippingAddress = normalizeOptionalShippingAddress(
       payload.shipping_address ?? payload.shippingAddress,
@@ -69,9 +123,12 @@ export async function POST(request: Request) {
         ? payload.maxChargeCents
         : null;
 
-  if (!taskPrompt) {
+  if (!effectiveTaskPrompt) {
     return NextResponse.json(
-      { error: "task_prompt is required." },
+      {
+        error:
+          "Provide task_prompt or structured order fields such as store, merchant, item_name, order_type, or order_details.",
+      },
       { status: 400 },
     );
   }
@@ -132,7 +189,7 @@ export async function POST(request: Request) {
   }
 
   const wrappedPrompt = buildGenericTaskGoal({
-    originalPrompt: taskPrompt,
+    originalPrompt: effectiveTaskPrompt,
     maxChargeCents: effectiveMaxCharge,
     websiteUrl,
     shippingAddress,
@@ -148,7 +205,13 @@ export async function POST(request: Request) {
     runId: run.id,
     type: "computeruse.run.created",
     data: {
-      task_prompt: taskPrompt,
+      task_prompt: effectiveTaskPrompt,
+      freeform_task_prompt: taskPrompt || null,
+      store: store || null,
+      merchant: merchant || null,
+      order_type: orderType || null,
+      item_name: itemName || null,
+      quantity: quantity || null,
       device_id: device.device_id,
       human_user_id: humanUser.id,
       credit_balance_cents: creditBalance,
@@ -189,8 +252,11 @@ export async function POST(request: Request) {
     deviceId: device.device_id,
     submissionSource: "agent",
     fulfillerHumanUserId: device.human_user_id,
-    taskPrompt,
-    taskTitle: taskTitle || taskPrompt.slice(0, 80),
+    taskPrompt: effectiveTaskPrompt,
+    taskTitle:
+      taskTitle ||
+      [merchant || store, itemName || orderType].filter(Boolean).join(": ") ||
+      effectiveTaskPrompt.slice(0, 80),
     websiteUrl,
     shippingAddress,
     maxChargeCents: effectiveMaxCharge,
@@ -204,6 +270,6 @@ export async function POST(request: Request) {
     run_id: run.id,
     human_credit_balance: `$${(creditBalance / 100).toFixed(2)}`,
     note:
-      "Generic browser task queued. OttoAuth will complete it on the human's claimed device and debit credits after execution finishes.",
+      "General order task queued. OttoAuth will complete it on the human's claimed device and debit credits after execution finishes.",
   });
 }

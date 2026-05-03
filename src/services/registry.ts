@@ -1,14 +1,8 @@
 import type { ServiceManifest } from "@/services/_shared/types";
-import { getManifest as getAmazonManifest } from "@/services/amazon/manifest";
-import { getManifest as getComputerUseManifest } from "@/services/computeruse/manifest";
-import { getManifest as getSnackpassManifest } from "@/services/snackpass/manifest";
+import { getManifest as getOrderManifest } from "@/services/order/manifest";
 
 export function getAllManifests(): ServiceManifest[] {
-  return [
-    getAmazonManifest(),
-    getComputerUseManifest(),
-    getSnackpassManifest(),
-  ];
+  return [getOrderManifest()];
 }
 
 export function getManifest(serviceId: string): ServiceManifest | null {
