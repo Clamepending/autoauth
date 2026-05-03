@@ -26,28 +26,21 @@ export async function POST(_request: Request, context: Context) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
-  if (originalTask.status === "completed") {
-    return NextResponse.json(
-      { error: "Completed orders are already final and cannot be restarted. Use Copy as new order instead." },
-      { status: 409 },
-    );
-  }
-
   try {
     const duplicated = await duplicateAdminOrderTask({
       originalTask,
-      action: "restart",
-      failOriginal: true,
+      action: "copy",
+      failOriginal: false,
     });
     return NextResponse.json({
       ok: true,
       task: formatGenericTaskForApi(duplicated.task, duplicated.requester),
       run_id: duplicated.run.id,
-      restarted_from_task_id: originalTask.id,
+      copied_from_task_id: originalTask.id,
       fulfillment: duplicated.fulfillment,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Restart failed.";
+    const message = error instanceof Error ? error.message : "Copy failed.";
     return NextResponse.json({ error: message }, { status: statusFromError(new Error(message)) });
   }
 }

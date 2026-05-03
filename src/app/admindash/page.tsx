@@ -226,7 +226,7 @@ function OrderTable({
           {orders.map((order) => (
             <tr key={order.id}>
               <td>
-                <a className="admin-link-strong" href={`/orders/${order.id}`}>#{order.id}</a>
+                <a className="admin-link-strong" href={`/admindash/orders/${order.id}`}>#{order.id}</a>
                 <div className="admin-subtle">{order.submission_source}</div>
               </td>
               <td>
