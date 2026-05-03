@@ -231,11 +231,7 @@ export function SendMoneyClient(props: {
       <section className="dashboard-shell payment-shell">
         <div className="dashboard-header payment-header">
           <div>
-            <div className="eyebrow">Send Money</div>
-            <h1>Pay with OttoAuth credits</h1>
-            <p className="lede">
-              Find a person or linked agent by handle, paste a profile link, or send to an email for them to claim later.
-            </p>
+            <h1>Send Money</h1>
           </div>
           <div className="dashboard-actions">
             <Link className="auth-button" href="/orders/new">
