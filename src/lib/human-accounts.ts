@@ -952,7 +952,6 @@ export async function linkAgentToHumanByPairingKey(params: {
 export async function createHumanGeneratedAgentApiKey(params: {
   humanUserId: number;
   agentName?: string | null;
-  callbackUrl?: string | null;
 }) {
   await ensureHumanAccountSchema();
 
@@ -972,7 +971,7 @@ export async function createHumanGeneratedAgentApiKey(params: {
         usernameDisplay: usernameLower,
         privateKey,
         pairingKey: null,
-        callbackUrl: params.callbackUrl?.trim() || null,
+        callbackUrl: null,
         description: label.slice(0, 100),
       });
       break;

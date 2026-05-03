@@ -105,6 +105,12 @@ export type HumanFulfillmentRatingStats = {
   average_rating: number | null;
 };
 
+export type AgentSpendTotalRecord = {
+  agent_id: number;
+  agent_username_lower: string;
+  total_spent_cents: number;
+};
+
 export type GenericBrowserTaskSnapshotRecord = {
   id: number;
   task_id: number;
@@ -1190,6 +1196,30 @@ export async function listGenericBrowserTasksRelatedToHuman(humanUserId: number,
     args: [humanUserId, humanUserId, Math.max(1, Math.min(limit, 200))],
   });
   return ((result.rows ?? []) as Record<string, unknown>[]).map(mapTaskRow);
+}
+
+export async function listAgentSpendTotalsForHuman(
+  humanUserId: number,
+): Promise<AgentSpendTotalRecord[]> {
+  await ensureGenericBrowserTaskSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: `SELECT
+            agent_id,
+            agent_username_lower,
+            COALESCE(SUM(total_cents), 0) AS total_spent_cents
+          FROM generic_browser_tasks
+          WHERE human_user_id = ?
+            AND billing_status = 'debited'
+          GROUP BY agent_id, agent_username_lower`,
+    args: [humanUserId],
+  });
+
+  return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
+    agent_id: Number(row.agent_id),
+    agent_username_lower: String(row.agent_username_lower),
+    total_spent_cents: Number(row.total_spent_cents ?? 0),
+  }));
 }
 
 export async function getHumanFulfillmentRatingStats(

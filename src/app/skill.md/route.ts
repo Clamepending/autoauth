@@ -70,7 +70,7 @@ Your default integration plan:
 Hard rules:
 
 - Do not ask the human for retailer passwords, card numbers, or one-time payment codes unless the human explicitly chooses to complete that step themselves.
-- Do not use older agent-generated pairing-key flows for new integrations; ask for dashboard-generated API keys.
+- Do not ask the human to configure callback URLs; if you need clarification webhooks, create an agent-owned account with \`callback_url\` and have the human link its pairing key.
 - Do not call lower-level \`/api/computeruse/*\` routes unless you are implementing worker/device fulfillment infrastructure.
 - Do not call services marked \`coming_soon\`.
 - Do not continue checkout when the reported total exceeds the requested spend cap.
@@ -84,11 +84,10 @@ They send you:
 
 - \`username\`
 - \`privateKey\`
-- optional \`callbackUrl\` if they configured clarification webhooks
 
 \`privateKey\` is your real credential. Keep it secret. These dashboard-generated credentials are already linked to the human account that created them.
 
-\`callbackUrl\` is optional but recommended because OttoAuth uses it for **computer-use clarification webhooks** when a browser fulfiller gets blocked on an agent-submitted task. If no callback URL is configured, you must poll task status and answer clarification through the clarification endpoint.
+The human dashboard does not collect callback URLs. If your agent needs clarification webhooks, set \`callback_url\` when you create or manage an agent-owned OttoAuth account; otherwise poll task status and answer clarification through the clarification endpoint.
 
 ### 2. Human setup
 
@@ -138,7 +137,7 @@ OttoAuth's hosted service surface covers the core e-commerce automation features
 - **Status follow-up:** poll \`POST ${baseUrl}/api/services/computeruse/tasks/<taskId>\` for queued, running, clarification, completed, and failed states.
 - **Order history and events:** list recent tasks with \`POST ${baseUrl}/api/services/computeruse/history\` and inspect the underlying execution trail with \`POST ${baseUrl}/api/services/computeruse/runs/<runId>/events\`.
 - **Tracking and delivery details:** completed task responses can include \`pickup_details\`, \`tracking_details\`, confirmation data, totals, summaries, and errors.
-- **Webhooks and clarification:** configure a callback URL for \`ottoauth.computeruse.clarification_requested\` events, or answer through the clarification endpoint.
+- **Webhooks and clarification:** agent-owned accounts can configure a callback URL for \`ottoauth.computeruse.clarification_requested\` events; otherwise answer through the clarification endpoint.
 - **Cancellations and returns:** submit cancellation, return, refund, exchange, or support-contact instructions as browser tasks against the relevant merchant account and order page.
 - **Testing and failure modes:** use spend caps, mock/local routes, task status polling, errors, and clarification states to build reliable agent behavior before live purchases.
 
@@ -194,9 +193,25 @@ Important details:
 
 - The human generates these credentials in the dashboard and sends them to you.
 - \`OTTOAUTH_PRIVATE_KEY\` cannot be recovered from the dashboard after generation. Ask the human to rotate by creating a new key if it is lost.
-- If the human configured a callback URL for the key, OttoAuth uses it for \`ottoauth.computeruse.clarification_requested\` if a browser task needs clarification.
+- Dashboard-generated keys do not include a human-managed callback URL. Use status polling plus the clarification endpoint, or use an agent-owned account with \`callback_url\` if you need webhooks.
 
-### 2. Human onboarding
+### 2. Agent-owned account creation for webhooks
+
+If your agent needs a clarification webhook, create the agent account yourself and include \`callback_url\`. The callback URL belongs to your agent service; do not ask the human to configure it.
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/agents/create \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"your_agent_name",
+    "description":"Your agent display description",
+    "callback_url":"https://your-agent.example.com/ottoauth/clarification"
+  }'
+\`\`\`
+
+Save the returned \`privateKey\` and give the returned \`pairingKey\` to the human only when you are using this agent-owned account flow. The human links that pairing key to their OttoAuth account; they still should not need to know your callback URL.
+
+### 3. Human onboarding
 
 Tell your human to do this:
 
@@ -213,13 +228,13 @@ You cannot use the hosted \`computeruse\` service until:
 - the human has claimed a device
 - the human has credits remaining
 
-### 3. Human handoff message you can use
+### 4. Human handoff message you can use
 
 \`\`\`
 Please sign in to OttoAuth at ${baseUrl}/login, open the Agent API Keys section in your dashboard, generate credentials for me, and send me the username plus private key. Then claim or enable a fulfillment device and make sure your OttoAuth balance has credits. You can also submit your own task at ${baseUrl}/orders/new and watch any live task at ${baseUrl}/orders/<taskId>.
 \`\`\`
 
-### 4. First successful browser order path
+### 5. First successful browser order path
 
 This is the shortest correct mental model for a brand-new hosted agent:
 
@@ -252,7 +267,7 @@ Agent recovery map:
 - \`awaiting_agent_clarification\`: answer the exact question before the deadline; do not guess silently.
 - \`failed\`: report \`error\` and \`summary\`, then submit a clearer replacement task only if the human wants a retry.
 
-### 5. Production-ready agent loop
+### 6. Production-ready agent loop
 
 For a hosted production agent, the steady-state OttoAuth loop is:
 
@@ -487,7 +502,7 @@ Content-Type: application/json
 
 ## Clarification webhook contract
 
-If the browser fulfiller is blocked on an **agent-submitted** task, OttoAuth may mark the task as \`awaiting_agent_clarification\` and POST a webhook to your stored \`callback_url\`.
+If the browser fulfiller is blocked on an **agent-submitted** task, OttoAuth may mark the task as \`awaiting_agent_clarification\`. For agent-owned accounts with a stored \`callback_url\`, OttoAuth POSTs a webhook there.
 
 Current timeout: ${clarificationTimeoutLabel}
 
@@ -546,7 +561,8 @@ Important behavior:
 
 - If OttoAuth receives a 2xx webhook response with \`clarification_response\`, it can resume immediately.
 - If OttoAuth gets a 2xx response without an inline answer, it waits until the clarification deadline for a later POST.
-- If the callback URL is missing, unreachable, or returns non-2xx, OttoAuth currently treats the callback as failed and cancels the clarification request.
+- If the callback URL is unreachable or returns non-2xx, OttoAuth currently treats the callback as failed and cancels the clarification request.
+- If your account has no stored callback URL, poll task status and answer through the clarification endpoint.
 - If no successful clarification arrives before the deadline, OttoAuth cancels the task.
 
 ## Amazon service
@@ -635,10 +651,11 @@ Use those URLs proactively in your replies so the human knows exactly what OttoA
 
 - Most agent-authenticated endpoints use \`username\` + \`private_key\`.
 - Some account-management endpoints use the field name \`password\` but still expect your private key value.
-- The recommended hosted flow is human-generated dashboard API keys. Older agent-generated \`pairingKey\` flows may still exist for legacy integrations, but new agents should ask the human for dashboard-generated credentials.
+- The simplest hosted flow is human-generated dashboard API keys. If you need a webhook callback URL, create an agent-owned account with \`callback_url\` and have the human link its returned \`pairingKey\`.
 
 ## Account maintenance endpoints
 
+- **Create agent-owned account:** \`POST ${baseUrl}/api/agents/create\` with \`username\`, \`description\`, and \`callback_url\`
 - **Update description:** \`POST ${baseUrl}/api/agents/update-description\` with \`username\`, \`password\`, \`description\`
 - **Delete account:** \`POST ${baseUrl}/api/agents/delete\` with \`username\`, \`password\`
 

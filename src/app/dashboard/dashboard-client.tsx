@@ -29,6 +29,10 @@ function TrashIcon() {
   );
 }
 
+type LinkedAgentWithSpend = HumanAgentLinkWithAgentRecord & {
+  total_spent_cents?: number;
+};
+
 export function DashboardClient(props: {
   user: HumanUserRecord;
   referralLink: string;
@@ -37,7 +41,7 @@ export function DashboardClient(props: {
     total_bonus_cents: number;
   };
   balanceCents: number;
-  linkedAgents: HumanAgentLinkWithAgentRecord[];
+  linkedAgents: LinkedAgentWithSpend[];
   devices: ComputerUseDeviceRecord[];
   pairingCodes: HumanDevicePairingCodeRecord[];
   ledger: CreditLedgerRecord[];
@@ -46,7 +50,6 @@ export function DashboardClient(props: {
 }) {
   const [copiedReferralLink, setCopiedReferralLink] = useState(false);
   const [agentName, setAgentName] = useState("my-agent");
-  const [agentCallbackUrl, setAgentCallbackUrl] = useState("");
   const [creatingAgentKey, setCreatingAgentKey] = useState(false);
   const [copiedAgentCredential, setCopiedAgentCredential] = useState(false);
   const [generatedAgentCredential, setGeneratedAgentCredential] = useState<{
@@ -94,7 +97,6 @@ export function DashboardClient(props: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agent_name: agentName,
-          callback_url: agentCallbackUrl || undefined,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -315,65 +317,8 @@ export function DashboardClient(props: {
 
         <section className="dashboard-grid wide">
           <article className="dashboard-card dashboard-card-span-2">
-            <div className="dashboard-section-header">
-              <div className="supported-accounts-title">Credit Activity</div>
-              <div className="dashboard-muted">
-                {props.ledger.length} entr{props.ledger.length === 1 ? "y" : "ies"}
-                {props.ledger.length > 6 ? " · Scroll for older activity" : ""}
-              </div>
-            </div>
-            <div className="dashboard-list dashboard-feed">
-              {props.ledger.length === 0 ? (
-                <div className="dashboard-empty">No ledger activity yet.</div>
-              ) : (
-                props.ledger.map((entry) => {
-                  const href = getLedgerOrderHref(entry);
-                  const content = (
-                    <>
-                      <div className="dashboard-activity-heading">
-                        <strong>{entry.description || entry.entry_type}</strong>
-                        <div className="dashboard-muted">
-                          {new Date(entry.created_at).toLocaleString()}
-                        </div>
-                      </div>
-                      <div className="dashboard-activity-side">
-                        <div className={entry.amount_cents >= 0 ? "amount-positive" : "amount-negative"}>
-                          {entry.amount_cents >= 0 ? "+" : "-"}
-                          {fmtUsd(Math.abs(entry.amount_cents))}
-                        </div>
-                        {href && <span className="dashboard-task-cta">Open order</span>}
-                      </div>
-                    </>
-                  );
-
-                  return href ? (
-                    <Link
-                      key={entry.id}
-                      href={href}
-                      className="dashboard-row dashboard-activity-link"
-                    >
-                      {content}
-                    </Link>
-                  ) : (
-                    <div key={entry.id} className="dashboard-row">
-                      {content}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </article>
-        </section>
-
-        <section className="dashboard-grid wide">
-          <article className="dashboard-card dashboard-card-span-2">
             <div className="supported-accounts-title">Agent API Keys</div>
             <h2 className="dashboard-card-title">Connect an AI agent</h2>
-            <p className="dashboard-muted">
-              Generate OttoAuth credentials here, then send them to your agent.
-              The agent uses the username and private key to call OttoAuth services
-              against your credits. No agent-generated pairing code is needed.
-            </p>
 
             <div className="dashboard-onboarding-steps">
               <article className="dashboard-mini-step">
@@ -389,12 +334,6 @@ export function DashboardClient(props: {
                     value={agentName}
                     onChange={(event) => setAgentName(event.target.value)}
                     placeholder="Agent label"
-                  />
-                  <input
-                    className="auth-input"
-                    value={agentCallbackUrl}
-                    onChange={(event) => setAgentCallbackUrl(event.target.value)}
-                    placeholder="Optional callback URL for clarification webhooks"
                   />
                   <button className="auth-button primary" type="submit" disabled={creatingAgentKey}>
                     {creatingAgentKey ? "Generating..." : "Generate API keys"}
@@ -441,6 +380,9 @@ export function DashboardClient(props: {
                     <div>
                       <strong>{agent.username_display}</strong>
                       <div className="dashboard-muted mono">@{agent.username_lower}</div>
+                      <div className="dashboard-muted dashboard-agent-spend">
+                        Total spent {fmtUsd(agent.total_spent_cents ?? 0)}
+                      </div>
                     </div>
                     <div className="dashboard-device-actions">
                       <div className="dashboard-muted">
@@ -565,6 +507,66 @@ export function DashboardClient(props: {
                         </div>
                       </div>
                     ))
+                  )}
+                </div>
+              </article>
+            </section>
+
+            <section className="dashboard-grid wide">
+              <article className="dashboard-card dashboard-card-span-2">
+                <div className="dashboard-section-header">
+                  <div className="supported-accounts-title">Credit Activity</div>
+                  <div className="dashboard-muted">
+                    {props.ledger.length} entr{props.ledger.length === 1 ? "y" : "ies"}
+                    {props.ledger.length > 6 ? " · Scroll for older activity" : ""}
+                  </div>
+                </div>
+                <div className="dashboard-list dashboard-feed">
+                  {props.ledger.length === 0 ? (
+                    <div className="dashboard-empty">No ledger activity yet.</div>
+                  ) : (
+                    props.ledger.map((entry) => {
+                      const href = getLedgerOrderHref(entry);
+                      const content = (
+                        <>
+                          <div className="dashboard-activity-heading">
+                            <strong>{entry.description || entry.entry_type}</strong>
+                            <div className="dashboard-muted">
+                              {new Date(entry.created_at).toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="dashboard-activity-side">
+                            <div
+                              className={
+                                entry.amount_cents >= 0
+                                  ? "amount-positive"
+                                  : "amount-negative"
+                              }
+                            >
+                              {entry.amount_cents >= 0 ? "+" : "-"}
+                              {fmtUsd(Math.abs(entry.amount_cents))}
+                            </div>
+                            {href && (
+                              <span className="dashboard-task-cta">Open order</span>
+                            )}
+                          </div>
+                        </>
+                      );
+
+                      return href ? (
+                        <Link
+                          key={entry.id}
+                          href={href}
+                          className="dashboard-row dashboard-activity-link"
+                        >
+                          {content}
+                        </Link>
+                      ) : (
+                        <div key={entry.id} className="dashboard-row">
+                          {content}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </article>

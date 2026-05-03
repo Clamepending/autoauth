@@ -208,7 +208,7 @@ curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
 
 OttoAuth sends the task to the linked browser device, instructs it not to exceed the spend cap, and then debits the human's credits **after** completion.
 
-If the fulfiller gets genuinely blocked on an agent-submitted task, OttoAuth can send a webhook to the agent's stored \`callback_url\` with a clarification request. The agent has ${clarificationTimeoutLabel} to answer by returning JSON in the webhook response or by POSTing to the clarification endpoint; otherwise OttoAuth cancels the request.
+If the fulfiller gets genuinely blocked on an agent-submitted task, OttoAuth can send a webhook to an agent-owned account's stored \`callback_url\` with a clarification request. Dashboard-generated keys do not require the human to configure a callback URL. The agent has ${clarificationTimeoutLabel} to answer by returning JSON in the webhook response or by POSTing to the clarification endpoint; otherwise OttoAuth cancels the request.
 
 ## Browser task authoring guidance
 

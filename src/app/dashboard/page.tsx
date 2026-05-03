@@ -10,6 +10,7 @@ import {
   listCreditLedgerEntries,
 } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
+import { listAgentSpendTotalsForHuman } from "@/lib/generic-browser-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
     pairingCodes,
     ledger,
     referralStats,
+    agentSpendTotals,
   ] = await Promise.all([
     getHumanCreditBalance(user.id),
     getLinkedAgentsForHuman(user.id),
@@ -34,7 +36,15 @@ export default async function DashboardPage() {
     getActiveHumanDevicePairingCodes(user.id),
     listCreditLedgerEntries(user.id, 20),
     getHumanReferralStats(user.id),
+    listAgentSpendTotalsForHuman(user.id),
   ]);
+  const spendByAgentId = new Map(
+    agentSpendTotals.map((entry) => [entry.agent_id, entry.total_spent_cents]),
+  );
+  const linkedAgentsWithSpend = linkedAgents.map((agent) => ({
+    ...agent,
+    total_spent_cents: spendByAgentId.get(agent.agent_id) ?? 0,
+  }));
 
   return (
     <>
@@ -43,7 +53,7 @@ export default async function DashboardPage() {
         referralLink={`${baseUrl}/login?ref=${user.id}`}
         referralStats={referralStats}
         balanceCents={balanceCents}
-        linkedAgents={linkedAgents}
+        linkedAgents={linkedAgentsWithSpend}
         devices={devices}
         pairingCodes={pairingCodes}
         ledger={ledger}

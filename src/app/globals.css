@@ -544,6 +544,10 @@ footer {
   overflow-wrap: anywhere;
 }
 
+.dashboard-agent-spend {
+  font-size: 12px;
+}
+
 .dashboard-prewrap {
   white-space: pre-wrap;
 }

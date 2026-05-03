@@ -9,6 +9,7 @@ import {
 import { getCurrentHumanUser } from "@/lib/human-session";
 import {
   getHumanFulfillmentRatingStats,
+  listAgentSpendTotalsForHuman,
   listGenericBrowserTasksRelatedToHuman,
 } from "@/lib/generic-browser-tasks";
 
@@ -18,8 +19,16 @@ export async function GET() {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  const [balanceCents, linkedAgents, devices, pairingCodes, ledger, tasks, fulfillmentStats] =
-    await Promise.all([
+  const [
+    balanceCents,
+    linkedAgents,
+    devices,
+    pairingCodes,
+    ledger,
+    tasks,
+    fulfillmentStats,
+    agentSpendTotals,
+  ] = await Promise.all([
     getHumanCreditBalance(user.id),
     getLinkedAgentsForHuman(user.id),
     listComputerUseDevicesForHuman(user.id),
@@ -27,12 +36,20 @@ export async function GET() {
     listCreditLedgerEntries(user.id, 20),
     listGenericBrowserTasksRelatedToHuman(user.id, 20),
     getHumanFulfillmentRatingStats(user.id),
+    listAgentSpendTotalsForHuman(user.id),
   ]);
+  const spendByAgentId = new Map(
+    agentSpendTotals.map((entry) => [entry.agent_id, entry.total_spent_cents]),
+  );
+  const linkedAgentsWithSpend = linkedAgents.map((agent) => ({
+    ...agent,
+    total_spent_cents: spendByAgentId.get(agent.agent_id) ?? 0,
+  }));
 
   return NextResponse.json({
     user,
     balance_cents: balanceCents,
-    linked_agents: linkedAgents,
+    linked_agents: linkedAgentsWithSpend,
     devices,
     active_device_pairing_codes: pairingCodes,
     ledger,

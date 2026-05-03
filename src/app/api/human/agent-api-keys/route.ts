@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { validateCallbackUrl } from "@/lib/agent-auth";
 import { createHumanGeneratedAgentApiKey } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
 
@@ -23,27 +22,10 @@ export async function POST(request: Request) {
       : typeof payload.agentName === "string"
         ? payload.agentName.trim()
         : "";
-  const rawCallbackUrl =
-    typeof payload.callback_url === "string"
-      ? payload.callback_url.trim()
-      : typeof payload.callbackUrl === "string"
-        ? payload.callbackUrl.trim()
-        : "";
-
-  let callbackUrl: string | null = null;
-  if (rawCallbackUrl) {
-    const validation = validateCallbackUrl(rawCallbackUrl);
-    if (!validation.ok) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
-    callbackUrl = validation.value;
-  }
-
   try {
     const result = await createHumanGeneratedAgentApiKey({
       humanUserId: user.id,
       agentName,
-      callbackUrl,
     });
 
     return NextResponse.json({
