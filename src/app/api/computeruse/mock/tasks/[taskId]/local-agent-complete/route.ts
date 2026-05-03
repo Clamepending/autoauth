@@ -130,6 +130,7 @@ export async function POST(request: Request, context: Context) {
 
   let clarificationRequested = false;
   let clarificationQuestion: string | null = null;
+  let failureClassification: Record<string, unknown> | null = null;
   let genericTaskOutcome:
     | Awaited<ReturnType<typeof completeGenericBrowserTaskFromExtension>>
     | null = null;
@@ -154,6 +155,14 @@ export async function POST(request: Request, context: Context) {
       typeof genericTaskOutcome === "object" &&
       "clarificationRequest" in genericTaskOutcome
         ? String(genericTaskOutcome.clarificationRequest || "")
+        : null;
+    failureClassification =
+      !clarificationRequested &&
+      genericTaskOutcome &&
+      typeof genericTaskOutcome === "object" &&
+      "failureClassification" in genericTaskOutcome &&
+      genericTaskOutcome.failureClassification
+        ? (genericTaskOutcome.failureClassification as unknown as Record<string, unknown>)
         : null;
   } catch (e) {
     console.error("[local-agent-complete] Generic browser task billing hook error:", e);
@@ -205,6 +214,7 @@ export async function POST(request: Request, context: Context) {
           status,
           result,
           error,
+          failure_classification: failureClassification,
         },
       });
       if (run) {
@@ -217,6 +227,7 @@ export async function POST(request: Request, context: Context) {
             status: run.status,
             result: run.result,
             error: run.error,
+            failure_classification: failureClassification,
           },
         });
       }
@@ -238,6 +249,7 @@ export async function POST(request: Request, context: Context) {
         status: clarificationRequested ? "awaiting_agent_clarification" : status,
         result,
         error: clarificationRequested ? clarificationQuestion : error,
+        failure_classification: failureClassification,
         clarification_question: clarificationRequested ? clarificationQuestion : null,
         executor: "local_browser_agent",
       },

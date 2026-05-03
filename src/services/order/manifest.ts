@@ -316,6 +316,7 @@ Status responses can include:
 - billing and payout status
 - final debit amount
 - selected fulfillment playbooks, when OttoAuth matched supported site tactics
+- failure classification for failed tasks, including category, stage, retryability, and suggested action
 - token usage
 - summary, receipt details, and error
 - \`run_id\` for event follow-up

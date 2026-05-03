@@ -159,10 +159,10 @@ async function main() {
     },
     json: {
       status: 'failed',
-      error: 'Playbook verification stopped before purchase.',
+      error: 'Google showed an unusual-traffic CAPTCHA/robot check before the Snackpass store search could finish.',
       result: {
         status: 'failed',
-        summary: 'Verified that the Snackpass playbook was injected; no purchase was attempted.',
+        summary: 'Verified that the Snackpass playbook was injected; no purchase was attempted because a CAPTCHA blocked routing.',
       },
     },
   });
@@ -180,11 +180,20 @@ async function main() {
     taskStatusRes.data.task.billing_status === 'not_charged',
     `Expected not_charged billing, got ${taskStatusRes.data.task.billing_status}`,
   );
+  assert(
+    taskStatusRes.data.task.failure_classification?.category === 'captcha_or_bot_check',
+    `Expected captcha_or_bot_check classification, got ${JSON.stringify(taskStatusRes.data.task.failure_classification)}`,
+  );
+  assert(
+    taskStatusRes.data.task.failure_classification?.retryable === true,
+    `Expected retryable failure classification, got ${JSON.stringify(taskStatusRes.data.task.failure_classification)}`,
+  );
 
   console.log(JSON.stringify({
     ok: true,
     baseUrl,
     selected_playbooks: submitTaskRes.data.fulfillment_playbooks,
+    failure_classification: taskStatusRes.data.task.failure_classification,
     generic_task_id: taskId,
     computeruse_task_id: computerUseTaskId,
   }, null, 2));

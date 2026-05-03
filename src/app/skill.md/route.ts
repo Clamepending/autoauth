@@ -275,7 +275,7 @@ Agent recovery map:
 - \`404\`: refresh \`${baseUrl}/api/services\`; the service or task id may be wrong.
 - \`409\`: read the response message; the task may be in a state that cannot accept the requested action.
 - \`awaiting_agent_clarification\`: answer the exact question before the deadline; do not guess silently.
-- \`failed\`: report \`error\` and \`summary\`, then submit a clearer replacement task only if the human wants a retry.
+- \`failed\`: read \`failure_classification\` when present, report \`error\` and \`summary\`, then submit a clearer replacement task only if the classification says the issue is retryable and the human wants a retry.
 
 ### 6. Production-ready agent loop
 
@@ -429,6 +429,7 @@ Response includes:
 - \`run_id\`
 - \`human_credit_balance\`
 - \`fulfillment_playbooks\` when OttoAuth matched supported site playbooks
+- \`failure_classification\` on failed tasks, with category, stage, retryability, matched signals, and suggested action
 
 Use:
 

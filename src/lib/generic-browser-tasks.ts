@@ -12,6 +12,10 @@ import {
 import { sendOrderCompletionEmail } from "@/lib/order-completion-email";
 import { getTursoClient } from "@/lib/turso";
 import { makeAgentClarificationDeadline } from "@/lib/computeruse-agent-clarification-config";
+import {
+  classifyFulfillmentFailure,
+  extractFulfillmentFailureClassification,
+} from "@/lib/fulfillment-failures";
 
 export type GenericBrowserTaskStatus =
   | "queued"
@@ -1439,6 +1443,24 @@ export async function completeGenericBrowserTaskFromExtension(params: {
     error: params.error,
     existingTaskTitle: existing.task_title,
   });
+  const failureClassification =
+    params.status === "failed"
+      ? classifyFulfillmentFailure({
+          taskPrompt: existing.task_prompt,
+          websiteUrl: existing.website_url,
+          result: params.result,
+          error: params.error,
+        })
+      : null;
+  const storedResult =
+    failureClassification && params.result
+      ? {
+          ...params.result,
+          failure_classification: failureClassification,
+        }
+      : failureClassification
+        ? { failure_classification: failureClassification }
+        : params.result;
   const inference = calculateInferenceCostCents(params.usages ?? []);
   const shouldCharge = params.status === "completed";
 
@@ -1551,7 +1573,7 @@ export async function completeGenericBrowserTaskFromExtension(params: {
       totalCents,
       inference.totalInputTokens,
       inference.totalOutputTokens,
-      params.result ? JSON.stringify(params.result) : null,
+      storedResult ? JSON.stringify(storedResult) : null,
       params.usages && params.usages.length > 0 ? JSON.stringify(params.usages) : null,
       finalSummary,
       params.error?.trim() || null,
@@ -1586,6 +1608,7 @@ export async function completeGenericBrowserTaskFromExtension(params: {
   return {
     task: updated,
     remainingCreditsCents: remainingCredits,
+    failureClassification,
   };
 }
 
@@ -1675,6 +1698,9 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
       : null,
     summary: task.summary,
     error: task.error,
+    failure_classification: extractFulfillmentFailureClassification(
+      parseJsonObject(task.result_json),
+    ),
     requester_rating: task.requester_rating,
     requester_rating_at: task.requester_rating_at,
     merchant: task.merchant,
