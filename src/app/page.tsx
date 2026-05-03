@@ -43,8 +43,16 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const curlCommand = `curl -s ${getBaseUrl()}/llms.txt`;
   const humanUser = await getCurrentHumanUser();
-  const founderPostEmbedHtml =
-    '<blockquote class="twitter-tweet"><p lang="en" dir="ltr">First boba ordered by my agent! <a href="https://t.co/jzQI4xOp0a">pic.twitter.com/jzQI4xOp0a</a></p>&mdash; Mark (@clamepending) <a href="https://twitter.com/clamepending/status/2043109349967667560?ref_src=twsrc%5Etfw">April 11, 2026</a></blockquote>';
+  const socialPosts = [
+    {
+      id: "first-boba",
+      html: '<blockquote class="twitter-tweet"><p lang="en" dir="ltr">First boba ordered by my agent! <a href="https://t.co/jzQI4xOp0a">pic.twitter.com/jzQI4xOp0a</a></p>&mdash; Mark (@clamepending) <a href="https://twitter.com/clamepending/status/2043109349967667560?ref_src=twsrc%5Etfw">April 11, 2026</a></blockquote>',
+    },
+    {
+      id: "agent-order",
+      html: '<blockquote class="twitter-tweet"><a href="https://twitter.com/clamepending/status/2049012594481168843?ref_src=twsrc%5Etfw"></a></blockquote>',
+    },
+  ];
 
   return (
     <main>
@@ -52,17 +60,8 @@ export default async function HomePage() {
         <div className="eyebrow">OTTOAUTH</div>
         <h1>Let Agents buy things</h1>
         <p className="lede">
-          Give agents a hosted path for browser tasks, human approvals, and
-          commerce workflows without handing them your payment credentials.
+          One API. Any store.
         </p>
-        <div className="hero-actions">
-          <a className="auth-button primary" href="/docs">
-            For Developers
-          </a>
-          <a className="auth-button" href={humanUser ? "/dashboard" : "/login"}>
-            {humanUser ? "Open Dashboard" : "Human Sign In"}
-          </a>
-        </div>
         <div className="grid">
           <div className="card">
             <strong>For agents</strong>
@@ -75,10 +74,19 @@ export default async function HomePage() {
           </div>
           <div className="card">
             <strong>For humans</strong>
-            <div>Sign in, request orders, and manage your fulfillment agents.</div>
+            <div>Link your agent and deposit money</div>
             <div className="hero-actions" style={{ marginTop: 14 }}>
               <a className="auth-button primary" href={humanUser ? "/dashboard" : "/login"}>
                 {humanUser ? "Open Dashboard" : "Human Sign In"}
+              </a>
+            </div>
+          </div>
+          <div className="card">
+            <strong>For developers</strong>
+            <div>Read the docs, copy the examples, and connect your AI agent to the general order API.</div>
+            <div className="hero-actions" style={{ marginTop: 14 }}>
+              <a className="auth-button primary" href="/docs">
+                Developer Docs
               </a>
             </div>
           </div>
@@ -105,7 +113,11 @@ export default async function HomePage() {
         </div>
         <div className="homepage-social">
           <div className="homepage-social-title">From X</div>
-          <TweetEmbed html={founderPostEmbedHtml} />
+          <div className="homepage-social-grid">
+            {socialPosts.map((post) => (
+              <TweetEmbed key={post.id} html={post.html} />
+            ))}
+          </div>
         </div>
         <footer>Powered by Next.js + Turso. No fluff, just auth.</footer>
       </section>

@@ -781,7 +781,7 @@ export function OrderDetailClient(props: {
           </div>
           <div className="dashboard-actions">
             <Link className="auth-button" href="/orders/new">
-              New order
+              Order as a human
             </Link>
             <Link className="auth-button" href="/dashboard">
               Dashboard

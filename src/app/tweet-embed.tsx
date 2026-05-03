@@ -21,8 +21,8 @@ export function TweetEmbed({ html }: TweetEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   function loadWidget() {
-    if (containerRef.current && window.twttr?.widgets) {
-      window.twttr.widgets.load(containerRef.current);
+    if (window.twttr?.widgets) {
+      window.twttr.widgets.load();
     }
   }
 
