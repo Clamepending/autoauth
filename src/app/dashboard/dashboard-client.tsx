@@ -268,14 +268,16 @@ export function DashboardClient(props: {
             </p>
           </div>
           <div className="referral-banner-actions">
-            <div className="referral-link">{props.referralLink}</div>
-            <button
-              type="button"
-              className="auth-button"
-              onClick={handleCopyReferralLink}
-            >
-              {copiedReferralLink ? "Copied" : "Copy referral link"}
-            </button>
+            <div className="referral-copy-row">
+              <div className="referral-link">{props.referralLink}</div>
+              <button
+                type="button"
+                className="auth-button referral-copy-button"
+                onClick={handleCopyReferralLink}
+              >
+                {copiedReferralLink ? "Copied" : "Copy link"}
+              </button>
+            </div>
             <div className="dashboard-muted">
               Successful referrals: {props.referralStats.successful_referrals} · Earned{" "}
               {fmtUsd(props.referralStats.total_bonus_cents)}
@@ -291,7 +293,7 @@ export function DashboardClient(props: {
               Generate OttoAuth API keys for agents, manage credits, and submit your own browser fulfillment orders.
             </p>
           </div>
-          <div className="dashboard-actions">
+          <div className="dashboard-actions dashboard-top-actions">
             <Link className="auth-button primary" href="/orders/new">
               New order
             </Link>
@@ -301,7 +303,7 @@ export function DashboardClient(props: {
             <Link className="auth-button" href="/orders">
               Orders
             </Link>
-            <button className="auth-button" onClick={handleLogout}>
+            <button className="auth-button dashboard-quiet-action" onClick={handleLogout}>
               Sign out
             </button>
           </div>
@@ -310,20 +312,22 @@ export function DashboardClient(props: {
         {statusMessage && <div className="auth-success">{statusMessage}</div>}
 
         <section className="dashboard-grid mobile-priority-grid">
-          <article className="dashboard-card highlight">
+          <article className="dashboard-card dashboard-credit-card highlight">
             <div className="supported-accounts-title">Credits</div>
             <div className="dashboard-balance">{fmtUsd(props.balanceCents)}</div>
-            <Link className="auth-button primary" href="/credits/refill">
-              Refill credits
-            </Link>
-            <Link className="auth-button" href="/send">
-              Send money
-            </Link>
+            <div className="dashboard-credit-actions">
+              <Link className="auth-button primary" href="/credits/refill">
+                Refill credits
+              </Link>
+              <Link className="auth-button" href="/send">
+                Send money
+              </Link>
+            </div>
             <Link
-              className="dashboard-muted mono"
+              className="dashboard-profile-link mono"
               href={`/u/${encodeURIComponent(props.user.handle_lower)}`}
             >
-              @{props.user.handle_display}
+              Public profile @{props.user.handle_display}
             </Link>
           </article>
         </section>
@@ -341,7 +345,7 @@ export function DashboardClient(props: {
 
               <article className="dashboard-mini-step">
                 <strong>2. Generate OttoAuth API keys</strong>
-                <form className="stack-form" onSubmit={handleCreateAgentKey}>
+                <form className="stack-form agent-key-form" onSubmit={handleCreateAgentKey}>
                   <input
                     className="auth-input"
                     value={agentName}

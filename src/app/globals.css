@@ -522,6 +522,26 @@ footer {
   align-items: flex-start;
 }
 
+.dashboard-header > div:first-child {
+  max-width: 640px;
+}
+
+.dashboard-top-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(128px, 1fr));
+  gap: 10px;
+  min-width: min(100%, 300px);
+}
+
+.dashboard-top-actions > * {
+  width: 100%;
+}
+
+.dashboard-quiet-action {
+  border-color: rgba(0, 0, 0, 0.16);
+  color: var(--muted);
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -564,6 +584,42 @@ footer {
   background: linear-gradient(135deg, #fff, #f0f0f0);
 }
 
+.dashboard-credit-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.dashboard-credit-card .supported-accounts-title,
+.dashboard-profile-link {
+  grid-column: 1 / -1;
+}
+
+.dashboard-credit-actions,
+.referral-copy-row,
+.agent-key-form {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-credit-actions {
+  grid-template-columns: repeat(2, minmax(132px, auto));
+  justify-content: end;
+  align-items: center;
+}
+
+.dashboard-credit-actions .auth-button {
+  width: auto;
+  min-width: 132px;
+}
+
+.dashboard-profile-link {
+  border-top: 1px solid var(--grid);
+  color: var(--muted);
+  font-size: 14px;
+  padding-top: 14px;
+  text-decoration: none;
+}
+
 .referral-banner {
   padding: 22px;
   display: flex;
@@ -586,8 +642,18 @@ footer {
 .referral-banner-actions {
   display: grid;
   gap: 12px;
-  min-width: min(100%, 360px);
-  justify-items: start;
+  width: min(100%, 500px);
+  justify-items: stretch;
+}
+
+.referral-copy-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.referral-copy-button {
+  align-self: start;
+  white-space: nowrap;
 }
 
 .referral-link {
@@ -658,6 +724,11 @@ footer {
 .dashboard-mini-step:first-child {
   border-top: 0;
   padding-top: 0;
+}
+
+.agent-key-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
 }
 
 .agent-credential-block {
@@ -3022,6 +3093,12 @@ main.admin-control-plane::after {
     flex-direction: column;
   }
 
+  .dashboard-header > div:first-child,
+  .dashboard-top-actions {
+    max-width: none;
+    width: 100%;
+  }
+
   .dashboard-grid.metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3104,6 +3181,21 @@ main.admin-control-plane::after {
   .referral-banner {
     padding: 18px 16px;
     gap: 16px;
+  }
+
+  .referral-copy-row,
+  .dashboard-credit-card,
+  .dashboard-credit-actions,
+  .agent-key-form {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-credit-actions {
+    justify-content: stretch;
+  }
+
+  .dashboard-credit-actions .auth-button {
+    width: 100%;
   }
 
   .dashboard-header {

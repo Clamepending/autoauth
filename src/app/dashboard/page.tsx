@@ -21,20 +21,18 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const balanceCents = await getHumanCreditBalance(user.id);
+  const ledger = await listCreditLedgerEntries(user.id, 20);
   const [
-    balanceCents,
     linkedAgents,
     devices,
     pairingCodes,
-    ledger,
     referralStats,
     agentSpendTotals,
   ] = await Promise.all([
-    getHumanCreditBalance(user.id),
     getLinkedAgentsForHuman(user.id),
     listComputerUseDevicesForHuman(user.id),
     getActiveHumanDevicePairingCodes(user.id),
-    listCreditLedgerEntries(user.id, 20),
     getHumanReferralStats(user.id),
     listAgentSpendTotalsForHuman(user.id),
   ]);
