@@ -86,6 +86,14 @@ curl -s ${baseUrl}/api/services/computeruse/docs`;
     "private_key": "OTTOAUTH_PRIVATE_KEY"
   }'`;
 
+  const eventsExample = `curl -s -X POST ${baseUrl}/api/services/computeruse/runs/run_abc123/events \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username": "my_agent",
+    "private_key": "OTTOAUTH_PRIVATE_KEY",
+    "limit": 100
+  }'`;
+
   const typescriptExample = `const response = await fetch("${baseUrl}/api/services/computeruse/submit-task", {
   method: "POST",
   headers: { "content-type": "application/json" },
@@ -110,6 +118,33 @@ if (!response.ok) {
 
 const task = await response.json();
 console.log(task.id, task.status);`;
+
+  const pollingExample = `async function waitForTask(taskId: number) {
+  while (true) {
+    const response = await fetch(\`${baseUrl}/api/services/computeruse/tasks/\${taskId}\`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        username: process.env.OTTOAUTH_USERNAME,
+        private_key: process.env.OTTOAUTH_PRIVATE_KEY
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    const { task } = await response.json();
+    if (task.status === "awaiting_agent_clarification") {
+      return { action: "answer_clarification", task };
+    }
+    if (task.status === "completed" || task.status === "failed") {
+      return { action: "finished", task };
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 15000));
+  }
+}`;
 
   const pythonExample = `import os
 import requests
@@ -151,8 +186,10 @@ print(response.json())`;
           </a>
           <nav>
             <a href="#introduction">Introduction</a>
+            <a href="#features">Features</a>
             <a href="#quickstart">Quickstart</a>
             <a href="#examples">Examples</a>
+            <a href="#lifecycle">Order Lifecycle</a>
             <a href="#services">API Reference</a>
             <a href="#webhooks">Webhooks</a>
             <a href="#errors">Errors</a>
@@ -194,6 +231,96 @@ print(response.json())`;
                 <a href="/api/services">GET /api/services</a>
                 <a href="/api/services/computeruse">GET /api/services/computeruse</a>
               </div>
+            </div>
+          </section>
+
+          <section id="features" className="docs-section">
+            <div className="docs-section-heading">
+              <span className="docs-kicker">Coverage</span>
+              <h2>E-commerce automation features</h2>
+            </div>
+            <p>
+              OttoAuth covers the full developer workflow with a service-first
+              API and a browser fulfiller behind it. Typed services are exposed
+              where flows are stable; flexible retailer work is handled through
+              structured browser tasks.
+            </p>
+            <div className="docs-callouts">
+              <article>
+                <h3>Auth and API keys</h3>
+                <p>
+                  Humans generate linked agent credentials in the dashboard.
+                  Agents authenticate every service call with <code>username</code>{" "}
+                  and <code>private_key</code>.
+                </p>
+              </article>
+              <article>
+                <h3>Create orders</h3>
+                <p>
+                  Use <code>submit_task</code> for universal browser checkout,
+                  or the Amazon service for price-then-pay Amazon orders.
+                </p>
+              </article>
+              <article>
+                <h3>Products, quantities, variants</h3>
+                <p>
+                  Put product URLs, search instructions, quantities, variants,
+                  substitutions, and max spend into a structured task prompt.
+                </p>
+              </article>
+              <article>
+                <h3>Managed retailer accounts</h3>
+                <p>
+                  OttoAuth uses human-claimed browser profiles instead of storing
+                  retailer passwords. Humans control the signed-in browser device.
+                </p>
+              </article>
+              <article>
+                <h3>Status follow-up</h3>
+                <p>
+                  Poll <code>/api/services/computeruse/tasks/:taskId</code> for
+                  status, billing, pickup, tracking, clarification, and final
+                  summary fields.
+                </p>
+              </article>
+              <article>
+                <h3>Order history and events</h3>
+                <p>
+                  Use <code>/history</code> to list recent tasks and{" "}
+                  <code>/runs/:runId/events</code> for execution history.
+                </p>
+              </article>
+              <article>
+                <h3>Tracking and delivery details</h3>
+                <p>
+                  Completed task responses can include <code>tracking_details</code>,
+                  <code>tracking_summary</code>, pickup details, receipts, and
+                  fulfillment notes.
+                </p>
+              </article>
+              <article>
+                <h3>Webhooks and clarification</h3>
+                <p>
+                  Configure a callback URL on generated credentials so OttoAuth
+                  can ask the agent for clarification when a fulfiller is blocked.
+                </p>
+              </article>
+              <article>
+                <h3>Cancellations and returns</h3>
+                <p>
+                  Submit cancellation, return-label, refund, or exchange requests
+                  as browser tasks against the original retailer account and
+                  follow their status like any other task.
+                </p>
+              </article>
+              <article>
+                <h3>Testing and failure modes</h3>
+                <p>
+                  Use dev login, mock/device routes, spend caps, and explicit
+                  task prompts to exercise success, unavailable item, price cap,
+                  clarification, and failed fulfillment paths.
+                </p>
+              </article>
             </div>
           </section>
 
@@ -256,6 +383,53 @@ print(response.json())`;
               <CodeBlock label="TypeScript" code={typescriptExample} />
               <CodeBlock label="Python" code={pythonExample} />
             </div>
+          </section>
+
+          <section id="lifecycle" className="docs-section">
+            <div className="docs-section-heading">
+              <span className="docs-kicker">Follow Up</span>
+              <h2>Order lifecycle and status</h2>
+            </div>
+            <p>
+              Treat every OttoAuth browser order as an asynchronous task. Save
+              the returned <code>task.id</code> and <code>run_id</code>, show the
+              human <code>/orders/&lt;taskId&gt;</code> when useful, and poll
+              until the task reaches <code>completed</code> or <code>failed</code>.
+            </p>
+            <div className="docs-callouts">
+              <article>
+                <h3>Queued or running</h3>
+                <p>
+                  The task is waiting for or being handled by a browser
+                  fulfiller. Poll status every 15-60 seconds.
+                </p>
+              </article>
+              <article>
+                <h3>Awaiting clarification</h3>
+                <p>
+                  Answer the callback question or POST to the clarification
+                  endpoint before the deadline.
+                </p>
+              </article>
+              <article>
+                <h3>Completed</h3>
+                <p>
+                  Read <code>summary</code>, <code>pickup_details</code>,{" "}
+                  <code>tracking_details</code>, totals, and timestamps from the
+                  task object.
+                </p>
+              </article>
+              <article>
+                <h3>Failed</h3>
+                <p>
+                  Read <code>error</code> and <code>summary</code>, then submit a
+                  new task with clearer instructions if the human wants a retry.
+                </p>
+              </article>
+            </div>
+            <CodeBlock label="Poll until terminal status" code={pollingExample} />
+            <CodeBlock label="Get task status" code={statusExample} />
+            <CodeBlock label="Get run events" code={eventsExample} />
           </section>
 
           <section id="services" className="docs-section">

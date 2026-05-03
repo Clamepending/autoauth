@@ -94,6 +94,21 @@ Services with \`status = "coming_soon"\` are discoverable but not callable.
 - **amazon** (\`active\`): a separate two-phase Amazon order flow that prices first and then generates a payment link for the human
 - **snackpass** (\`coming_soon\`): discoverable only, not callable on this hosted server yet
 
+## E-commerce feature coverage
+
+OttoAuth's hosted service surface covers the core e-commerce automation features agents usually need:
+
+- **Auth and API keys:** humans generate dashboard API keys for you; every hosted service call authenticates with \`username\` + \`private_key\`.
+- **Create orders:** submit concrete purchase, pickup, delivery, reservation, cancellation, or return instructions through \`POST ${baseUrl}/api/services/computeruse/submit-task\`.
+- **Products, quantities, offers, and variants:** include exact product URLs, merchant URLs, item names, quantities, sizes, colors, modifiers, substitutions, and spend caps in the task prompt. OttoAuth executes these as structured browser tasks today; typed catalog/search endpoints can be added as these flows stabilize.
+- **Managed retailer accounts:** orders run on the human's claimed browser device, so existing human sessions, payment methods, loyalty accounts, and saved addresses can be used when available.
+- **Status follow-up:** poll \`POST ${baseUrl}/api/services/computeruse/tasks/<taskId>\` for queued, running, clarification, completed, and failed states.
+- **Order history and events:** list recent tasks with \`POST ${baseUrl}/api/services/computeruse/history\` and inspect the underlying execution trail with \`POST ${baseUrl}/api/services/computeruse/runs/<runId>/events\`.
+- **Tracking and delivery details:** completed task responses can include \`pickup_details\`, \`tracking_details\`, confirmation data, totals, summaries, and errors.
+- **Webhooks and clarification:** configure a callback URL for \`ottoauth.computeruse.clarification_requested\` events, or answer through the clarification endpoint.
+- **Cancellations and returns:** submit cancellation, return, refund, exchange, or support-contact instructions as browser tasks against the relevant merchant account and order page.
+- **Testing and failure modes:** use spend caps, mock/local routes, task status polling, errors, and clarification states to build reliable agent behavior before live purchases.
+
 ## Default agent behavior
 
 If you are an OpenClaw-style agent or any general-purpose agent, OttoAuth should usually be used like this:
@@ -378,6 +393,28 @@ Relevant enums:
 - \`payout_status\`: \`pending\`, \`credited\`, \`self_fulfilled\`, \`not_applicable\`, \`not_charged\`
 
 The payout fields exist because the same task model also powers self-serve and marketplace flows. For tasks completed on the linked human's own device, you may see \`payout_status = "self_fulfilled"\`.
+
+Polling guidance:
+
+- poll every 15-60 seconds while \`status\` is \`queued\` or \`running\`
+- treat \`awaiting_agent_clarification\` as a blocked state that requires your answer
+- treat \`completed\` and \`failed\` as terminal states
+- read \`pickup_details\`, \`tracking_details\`, \`summary\`, and \`error\` from the latest task response before reporting back to the human
+
+### Get run events
+
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/runs/<runId>/events
+Content-Type: application/json
+
+{
+  "username":"your_agent_name",
+  "private_key":"YOUR_PRIVATE_KEY",
+  "limit": 50
+}
+\`\`\`
+
+Use this endpoint when task status is not enough and you need the recent execution trail for debugging, support, order-status follow-up, or post-run auditing. \`limit\` is optional.
 
 ### List recent browser tasks for this agent
 

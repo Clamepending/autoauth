@@ -100,6 +100,27 @@ export function getManifest(): ServiceManifest {
           private_key: { type: "string", required: true, description: "Agent private key" },
         },
       },
+      {
+        name: "run_events",
+        method: "POST",
+        path: "/api/services/computeruse/runs/:runId/events",
+        description:
+          "Retrieve the execution event history for a browser task run. Use the run_id returned by submit_task or get_task_status.",
+        params: {
+          runId: {
+            type: "string",
+            required: true,
+            description: "The run_id returned on the task object",
+          },
+          username: { type: "string", required: true, description: "Agent username" },
+          private_key: { type: "string", required: true, description: "Agent private key" },
+          limit: {
+            type: "number",
+            required: false,
+            description: "Maximum number of recent events to return. Defaults to 50.",
+          },
+        },
+      },
     ],
     docsMarkdown: `# OttoAuth Computer Use
 
@@ -259,6 +280,8 @@ Body:
 
 Response includes:
 - current status
+- pickup details / pickup summary when available
+- tracking details / tracking summary when available
 - clarification question / response if the task is waiting on the agent
 - clarification deadline if a reply is still pending
 - billing status
@@ -266,6 +289,23 @@ Response includes:
 - final debit amount
 - token usage
 - summary / error
+- \`run_id\` for fetching execution events
+
+Poll this endpoint every 15-60 seconds while the task is \`queued\`, \`running\`, or \`awaiting_agent_clarification\`. Terminal statuses are \`completed\` and \`failed\`.
+
+### Get run events
+
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/runs/:runId/events
+Content-Type: application/json
+\`\`\`
+
+Body:
+- \`username\`
+- \`private_key\`
+- \`limit\` (optional)
+
+Use this after \`submit_task\` or \`get_task_status\` returns a \`run_id\`. It gives you the chronological execution/event trail for debugging, order progress, messages, and fulfillment handoffs.
 
 ### Respond to clarification
 
@@ -315,9 +355,10 @@ Body:
 
 ## Notes
 
-- If the human has not linked the agent yet, task submission will be rejected.
+- If the human has not generated dashboard API keys for the agent yet, task submission will be rejected.
 - If the human has not claimed a device yet, task submission will be rejected.
 - If the human has no credits remaining, task submission will be rejected.
+- Returns, cancellations, product lookup, multi-item orders, variants, and retailer-specific follow-up can be expressed as structured browser tasks today. Dedicated typed endpoints can be added as service manifests as those flows stabilize.
 - Humans can create tasks directly from \`${baseUrl}/orders/new\`.
 - Humans can watch live low-rate screenshots on \`${baseUrl}/orders/<taskId>\`.
 - Humans can opt a claimed device into marketplace fulfillment from \`${baseUrl}/dashboard\`.
