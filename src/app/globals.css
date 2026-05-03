@@ -2551,9 +2551,15 @@ main.admin-control-plane::after {
 }
 
 .admin-money-day {
-  position: relative;
   height: 206px;
   grid-template-rows: 180px auto;
+}
+
+.admin-money-plot {
+  position: relative;
+  height: 180px;
+  display: grid;
+  align-items: end;
 }
 
 .admin-money-fill {
@@ -3065,6 +3071,10 @@ main.admin-control-plane::after {
 
   .admin-bar-day,
   .admin-money-day {
+    min-width: 34px;
+  }
+
+  .admin-money-plot {
     min-width: 34px;
   }
 }

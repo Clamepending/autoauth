@@ -150,18 +150,30 @@ function MoneyFailureChart({ buckets }: { buckets: AdminDailyBucket[] }) {
   return (
     <div className="admin-money-chart" role="img" aria-label="Credits moved and failed orders by day">
       {buckets.map((bucket) => {
-        const moneyHeight = Math.max(4, (bucket.debited_cents / maxMoney) * 100);
-        const failureHeight = Math.max(4, (bucket.failed / maxFailures) * 100);
+        const moneyHeight =
+          bucket.debited_cents > 0
+            ? Math.max(4, (bucket.debited_cents / maxMoney) * 100)
+            : 0;
+        const failureHeight = Math.min(
+          92,
+          Math.max(8, (bucket.failed / maxFailures) * 100),
+        );
         return (
           <div key={bucket.day} className="admin-money-day" title={`${bucket.day}: ${fmtMoney(bucket.debited_cents)} debited, ${bucket.failed} failed`}>
-            <span
-              className="admin-money-fill"
-              style={{ "--money-height": `${moneyHeight}%` } as CSSProperties}
-            />
-            <span
-              className="admin-failure-dot"
-              style={{ bottom: `${failureHeight}%` }}
-            />
+            <div className="admin-money-plot">
+              {moneyHeight > 0 && (
+                <span
+                  className="admin-money-fill"
+                  style={{ "--money-height": `${moneyHeight}%` } as CSSProperties}
+                />
+              )}
+              {bucket.failed > 0 && (
+                <span
+                  className="admin-failure-dot"
+                  style={{ bottom: `${failureHeight}%` }}
+                />
+              )}
+            </div>
             <time>{fmtShortDay(bucket.day)}</time>
           </div>
         );
