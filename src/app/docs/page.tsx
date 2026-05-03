@@ -230,7 +230,6 @@ print(response.json())`;
         <section className="docs-content">
           <header className="docs-topbar">
             <div>
-              <div className="eyebrow">v0 hosted API</div>
               <h1>Developer documentation</h1>
             </div>
             <div className="docs-topbar-actions">
