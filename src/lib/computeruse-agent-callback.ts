@@ -46,7 +46,7 @@ export async function notifyAgentClarificationRequested(params: {
       auth: "Include the agent username and private_key in the JSON body.",
       body: {
         username: params.agent.username_lower,
-        private_key: "YOUR_PRIVATE_KEY",
+        private_key: "sk-oa-...",
         clarification_response: "<your answer for OttoAuth>",
       },
     },

@@ -12,7 +12,7 @@ Read these first, in this order:
 
 Use dashboard-generated OttoAuth credentials:
 - OTTOAUTH_USERNAME=<human dashboard generated username>
-- OTTOAUTH_PRIVATE_KEY=<human dashboard generated private key>
+- OTTOAUTH_PRIVATE_KEY=sk-oa-<human dashboard generated secret>
 - OTTOAUTH_BASE_URL=${baseUrl}
 
 Build against the general order API:

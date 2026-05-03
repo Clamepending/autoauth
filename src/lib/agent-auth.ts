@@ -1,5 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 
+export const PRIVATE_KEY_PREFIX = "sk-oa-";
+
 export function normalizeUsername(username: string) {
   return username.trim().toLowerCase();
 }
@@ -16,7 +18,7 @@ export function validateUsername(username: string) {
 }
 
 export function generatePrivateKey() {
-  return randomBytes(32).toString("hex");
+  return `${PRIVATE_KEY_PREFIX}${randomBytes(32).toString("hex")}`;
 }
 
 export function generatePairingKey() {

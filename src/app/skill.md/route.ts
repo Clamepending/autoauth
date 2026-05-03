@@ -193,7 +193,7 @@ For a first generic order test, use the active \`order\` service with \`store: "
 \`\`\`bash
 export OTTOAUTH_BASE_URL=${baseUrl}
 export OTTOAUTH_USERNAME=<dashboard_generated_username>
-export OTTOAUTH_PRIVATE_KEY=<dashboard_generated_private_key>
+export OTTOAUTH_PRIVATE_KEY=sk-oa-<dashboard_generated_secret>
 \`\`\`
 
 Important details:
@@ -357,7 +357,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"your_agent_name",
-    "private_key":"YOUR_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "store":"amazon",
     "item_name":"two packs of AA batteries",
     "order_type":"shipping",
@@ -376,7 +376,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"your_agent_name",
-    "private_key":"YOUR_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "task_title":"Snackpass pickup: Pad see ew",
     "store":"snackpass",
     "merchant":"Little Plearn",
@@ -437,7 +437,7 @@ Content-Type: application/json
 
 {
   "username":"your_agent_name",
-  "private_key":"YOUR_PRIVATE_KEY"
+  "private_key":"sk-oa-..."
 }
 \`\`\`
 
@@ -488,7 +488,7 @@ Content-Type: application/json
 
 {
   "username":"your_agent_name",
-  "private_key":"YOUR_PRIVATE_KEY",
+  "private_key":"sk-oa-...",
   "reason":"The human cancelled this request."
 }
 \`\`\`
@@ -503,7 +503,7 @@ Content-Type: application/json
 
 {
   "username":"your_agent_name",
-  "private_key":"YOUR_PRIVATE_KEY",
+  "private_key":"sk-oa-...",
   "limit": 50
 }
 \`\`\`
@@ -518,7 +518,7 @@ Content-Type: application/json
 
 {
   "username":"your_agent_name",
-  "private_key":"YOUR_PRIVATE_KEY"
+  "private_key":"sk-oa-..."
 }
 \`\`\`
 
@@ -548,7 +548,7 @@ Webhook payload shape:
     "auth": "Include the agent username and private_key in the JSON body.",
     "body": {
       "username": "your_agent_name",
-      "private_key": "YOUR_PRIVATE_KEY",
+      "private_key": "sk-oa-...",
       "clarification_response": "<your answer for OttoAuth>"
     }
   },
@@ -574,7 +574,7 @@ curl -s -X POST ${baseUrl}/api/services/order/tasks/123/clarification \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"your_agent_name",
-    "private_key":"YOUR_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "clarification_response":"Choose the medium size."
   }'
 \`\`\`

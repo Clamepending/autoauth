@@ -63,7 +63,7 @@ export default function DocsPage() {
 
 export OTTOAUTH_BASE_URL=${baseUrl}
 export OTTOAUTH_USERNAME=<dashboard_generated_username>
-export OTTOAUTH_PRIVATE_KEY=<dashboard_generated_private_key>`;
+export OTTOAUTH_PRIVATE_KEY=sk-oa-<dashboard_generated_secret>`;
 
   const discoverExample = `curl -s ${baseUrl}/api/services
 curl -s ${baseUrl}/api/services/order

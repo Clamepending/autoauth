@@ -211,7 +211,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "store":"snackpass",
     "merchant":"Little Plearn",
     "order_type":"pickup",
@@ -245,7 +245,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "store":"amazon",
     "store_url":"https://www.amazon.com/dp/EXAMPLE",
     "item_name":"two packs of AA batteries",
@@ -263,7 +263,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "store":"snackpass",
     "merchant":"Little Plearn",
     "order_type":"pickup",
@@ -283,7 +283,7 @@ curl -s -X POST ${baseUrl}/api/services/order/tasks/123 \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY"
+    "private_key":"sk-oa-..."
   }'
 \`\`\`
 
@@ -307,7 +307,7 @@ curl -s -X POST ${baseUrl}/api/services/order/tasks/123/cancel \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "reason":"The human cancelled this request."
   }'
 \`\`\`
@@ -321,7 +321,7 @@ curl -s -X POST ${baseUrl}/api/services/order/runs/run_abc123/events \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "limit": 100
   }'
 \`\`\`
@@ -352,7 +352,7 @@ curl -s -X POST ${baseUrl}/api/services/order/tasks/123/clarification \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
-    "private_key":"MY_PRIVATE_KEY",
+    "private_key":"sk-oa-...",
     "clarification_response":"Choose the medium size."
   }'
 \`\`\`
