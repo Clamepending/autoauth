@@ -10,6 +10,7 @@ import {
   type ModelUsageRecord,
 } from "@/lib/model-pricing";
 import { sendOrderCompletionEmail } from "@/lib/order-completion-email";
+import { sendOrderConfirmationEmail } from "@/lib/order-confirmation-email";
 import { getTursoClient } from "@/lib/turso";
 import { makeAgentClarificationDeadline } from "@/lib/computeruse-agent-clarification-config";
 import {
@@ -948,6 +949,22 @@ export async function createGenericBrowserTask(params: {
   if (!taskId) throw new Error("Failed to create generic browser task.");
   const created = await getGenericBrowserTaskById(taskId);
   if (!created) throw new Error("Failed to load generic browser task.");
+  void (async () => {
+    const requester = await getHumanUserById(created.human_user_id);
+    if (!requester?.email) return;
+    await sendOrderConfirmationEmail({
+      recipient: {
+        email: requester.email,
+        displayName: requester.display_name,
+      },
+      task: created,
+    });
+  })().catch((error) => {
+    console.error(
+      `[generic-browser-tasks] Failed to send confirmation email for task ${created.id}:`,
+      error,
+    );
+  });
   return created;
 }
 
