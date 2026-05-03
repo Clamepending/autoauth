@@ -1,5 +1,10 @@
 import { getAgentRequestsForAdmin, getAllAgents } from "@/lib/db";
 import { ensureComputerUseTransportSchema } from "@/lib/computeruse-store";
+import {
+  classifyFulfillmentFailure,
+  extractFulfillmentFailureClassification,
+  type FulfillmentFailureClassification,
+} from "@/lib/fulfillment-failures";
 import { ensureGenericBrowserTaskSchema } from "@/lib/generic-browser-tasks";
 import { ensureHumanAccountSchema } from "@/lib/human-accounts";
 import { getTursoClient } from "@/lib/turso";
@@ -71,6 +76,9 @@ export type AdminOrderRow = {
   error: string | null;
   run_id: string | null;
   computeruse_task_id: string | null;
+  failure_category: string | null;
+  failure_stage: string | null;
+  failure_retryable: boolean | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -120,12 +128,27 @@ export type AdminAgentRow = {
   created_at: string;
 };
 
+export type AdminFailureCategoryRow = {
+  category: string;
+  stage: string;
+  count: number;
+  retryable_count: number;
+  non_retryable_count: number;
+  latest_task_id: number | null;
+  latest_at: string | null;
+  latest_error: string | null;
+  latest_summary: string | null;
+  top_signal: string | null;
+  suggested_action: string | null;
+};
+
 export type AdminControlPlaneData = {
   generated_at: string;
   summary: AdminMetricSummary;
   daily: AdminDailyBucket[];
   status_counts: Array<{ status: string; count: number }>;
   source_counts: Array<{ source: string; count: number }>;
+  failure_categories: AdminFailureCategoryRow[];
   recent_orders: AdminOrderRow[];
   problem_orders: AdminOrderRow[];
   recent_signups: AdminSignupRow[];
@@ -157,6 +180,20 @@ function firstRow(rows: unknown[] | undefined): RawRow {
   return ((rows ?? [])[0] ?? {}) as RawRow;
 }
 
+function parseJsonObject(value: unknown): Record<string, unknown> | null {
+  if (value == null) return null;
+  if (typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function isoMinutesAgo(value: string | null, nowMs: number) {
   if (!value) return 0;
   const parsed = new Date(value).getTime();
@@ -171,12 +208,33 @@ function formatHumanLabel(row: RawRow) {
   return displayName || email || (userId ? `Human #${userId}` : "Unknown human");
 }
 
+function getFailureClassification(row: RawRow): FulfillmentFailureClassification | null {
+  const result = parseJsonObject(row.result_json);
+  const existing = extractFulfillmentFailureClassification(result);
+  if (existing) return existing;
+  if (asString(row.status) !== "failed") return null;
+  return classifyFulfillmentFailure({
+    taskPrompt: asNullableString(row.task_prompt),
+    websiteUrl: asNullableString(row.website_url),
+    result,
+    error: asNullableString(row.error),
+  });
+}
+
+function displayKey(value: string) {
+  return value.replace(/_/g, " ");
+}
+
 function getIssueFlags(row: RawRow, nowMs: number) {
   const status = asString(row.status);
   const updatedMinutesAgo = isoMinutesAgo(asNullableString(row.updated_at), nowMs);
+  const failureClassification = getFailureClassification(row);
   const flags: string[] = [];
 
   if (status === "failed") flags.push("Failed");
+  if (failureClassification && failureClassification.category !== "unknown") {
+    flags.push(`Failure: ${displayKey(failureClassification.category)}`);
+  }
   if (status === "awaiting_agent_clarification") flags.push("Needs clarification");
   if (["queued", "running"].includes(status) && updatedMinutesAgo >= 30) {
     flags.push("Stuck >30m");
@@ -199,6 +257,7 @@ function mapOrderRow(row: RawRow, nowMs: number): AdminOrderRow {
     asNullableString(row.task_title) ||
     asString(row.task_prompt).slice(0, 80) ||
     `Order #${asNumber(row.id)}`;
+  const failureClassification = getFailureClassification(row);
   const issueFlags = getIssueFlags(row, nowMs);
   const status = asString(row.status) || "queued";
   return {
@@ -224,6 +283,9 @@ function mapOrderRow(row: RawRow, nowMs: number): AdminOrderRow {
     error: asNullableString(row.error),
     run_id: asNullableString(row.run_id),
     computeruse_task_id: asNullableString(row.computeruse_task_id),
+    failure_category: failureClassification?.category ?? null,
+    failure_stage: failureClassification?.stage ?? null,
+    failure_retryable: failureClassification?.retryable ?? null,
     created_at: asString(row.created_at),
     updated_at: asString(row.updated_at),
     completed_at: asNullableString(row.completed_at),
@@ -232,6 +294,76 @@ function mapOrderRow(row: RawRow, nowMs: number): AdminOrderRow {
     issue_flags: issueFlags,
     can_restart: status !== "completed",
   };
+}
+
+function buildFailureCategories(rows: RawRow[]): AdminFailureCategoryRow[] {
+  type Bucket = AdminFailureCategoryRow & {
+    latest_sort: number;
+    signal_counts: Map<string, number>;
+  };
+
+  const buckets = new Map<string, Bucket>();
+
+  rows.forEach((row) => {
+    const classification = getFailureClassification(row);
+    if (!classification) return;
+    const key = `${classification.category}:${classification.stage}`;
+    const latestAt =
+      asNullableString(row.updated_at) ||
+      asNullableString(row.completed_at) ||
+      asNullableString(row.created_at);
+    const latestSort = latestAt ? new Date(latestAt).getTime() : 0;
+    const bucket = buckets.get(key) ?? {
+      category: classification.category,
+      stage: classification.stage,
+      count: 0,
+      retryable_count: 0,
+      non_retryable_count: 0,
+      latest_task_id: null,
+      latest_at: null,
+      latest_error: null,
+      latest_summary: null,
+      top_signal: null,
+      suggested_action: null,
+      latest_sort: 0,
+      signal_counts: new Map<string, number>(),
+    };
+
+    bucket.count += 1;
+    if (classification.retryable) {
+      bucket.retryable_count += 1;
+    } else {
+      bucket.non_retryable_count += 1;
+    }
+    classification.matched_signals.forEach((signal) => {
+      bucket.signal_counts.set(signal, (bucket.signal_counts.get(signal) ?? 0) + 1);
+    });
+    if (!bucket.suggested_action || latestSort >= bucket.latest_sort) {
+      bucket.suggested_action = classification.suggested_action;
+    }
+    if (latestSort >= bucket.latest_sort) {
+      bucket.latest_sort = latestSort;
+      bucket.latest_task_id = asNumber(row.id) || null;
+      bucket.latest_at = latestAt;
+      bucket.latest_error = asNullableString(row.error);
+      bucket.latest_summary = asNullableString(row.summary);
+    }
+
+    buckets.set(key, bucket);
+  });
+
+  return Array.from(buckets.values())
+    .map((bucket) => {
+      const topSignal =
+        Array.from(bucket.signal_counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
+      const { latest_sort: _latestSort, signal_counts: _signalCounts, ...row } = bucket;
+      return {
+        ...row,
+        top_signal: topSignal,
+      };
+    })
+    .sort((a, b) => b.count - a.count || (b.latest_at ?? "").localeCompare(a.latest_at ?? ""))
+    .slice(0, 12);
 }
 
 function emptySummary(): AdminMetricSummary {
@@ -299,6 +431,7 @@ export async function getAdminControlPlaneData(): Promise<AdminControlPlaneData>
     signupDailyResult,
     recentOrdersResult,
     problemOrdersResult,
+    failureSamplesResult,
     recentSignupsResult,
     devicesResult,
     topAgentsResult,
@@ -416,6 +549,15 @@ export async function getAdminControlPlaneData(): Promise<AdminControlPlaneData>
             ORDER BY t.updated_at DESC
             LIMIT 40`,
       args: [cutoffStuck],
+    }),
+    client.execute({
+      sql: `SELECT id, task_prompt, status, website_url, result_json, error, summary, updated_at, completed_at, created_at
+            FROM generic_browser_tasks
+            WHERE status = 'failed'
+              AND updated_at >= ?
+            ORDER BY updated_at DESC
+            LIMIT 500`,
+      args: [cutoff30d],
     }),
     client.execute({
       sql: `SELECT
@@ -565,6 +707,9 @@ export async function getAdminControlPlaneData(): Promise<AdminControlPlaneData>
       source: string;
       count: number;
     }>,
+    failure_categories: buildFailureCategories(
+      (failureSamplesResult.rows ?? []) as unknown as RawRow[],
+    ),
     recent_orders: ((recentOrdersResult.rows ?? []) as unknown as RawRow[]).map((row) =>
       mapOrderRow(row, now),
     ),

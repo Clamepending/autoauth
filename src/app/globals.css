@@ -2650,6 +2650,10 @@ main.admin-control-plane::after {
   min-width: 720px;
 }
 
+.admin-table.admin-failure-table {
+  min-width: 920px;
+}
+
 .admin-table th,
 .admin-table td {
   padding: 12px 13px;

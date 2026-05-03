@@ -6,6 +6,7 @@ import {
   type AdminAgentRow,
   type AdminDailyBucket,
   type AdminDeviceRow,
+  type AdminFailureCategoryRow,
   type AdminOrderRow,
   type AdminSignupRow,
 } from "@/lib/admin-analytics";
@@ -76,6 +77,10 @@ function hostFromUrl(value: string) {
   } catch {
     return value;
   }
+}
+
+function humanizeKey(value: string | null | undefined) {
+  return value ? value.replace(/_/g, " ") : "unknown";
 }
 
 function statusTone(status: string) {
@@ -233,6 +238,12 @@ function OrderTable({
                 <span className={`admin-status ${statusTone(order.status)}`}>
                   {order.status.replace(/_/g, " ")}
                 </span>
+                {order.failure_category ? (
+                  <div className="admin-subtle">
+                    {humanizeKey(order.failure_category)} · {humanizeKey(order.failure_stage)} ·{" "}
+                    {order.failure_retryable ? "retryable" : "do not retry unchanged"}
+                  </div>
+                ) : null}
                 {order.issue_flags.length > 0 ? (
                   <div className="admin-flag-row">
                     {order.issue_flags.map((flag) => (
@@ -273,6 +284,67 @@ function OrderTable({
                   <span className="admin-subtle">Final</span>
                 )}
               </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FailureCategoryTable({ rows }: { rows: AdminFailureCategoryRow[] }) {
+  if (rows.length === 0) {
+    return <p className="admin-empty">No failed fulfillment categories in the last 30 days.</p>;
+  }
+
+  return (
+    <div className="admin-table-wrap">
+      <table className="admin-table compact admin-failure-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Count</th>
+            <th>Retryability</th>
+            <th>Latest</th>
+            <th>Suggested action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={`${row.category}:${row.stage}`}>
+              <td>
+                <strong>{humanizeKey(row.category)}</strong>
+                <div className="admin-subtle">
+                  {humanizeKey(row.stage)}
+                  {row.top_signal ? ` · signal: ${row.top_signal}` : ""}
+                </div>
+              </td>
+              <td>
+                <strong>{fmtInt(row.count)}</strong>
+                <div className="admin-subtle">last 30d</div>
+              </td>
+              <td>
+                <span className={`admin-status ${row.non_retryable_count ? "warning" : "info"}`}>
+                  {fmtInt(row.retryable_count)} retryable
+                </span>
+                {row.non_retryable_count ? (
+                  <div className="admin-subtle danger-text">
+                    {fmtInt(row.non_retryable_count)} should change first
+                  </div>
+                ) : null}
+              </td>
+              <td>
+                {row.latest_task_id ? (
+                  <a className="admin-link-strong" href={`/admindash/orders/${row.latest_task_id}`}>
+                    #{row.latest_task_id}
+                  </a>
+                ) : (
+                  "Unknown"
+                )}
+                <div className="admin-subtle">{fmtDate(row.latest_at)}</div>
+                <div className="admin-subtle">{compact(row.latest_error || row.latest_summary, 110)}</div>
+              </td>
+              <td className="admin-task-cell">{compact(row.suggested_action, 180)}</td>
             </tr>
           ))}
         </tbody>
@@ -551,6 +623,16 @@ export default async function AdminDashPage() {
               <DistributionList rows={data.source_counts} total={summary.orders_total} label="source" />
             </div>
           </article>
+        </section>
+
+        <section className="admin-panel">
+          <div className="admin-panel-header">
+            <div>
+              <h2>Fulfillment failure categories</h2>
+              <p>Last 30 days of failed browser orders grouped by likely blocker and next recovery step.</p>
+            </div>
+          </div>
+          <FailureCategoryTable rows={data.failure_categories} />
         </section>
 
         <section className="admin-panel">
