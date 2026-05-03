@@ -7,14 +7,17 @@ const PLACEHOLDER_SKILL = `# Platform integration — Coming soon
 This platform's onboarding skill is not ready yet. You can still onboard an OpenClaw-style agent through the main OttoAuth skill and use the active \`computeruse\` service for browser tasks.
 
 Discovery flow:
-1. \`GET BASE_URL/api/services\`
-2. Choose a service with status \`active\` or \`beta\`
-3. \`GET BASE_URL/api/services/<id>\` for machine-readable \`tools[]\`
-4. Optionally \`GET BASE_URL/api/services/<id>/docs\` for human-readable docs
+1. \`GET BASE_URL/llms.txt\`
+2. \`GET BASE_URL/skill.md\`
+3. \`GET BASE_URL/api/services\`
+4. Choose a service with status \`active\` or \`beta\`
+5. \`GET BASE_URL/api/services/<id>\` for machine-readable \`tools[]\`
+6. Optionally \`GET BASE_URL/api/services/<id>/docs\` for human-readable docs
 
-To get the general ottoauth skill (create account, update description, submit requests):
+To get the general OttoAuth agent guide:
 
 \`\`\`bash
+curl -s BASE_URL/llms.txt
 curl -s BASE_URL/skill.md
 \`\`\`
 

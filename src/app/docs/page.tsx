@@ -6,7 +6,7 @@ import { getAllManifests } from "@/services/registry";
 export const metadata: Metadata = {
   title: "Developer Docs | OttoAuth",
   description:
-    "Integrate OttoAuth agent accounts, service discovery, browser tasks, and checkout flows.",
+    "Agent-readable OttoAuth docs for service discovery, browser tasks, checkout flows, and order follow-up.",
 };
 
 export const dynamic = "force-dynamic";
@@ -67,6 +67,22 @@ export OTTOAUTH_PRIVATE_KEY=<dashboard_generated_private_key>`;
   const discoverExample = `curl -s ${baseUrl}/api/services
 curl -s ${baseUrl}/api/services/computeruse
 curl -s ${baseUrl}/api/services/computeruse/docs`;
+
+  const agentBootstrapExample = `Give this to your agent:
+
+Read ${baseUrl}/llms.txt first.
+Then read ${baseUrl}/skill.md.
+Use ${baseUrl}/api/services for machine-readable tool discovery.
+Use only services with status "active" or "beta".
+For general commerce tasks, use the computeruse service.
+Ask me for dashboard-generated OttoAuth username + private_key.
+Never ask me for retailer passwords or card numbers.
+After submitting a task, save task.id and run_id, poll task status, and answer clarification requests before the deadline.`;
+
+  const agentPreflightExample = `curl -s ${baseUrl}/llms.txt
+curl -s ${baseUrl}/skill.md
+curl -s ${baseUrl}/api/services
+curl -s ${baseUrl}/api/services/computeruse`;
 
   const submitTaskExample = `curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
   -H 'content-type: application/json' \\
@@ -186,6 +202,7 @@ print(response.json())`;
           </a>
           <nav>
             <a href="#introduction">Introduction</a>
+            <a href="#agent-start">Agent Start</a>
             <a href="#features">Features</a>
             <a href="#quickstart">Quickstart</a>
             <a href="#examples">Examples</a>
@@ -204,16 +221,17 @@ print(response.json())`;
             </div>
             <div className="docs-topbar-actions">
               <a className="auth-button" href="/dashboard">Dashboard</a>
+              <a className="auth-button" href="/llms.txt">llms.txt</a>
               <a className="auth-button primary" href="/skill.md">Agent skill</a>
             </div>
           </header>
 
           <section id="introduction" className="docs-section">
             <p className="lede">
-              OttoAuth lets agents create accounts, link to a human, discover
-              callable services, and submit browser or checkout tasks without
-              taking direct custody of the human's site credentials or payment
-              details.
+              OttoAuth lets agents receive dashboard-generated credentials,
+              discover callable services, and submit browser or checkout tasks
+              without taking direct custody of the human's site credentials or
+              payment details.
             </p>
 
             <div className="docs-index">
@@ -221,17 +239,63 @@ print(response.json())`;
                 <span className="docs-index-label">Docs index</span>
                 <h2>Machine-readable first</h2>
                 <p>
-                  Agents should start with the service index, then load the
-                  service-specific tool list and markdown docs for the task they
-                  need to perform.
+                  Agents should start with <code>/llms.txt</code> and{" "}
+                  <code>/skill.md</code>, then load the service index and the
+                  specific tool docs for the task they need to perform.
                 </p>
               </div>
               <div className="docs-index-links">
                 <a href="/skill.md">GET /skill.md</a>
+                <a href="/llms.txt">GET /llms.txt</a>
                 <a href="/api/services">GET /api/services</a>
                 <a href="/api/services/computeruse">GET /api/services/computeruse</a>
               </div>
             </div>
+          </section>
+
+          <section id="agent-start" className="docs-section">
+            <div className="docs-section-heading">
+              <span className="docs-kicker">Agent Bootstrap</span>
+              <h2>If an AI agent is reading this, start here</h2>
+            </div>
+            <p>
+              OttoAuth is designed so a developer can point an agent at the docs
+              and let it discover the current API surface. The durable contract is
+              <code>/llms.txt</code>, <code>/skill.md</code>, and the{" "}
+              <code>/api/services</code> registry.
+            </p>
+            <div className="docs-callouts">
+              <article>
+                <h3>Read order</h3>
+                <p>
+                  Read <code>/llms.txt</code> for the short operating contract,
+                  then <code>/skill.md</code> for the full hosted-agent workflow.
+                </p>
+              </article>
+              <article>
+                <h3>Credential source</h3>
+                <p>
+                  Ask the human for dashboard-generated OttoAuth API keys. New
+                  integrations should not use legacy pairing-key flows.
+                </p>
+              </article>
+              <article>
+                <h3>Tool discovery</h3>
+                <p>
+                  Fetch <code>/api/services</code>, choose an active or beta
+                  service, then fetch its tool JSON and markdown docs.
+                </p>
+              </article>
+              <article>
+                <h3>Task discipline</h3>
+                <p>
+                  Submit structured work orders, save IDs, poll status, inspect
+                  run events when needed, and answer clarification before expiry.
+                </p>
+              </article>
+            </div>
+            <CodeBlock label="Agent bootstrap prompt" code={agentBootstrapExample} />
+            <CodeBlock label="Agent preflight reads" code={agentPreflightExample} />
           </section>
 
           <section id="features" className="docs-section">

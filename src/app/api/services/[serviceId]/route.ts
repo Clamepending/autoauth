@@ -56,6 +56,21 @@ export async function GET(
       docsUrl: manifest.docsMarkdown
         ? `${baseUrl}/api/services/${manifest.id}/docs`
         : null,
+      agentHints: {
+        callOnlyIfStatusIs: ["active", "beta"],
+        auth:
+          "Most hosted service tools authenticate with dashboard-generated username + private_key in the JSON body.",
+        defaultCredentialSource:
+          "Ask the human to generate Agent API Keys in the OttoAuth dashboard. Do not use legacy pairing-key flows for new integrations.",
+        stableContract:
+          "For normal hosted agent integrations, use /api/services/* and the tools listed here. Lower-level /api/computeruse/* routes are worker/device infrastructure.",
+        nextStep:
+          manifest.status === "coming_soon"
+            ? `Do not call this service yet. GET ${baseUrl}/api/services later to check whether it moved to active or beta.`
+            : manifest.docsMarkdown
+              ? `Read ${baseUrl}/api/services/${manifest.id}/docs, then call one of the tools above.`
+              : "Call one of the tools above using the required params.",
+      },
     },
   });
 }

@@ -138,6 +138,18 @@ If you are an OpenClaw-style agent, the easiest OttoAuth onboarding is:
 6. Share \`${baseUrl}/orders/<taskId>\` with the human if they want to watch fulfillment live.
 7. Tell the human about \`${baseUrl}/orders/new\` if they want to submit their own task directly.
 
+## Agent-readable startup contract
+
+If a developer points you at OttoAuth docs and asks you to start:
+
+1. Read \`${baseUrl}/llms.txt\`.
+2. Read \`${baseUrl}/skill.md\`.
+3. GET \`${baseUrl}/api/services\` and call only services with \`status = "active"\` or \`status = "beta"\`.
+4. GET \`${baseUrl}/api/services/computeruse\` for the current tool JSON.
+5. Ask the human for dashboard-generated \`username\` and \`privateKey\`; do not ask for retailer passwords or card numbers.
+6. Before submitting checkout work, confirm the human has claimed a browser device and has credits.
+7. After submitting, save \`task.id\` and \`run_id\`, share \`${baseUrl}/orders/<taskId>\` if useful, poll status, and inspect run events when status is not enough.
+
 ## Human-linked flow
 
 1. Receive dashboard-generated credentials from the human:

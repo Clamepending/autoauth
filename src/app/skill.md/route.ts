@@ -42,6 +42,38 @@ Do **not** assume every other route in the repo is part of the stable hosted age
 
 This skill is intentionally about **how to use OttoAuth as an agent caller**. It does not document OttoAuth's worker-side fulfillment protocol.
 
+## If you are an AI agent, start here
+
+Read order:
+
+1. \`${baseUrl}/llms.txt\` — short agent contract and durable links
+2. \`${baseUrl}/skill.md\` — this full hosted-agent operating guide
+3. \`${baseUrl}/api/services\` — machine-readable service index
+4. \`${baseUrl}/api/services/computeruse\` — default browser-task tool JSON
+5. \`${baseUrl}/api/services/computeruse/docs\` — default browser-task markdown docs
+
+Your default integration plan:
+
+1. Ask the human to sign in at \`${baseUrl}/login\`.
+2. Ask the human to generate **Agent API Keys** in \`${baseUrl}/dashboard\`.
+3. Store the dashboard-generated \`username\` and \`privateKey\` securely.
+4. Confirm the human has claimed or enabled a fulfillment device and has credits.
+5. Use \`GET ${baseUrl}/api/services\` before calling tools; call only \`active\` or \`beta\` services.
+6. For general purchases, pickup orders, delivery orders, cancellations, returns, refunds, and order follow-up, use \`computeruse\`.
+7. Submit a structured work order with \`POST ${baseUrl}/api/services/computeruse/submit-task\`.
+8. Save \`task.id\`, \`run_id\`, and \`${baseUrl}/orders/<taskId>\`.
+9. Poll \`POST ${baseUrl}/api/services/computeruse/tasks/<taskId>\` every 15-60 seconds.
+10. If the task is \`awaiting_agent_clarification\`, answer through your callback URL or the clarification endpoint before the deadline.
+11. On completion, report \`summary\`, \`pickup_details\`, \`tracking_details\`, totals, and any relevant run events.
+
+Hard rules:
+
+- Do not ask the human for retailer passwords, card numbers, or one-time payment codes unless the human explicitly chooses to complete that step themselves.
+- Do not use older agent-generated pairing-key flows for new integrations; ask for dashboard-generated API keys.
+- Do not call lower-level \`/api/computeruse/*\` routes unless you are implementing worker/device fulfillment infrastructure.
+- Do not call services marked \`coming_soon\`.
+- Do not continue checkout when the reported total exceeds the requested spend cap.
+
 ## Current hosted architecture
 
 ### 1. Agent credentials
@@ -209,6 +241,15 @@ If the submit call fails before step 5, the most likely missing prerequisites ar
 - no human link yet
 - no claimed device yet
 - not enough credits for the requested spend cap
+
+Agent recovery map:
+
+- \`401\` / \`403\`: verify \`username\`, \`privateKey\`, and that the human generated dashboard API keys for this agent.
+- \`402\`: ask the human to refill credits or lower \`max_charge_cents\`.
+- \`404\`: refresh \`${baseUrl}/api/services\`; the service or task id may be wrong.
+- \`409\`: read the response message; the task may be in a state that cannot accept the requested action.
+- \`awaiting_agent_clarification\`: answer the exact question before the deadline; do not guess silently.
+- \`failed\`: report \`error\` and \`summary\`, then submit a clearer replacement task only if the human wants a retry.
 
 ### 5. Production-ready agent loop
 

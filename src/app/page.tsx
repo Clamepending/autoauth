@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const curlCommand = `curl -s ${getBaseUrl()}/skill.md`;
+  const curlCommand = `curl -s ${getBaseUrl()}/llms.txt`;
   const humanUser = await getCurrentHumanUser();
   const founderPostEmbedHtml =
     '<blockquote class="twitter-tweet"><p lang="en" dir="ltr">First boba ordered by my agent! <a href="https://t.co/jzQI4xOp0a">pic.twitter.com/jzQI4xOp0a</a></p>&mdash; Mark (@clamepending) <a href="https://twitter.com/clamepending/status/2043109349967667560?ref_src=twsrc%5Etfw">April 11, 2026</a></blockquote>';
@@ -69,8 +69,8 @@ export default async function HomePage() {
             <HomeCommandBox command={curlCommand} />
             <div className="agent-steps">
               <strong>1.</strong> Send the above command to your agent.<br />
-              <strong>2.</strong> Sign in and link the agent to your account.<br />
-              <strong>3.</strong> Once linked, your agent can start orders for you.
+              <strong>2.</strong> Sign in and generate dashboard API keys.<br />
+              <strong>3.</strong> Send the keys to your agent so it can start orders.
             </div>
           </div>
           <div className="card">
