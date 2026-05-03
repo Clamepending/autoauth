@@ -50,6 +50,12 @@ export function getManifest(): ServiceManifest {
             description:
               "Preferred store, product, menu, order, receipt, return, or tracking URL. Alias: website_url.",
           },
+          url_policy: {
+            type: "string",
+            required: false,
+            description:
+              "Optional URL policy: discover, preferred, or required. Defaults to preferred when store_url/website_url is supplied and discover otherwise.",
+          },
           task_prompt: {
             type: "string",
             required: false,
@@ -66,6 +72,12 @@ export function getManifest(): ServiceManifest {
             required: false,
             description:
               "Fulfillment or support type, such as shipping, delivery, pickup, return, cancellation, refund, exchange, or status_check.",
+          },
+          pickup_location: {
+            type: "string",
+            required: false,
+            description:
+              "Pickup, search, destination, or local availability location. Use this instead of relying on the browser device's physical location.",
           },
           item_name: {
             type: "string",
@@ -193,6 +205,8 @@ OttoAuth exposes one hosted agent service: \`order\`.
 
 Use it for Amazon, Snackpass, restaurants, grocery, retailers, product purchases, pickup, delivery, order-status follow-up, cancellations, returns, refunds, exchanges, and support tasks. There are no public store-specific service endpoints for Amazon or Snackpass. Put the store or platform in the request body instead.
 
+OttoAuth turns each order into structured request hints, retrieves the matching fulfillment playbook(s), and injects only those site-specific tactics into the browser task. Built-in playbooks currently cover Snackpass, Amazon, Instacart, Grubhub, Uber / Uber Eats, McMaster-Carr, eBay, Airbnb, Google Flights, and Booking.com.
+
 ## Agent-readable startup contract
 
 1. Read \`${baseUrl}/llms.txt\`.
@@ -232,11 +246,15 @@ Core optional fields:
 - \`store\` or \`platform\`: Amazon, Snackpass, a retailer, a food platform, a grocery platform, or the merchant itself
 - \`merchant\`: specific store, restaurant, or retailer name
 - \`store_url\` or \`website_url\`: product, menu, order, receipt, return, tracking, or merchant URL
+- \`url_policy\`: \`discover\`, \`preferred\`, or \`required\`
 - \`order_type\`: shipping, delivery, pickup, return, cancellation, refund, exchange, support, status_check
+- \`pickup_location\`: pickup, destination, search, or local availability location
 - \`item_name\`, \`quantity\`, \`order_details\`
 - \`shipping_address\`
 - \`max_charge_cents\`
 - \`task_prompt\` for freeform detail
+
+The browser device's city, IP geolocation, or physical desktop location is never a substitute for the requester-provided delivery, pickup, destination, or search location. Include \`pickup_location\` or \`shipping_address\` whenever local availability matters.
 
 ## Amazon example
 
@@ -267,6 +285,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
     "store":"snackpass",
     "merchant":"Little Plearn",
     "order_type":"pickup",
+    "pickup_location":"Berkeley, CA",
     "item_name":"Pad see ew",
     "quantity":"1",
     "order_details":"mild spice, no peanuts",
@@ -296,6 +315,7 @@ Status responses can include:
 - clarification request, response, and deadline
 - billing and payout status
 - final debit amount
+- selected fulfillment playbooks, when OttoAuth matched supported site tactics
 - token usage
 - summary, receipt details, and error
 - \`run_id\` for event follow-up

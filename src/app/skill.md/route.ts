@@ -179,8 +179,11 @@ Additional instructions: call or clarify if the requested item is unavailable
 Guidelines:
 
 - Include the platform, store/merchant name, fulfillment method, exact item name, quantity, modifiers, tip, and delivery address when they matter.
-- Prefer structured fields: \`store\`, \`merchant\`, \`order_type\`, \`item_name\`, \`quantity\`, \`order_details\`, and \`max_charge_cents\`.
+- Prefer structured fields: \`store\`, \`merchant\`, \`order_type\`, \`pickup_location\`, \`item_name\`, \`quantity\`, \`order_details\`, and \`max_charge_cents\`.
 - Pass \`store_url\` or \`website_url\` when you know the intended site. Use a direct merchant/order URL when you have one.
+- Pass \`url_policy\` as \`discover\`, \`preferred\`, or \`required\` when the URL should be treated differently from the default.
+- OttoAuth retrieves matching site playbooks from those hints and injects only the relevant recipes into the browser task. Current built-in playbooks cover Snackpass, Amazon, Instacart, Grubhub, Uber / Uber Eats, McMaster-Carr, eBay, Airbnb, Google Flights, and Booking.com.
+- Do not assume the browser device's city, IP geolocation, or physical desktop location is the delivery, pickup, destination, or search location. Provide \`pickup_location\` or \`shipping_address\` whenever local availability matters.
 - For Snackpass tasks, include the merchant name even if \`store_url\` is \`https://www.snackpass.co/\`. OttoAuth keeps stable store-level mappings for known Snackpass merchants and otherwise tells the fulfiller to search \`"<store>" Snackpass\`, prefer official \`order.snackpass.co\` pages, and avoid the generic homepage, articles, maps, and social pages.
 - Keep onboarding and store mappings at the merchant level. Do not encode item-specific hints such as a single product name or price into the agent onboarding.
 
@@ -381,6 +384,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
     "store":"snackpass",
     "merchant":"Little Plearn",
     "order_type":"pickup",
+    "pickup_location":"Berkeley, CA",
     "item_name":"Pad see ew",
     "quantity":"1",
     "order_details":"no peanuts",
@@ -400,7 +404,9 @@ Optional:
 - \`store\` or \`platform\`
 - \`merchant\`
 - \`store_url\`
+- \`url_policy\`
 - \`order_type\`
+- \`pickup_location\`
 - \`item_name\`
 - \`quantity\`
 - \`order_details\`
@@ -422,6 +428,7 @@ Response includes:
 - \`task\` — the generic browser task object
 - \`run_id\`
 - \`human_credit_balance\`
+- \`fulfillment_playbooks\` when OttoAuth matched supported site playbooks
 
 Use:
 

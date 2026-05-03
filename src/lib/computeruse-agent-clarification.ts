@@ -2,6 +2,10 @@ import { emitAgentEvent } from "@/lib/agent-events";
 import { getAgentClarificationTimeoutMs } from "@/lib/computeruse-agent-clarification-config";
 import { buildGenericTaskGoal } from "@/lib/computeruse-task-prompts";
 import {
+  selectFulfillmentPlaybooks,
+  summarizeSelectedFulfillmentPlaybooks,
+} from "@/lib/fulfillment-playbooks";
+import {
   appendComputerUseRunEvent,
   markComputerUseRunFinalState,
   markComputerUseRunWaitingForTask,
@@ -61,6 +65,14 @@ export async function resumeAgentClarificationTask(params: {
   const clarificationMode = params.clarificationMode ?? "agent_webhook";
   const eventActor = params.eventActor ?? "agent";
   const emitAgentEvents = params.emitAgentEvents ?? (eventActor === "agent");
+  const fulfillmentPlaybooks = selectFulfillmentPlaybooks({
+    rawTask: params.task.task_prompt,
+    taskPrompt: params.task.task_prompt,
+    websiteUrl: params.task.website_url,
+    shippingAddress: params.task.shipping_address,
+  });
+  const fulfillmentPlaybookSummaries =
+    summarizeSelectedFulfillmentPlaybooks(fulfillmentPlaybooks);
 
   const resumedPrompt = buildGenericTaskGoal({
     originalPrompt: params.task.task_prompt,
@@ -70,6 +82,7 @@ export async function resumeAgentClarificationTask(params: {
     clarificationMode,
     clarificationQuestion: params.task.clarification_request,
     clarificationResponse: params.clarificationResponse,
+    fulfillmentPlaybooks,
   });
 
   const queued = await enqueueComputerUseLocalAgentGoalTask({
@@ -103,6 +116,7 @@ export async function resumeAgentClarificationTask(params: {
         generic_task_id: params.task.id,
         clarification_question: params.task.clarification_request,
         clarification_response: params.clarificationResponse,
+        fulfillment_playbooks: fulfillmentPlaybookSummaries,
       },
     });
     await appendComputerUseRunEvent({
@@ -112,6 +126,7 @@ export async function resumeAgentClarificationTask(params: {
         task_id: queued.task.id,
         queue_size: queued.queueSize,
         resumed_after_clarification: true,
+        fulfillment_playbooks: fulfillmentPlaybookSummaries,
       },
     });
   }
@@ -127,6 +142,7 @@ export async function resumeAgentClarificationTask(params: {
         clarification_question: params.task.clarification_request,
         clarification_response: params.clarificationResponse,
         resumed_after_clarification: true,
+        fulfillment_playbooks: fulfillmentPlaybookSummaries,
       },
     });
   }

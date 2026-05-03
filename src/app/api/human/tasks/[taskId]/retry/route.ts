@@ -6,6 +6,10 @@ import {
 } from "@/lib/computeruse-runs";
 import { buildGenericTaskGoal } from "@/lib/computeruse-task-prompts";
 import {
+  selectFulfillmentPlaybooks,
+  summarizeSelectedFulfillmentPlaybooks,
+} from "@/lib/fulfillment-playbooks";
+import {
   enqueueComputerUseLocalAgentGoalTask,
   selectComputerUseDeviceForHumanTask,
   verifyComputerUseDeviceToken,
@@ -249,12 +253,21 @@ export async function POST(request: Request, context: Context) {
     );
   }
 
+  const fulfillmentPlaybooks = selectFulfillmentPlaybooks({
+    rawTask: originalTask.task_prompt,
+    taskPrompt: originalTask.task_prompt,
+    websiteUrl: originalTask.website_url,
+    shippingAddress: originalTask.shipping_address,
+  });
+  const fulfillmentPlaybookSummaries =
+    summarizeSelectedFulfillmentPlaybooks(fulfillmentPlaybooks);
   const wrappedPrompt = buildGenericTaskGoal({
     originalPrompt: originalTask.task_prompt,
     maxChargeCents: effectiveMaxCharge,
     websiteUrl: originalTask.website_url,
     shippingAddress: originalTask.shipping_address,
     clarificationMode: "human_reply_window",
+    fulfillmentPlaybooks,
   });
   const run = await createComputerUseRun({
     agentUsername: humanActorUsername(retryActor.requester.id),
@@ -279,6 +292,7 @@ export async function POST(request: Request, context: Context) {
       selection: selectedDevice.selection,
       website_url: originalTask.website_url,
       shipping_address_present: Boolean(originalTask.shipping_address),
+      fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
 
@@ -308,6 +322,7 @@ export async function POST(request: Request, context: Context) {
       fulfiller_human_user_id: selectedDevice.device.human_user_id,
       device_id: selectedDevice.device.device_id,
       selection: selectedDevice.selection,
+      fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
 
@@ -338,6 +353,7 @@ export async function POST(request: Request, context: Context) {
         retry_actor: retryActor.actor,
         device_id: selectedDevice.device.device_id,
         selection: selectedDevice.selection,
+        fulfillment_playbooks: fulfillmentPlaybookSummaries,
       },
     });
   }
@@ -347,6 +363,7 @@ export async function POST(request: Request, context: Context) {
     task: formatGenericTaskForApi(retriedTask, retryActor.requester),
     run_id: run.id,
     retried_from_task_id: originalTask.id,
+    fulfillment_playbooks: fulfillmentPlaybookSummaries,
     fulfillment: {
       selection: selectedDevice.selection,
       device_id: selectedDevice.device.device_id,

@@ -4,11 +4,11 @@ import {
   createComputerUseRun,
   markComputerUseRunWaitingForTask,
 } from "@/lib/computeruse-runs";
+import { buildGenericTaskGoal } from "@/lib/computeruse-task-prompts";
 import {
-  buildGenericTaskGoal,
-  normalizeOptionalShippingAddress,
-  normalizeOptionalWebsiteUrl,
-} from "@/lib/computeruse-task-prompts";
+  selectFulfillmentPlaybooks,
+  summarizeSelectedFulfillmentPlaybooks,
+} from "@/lib/fulfillment-playbooks";
 import {
   enqueueComputerUseLocalAgentGoalTask,
   selectComputerUseDeviceForHumanTask,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/generic-browser-tasks";
 import { getHumanCreditBalance } from "@/lib/human-accounts";
 import { requireCurrentHumanUser } from "@/lib/human-session";
+import { normalizePurchaseRequestPayload } from "@/lib/purchase-request";
 
 const HUMAN_SUBMISSION_AGENT_ID = 0;
 
@@ -39,39 +40,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const taskPrompt =
-    typeof payload.task_prompt === "string"
-      ? payload.task_prompt.trim()
-      : typeof payload.taskPrompt === "string"
-        ? payload.taskPrompt.trim()
-        : "";
-  const taskTitle =
-    typeof payload.task_title === "string"
-      ? payload.task_title.trim()
-      : typeof payload.taskTitle === "string"
-        ? payload.taskTitle.trim()
-        : "";
-  let websiteUrl: string | null = null;
-  let shippingAddress: string | null = null;
+  let purchaseRequest: ReturnType<typeof normalizePurchaseRequestPayload>;
   try {
-    websiteUrl = normalizeOptionalWebsiteUrl(
-      payload.website_url ?? payload.websiteUrl,
-    );
-    shippingAddress = normalizeOptionalShippingAddress(
-      payload.shipping_address ?? payload.shippingAddress,
-    );
+    purchaseRequest = normalizePurchaseRequestPayload(payload);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Invalid task request." },
       { status: 400 },
     );
   }
-  const requestedMaxCharge =
-    typeof payload.max_charge_cents === "number"
-      ? payload.max_charge_cents
-      : typeof payload.maxChargeCents === "number"
-        ? payload.maxChargeCents
-        : null;
+  const {
+    taskPrompt,
+    taskTitle,
+    rawTask,
+    merchantName,
+    platformHint,
+    fulfillment,
+    pickupLocation,
+    websiteUrl,
+    shippingAddress,
+    urlPolicy,
+    maxChargeCents: requestedMaxCharge,
+    requestJson,
+  } = purchaseRequest;
   const fulfillmentModeRaw =
     typeof payload.fulfillment_mode === "string"
       ? payload.fulfillment_mode
@@ -82,10 +73,6 @@ export async function POST(request: Request) {
     fulfillmentModeRaw === "own_device" || fulfillmentModeRaw === "marketplace"
       ? fulfillmentModeRaw
       : "auto";
-
-  if (!taskPrompt) {
-    return NextResponse.json({ error: "task_prompt is required." }, { status: 400 });
-  }
 
   const creditBalance = await getHumanCreditBalance(user.id);
   if (creditBalance <= 0) {
@@ -132,12 +119,27 @@ export async function POST(request: Request) {
     );
   }
 
+  const fulfillmentPlaybooks = selectFulfillmentPlaybooks({
+    rawTask,
+    taskPrompt,
+    websiteUrl,
+    merchantName,
+    platformHint,
+    fulfillment,
+    pickupLocation,
+    shippingAddress,
+    requestJson,
+  });
+  const fulfillmentPlaybookSummaries =
+    summarizeSelectedFulfillmentPlaybooks(fulfillmentPlaybooks);
   const wrappedPrompt = buildGenericTaskGoal({
     originalPrompt: taskPrompt,
     maxChargeCents: effectiveMaxCharge,
     websiteUrl,
+    urlPolicy,
     shippingAddress,
     clarificationMode: "human_reply_window",
+    fulfillmentPlaybooks,
   });
   const run = await createComputerUseRun({
     agentUsername: humanActorUsername(user.id),
@@ -150,6 +152,7 @@ export async function POST(request: Request) {
     data: {
       submission_source: "human",
       task_prompt: taskPrompt,
+      raw_task: rawTask,
       requester_human_user_id: user.id,
       fulfiller_human_user_id: selection.device.human_user_id,
       device_id: selection.device.device_id,
@@ -157,7 +160,9 @@ export async function POST(request: Request) {
       max_charge_cents: effectiveMaxCharge,
       selection: selection.selection,
       website_url: websiteUrl,
+      url_policy: urlPolicy,
       shipping_address_present: Boolean(shippingAddress),
+      fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
 
@@ -185,6 +190,7 @@ export async function POST(request: Request) {
       fulfiller_human_user_id: selection.device.human_user_id,
       device_id: selection.device.device_id,
       selection: selection.selection,
+      fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
 
@@ -196,7 +202,7 @@ export async function POST(request: Request) {
     submissionSource: "human",
     fulfillerHumanUserId: selection.device.human_user_id,
     taskPrompt,
-    taskTitle: taskTitle || taskPrompt.slice(0, 80),
+    taskTitle,
     websiteUrl,
     shippingAddress,
     maxChargeCents: effectiveMaxCharge,
@@ -208,6 +214,7 @@ export async function POST(request: Request) {
     ok: true,
     task: formatGenericTaskForApi(createdTask, user),
     run_id: run.id,
+    fulfillment_playbooks: fulfillmentPlaybookSummaries,
     fulfillment: {
       selection: selection.selection,
       device_id: selection.device.device_id,

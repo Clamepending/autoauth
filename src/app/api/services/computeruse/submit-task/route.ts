@@ -13,32 +13,17 @@ import {
   createGenericBrowserTask,
   formatGenericTaskForApi,
 } from "@/lib/generic-browser-tasks";
+import { buildGenericTaskGoal } from "@/lib/computeruse-task-prompts";
 import {
-  buildGenericTaskGoal,
-  normalizeOptionalShippingAddress,
-  normalizeOptionalWebsiteUrl,
-} from "@/lib/computeruse-task-prompts";
+  selectFulfillmentPlaybooks,
+  summarizeSelectedFulfillmentPlaybooks,
+} from "@/lib/fulfillment-playbooks";
 import {
   getHumanCreditBalance,
   getHumanLinkForAgentUsername,
   getHumanUserById,
 } from "@/lib/human-accounts";
-
-function readTrimmedString(...values: unknown[]) {
-  for (const value of values) {
-    if (typeof value !== "string") continue;
-    const trimmed = value.trim();
-    if (trimmed) return trimmed;
-  }
-  return "";
-}
-
-function readQuantity(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
-  }
-  return readTrimmedString(value);
-}
+import { normalizePurchaseRequestPayload } from "@/lib/purchase-request";
 
 export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as
@@ -51,87 +36,29 @@ export async function POST(request: Request) {
   const auth = await authenticateAgent(payload);
   if (!auth.ok) return auth.response;
 
-  const taskPrompt = readTrimmedString(payload.task_prompt, payload.taskPrompt);
-  const taskTitle = readTrimmedString(payload.task_title, payload.taskTitle);
-  const store = readTrimmedString(payload.store, payload.platform);
-  const merchant = readTrimmedString(
-    payload.merchant,
-    payload.store_name,
-    payload.storeName,
-  );
-  const orderType = readTrimmedString(
-    payload.order_type,
-    payload.orderType,
-    payload.fulfillment_method,
-    payload.fulfillmentMethod,
-  );
-  const itemName = readTrimmedString(
-    payload.item_name,
-    payload.itemName,
-    payload.product,
-    payload.product_name,
-    payload.productName,
-  );
-  const quantity = readQuantity(payload.quantity);
-  const orderDetails = readTrimmedString(
-    payload.order_details,
-    payload.orderDetails,
-    payload.instructions,
-  );
-  const additionalInstructions = readTrimmedString(
-    payload.additional_instructions,
-    payload.additionalInstructions,
-  );
-  const structuredLines = [
-    store ? `Platform: ${store}` : "",
-    merchant ? `Store or merchant name: ${merchant}` : "",
-    orderType ? `Fulfillment method: ${orderType}` : "",
-    itemName ? `Item name: ${itemName}` : "",
-    quantity ? `Quantity: ${quantity}` : "",
-    orderDetails
-      ? `Order details, modifiers, and preferences: ${orderDetails}`
-      : "",
-    additionalInstructions
-      ? `Additional instructions: ${additionalInstructions}`
-      : "",
-  ].filter(Boolean);
-  const effectiveTaskPrompt = [...structuredLines, taskPrompt]
-    .filter(Boolean)
-    .join("\n");
-  let websiteUrl: string | null = null;
-  let shippingAddress: string | null = null;
+  let purchaseRequest: ReturnType<typeof normalizePurchaseRequestPayload>;
   try {
-    websiteUrl = normalizeOptionalWebsiteUrl(
-      payload.website_url ??
-        payload.websiteUrl ??
-        payload.store_url ??
-        payload.storeUrl,
-    );
-    shippingAddress = normalizeOptionalShippingAddress(
-      payload.shipping_address ?? payload.shippingAddress,
-    );
+    purchaseRequest = normalizePurchaseRequestPayload(payload);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Invalid task request." },
       { status: 400 },
     );
   }
-  const requestedMaxCharge =
-    typeof payload.max_charge_cents === "number"
-      ? payload.max_charge_cents
-      : typeof payload.maxChargeCents === "number"
-        ? payload.maxChargeCents
-        : null;
-
-  if (!effectiveTaskPrompt) {
-    return NextResponse.json(
-      {
-        error:
-          "Provide task_prompt or structured order fields such as store, merchant, item_name, order_type, or order_details.",
-      },
-      { status: 400 },
-    );
-  }
+  const {
+    taskPrompt,
+    taskTitle,
+    rawTask,
+    merchantName,
+    platformHint,
+    fulfillment,
+    pickupLocation,
+    websiteUrl,
+    shippingAddress,
+    urlPolicy,
+    maxChargeCents: requestedMaxCharge,
+    requestJson,
+  } = purchaseRequest;
 
   const humanLink = await getHumanLinkForAgentUsername(auth.usernameLower);
   if (!humanLink) {
@@ -188,12 +115,27 @@ export async function POST(request: Request) {
     );
   }
 
+  const fulfillmentPlaybooks = selectFulfillmentPlaybooks({
+    rawTask,
+    taskPrompt,
+    websiteUrl,
+    merchantName,
+    platformHint,
+    fulfillment,
+    pickupLocation,
+    shippingAddress,
+    requestJson,
+  });
+  const fulfillmentPlaybookSummaries =
+    summarizeSelectedFulfillmentPlaybooks(fulfillmentPlaybooks);
   const wrappedPrompt = buildGenericTaskGoal({
-    originalPrompt: effectiveTaskPrompt,
+    originalPrompt: taskPrompt,
     maxChargeCents: effectiveMaxCharge,
     websiteUrl,
+    urlPolicy,
     shippingAddress,
     clarificationMode: "agent_webhook",
+    fulfillmentPlaybooks,
   });
 
   const run = await createComputerUseRun({
@@ -205,19 +147,16 @@ export async function POST(request: Request) {
     runId: run.id,
     type: "computeruse.run.created",
     data: {
-      task_prompt: effectiveTaskPrompt,
-      freeform_task_prompt: taskPrompt || null,
-      store: store || null,
-      merchant: merchant || null,
-      order_type: orderType || null,
-      item_name: itemName || null,
-      quantity: quantity || null,
+      task_prompt: taskPrompt,
+      raw_task: rawTask,
       device_id: device.device_id,
       human_user_id: humanUser.id,
       credit_balance_cents: creditBalance,
       max_charge_cents: effectiveMaxCharge,
       website_url: websiteUrl,
+      url_policy: urlPolicy,
       shipping_address_present: Boolean(shippingAddress),
+      fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
 
@@ -242,6 +181,7 @@ export async function POST(request: Request) {
       task_kind: "generic_browser_task",
       device_id: device.device_id,
       human_user_id: humanUser.id,
+      fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
 
@@ -252,11 +192,8 @@ export async function POST(request: Request) {
     deviceId: device.device_id,
     submissionSource: "agent",
     fulfillerHumanUserId: device.human_user_id,
-    taskPrompt: effectiveTaskPrompt,
-    taskTitle:
-      taskTitle ||
-      [merchant || store, itemName || orderType].filter(Boolean).join(": ") ||
-      effectiveTaskPrompt.slice(0, 80),
+    taskPrompt,
+    taskTitle,
     websiteUrl,
     shippingAddress,
     maxChargeCents: effectiveMaxCharge,
@@ -268,6 +205,7 @@ export async function POST(request: Request) {
     ok: true,
     task: formatGenericTaskForApi(createdTask),
     run_id: run.id,
+    fulfillment_playbooks: fulfillmentPlaybookSummaries,
     human_credit_balance: `$${(creditBalance / 100).toFixed(2)}`,
     note:
       "General order task queued. OttoAuth will complete it on the human's claimed device and debit credits after execution finishes.",
