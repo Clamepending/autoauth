@@ -23,17 +23,27 @@ function errorMessage(error: string) {
   }
 }
 
+function sanitizeReturnTo(returnTo: string) {
+  if (!returnTo.startsWith("/")) return "/dashboard";
+  if (returnTo.startsWith("//")) return "/dashboard";
+  return returnTo;
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const params = await searchParams;
+  const returnTo =
+    typeof params.returnTo === "string"
+      ? sanitizeReturnTo(params.returnTo)
+      : "/dashboard";
   const user = await getCurrentHumanUser();
   if (user) {
-    redirect("/dashboard");
+    redirect(returnTo);
   }
 
-  const params = await searchParams;
   const error =
     typeof params.error === "string" ? errorMessage(params.error) : null;
   const referralCode =
@@ -42,9 +52,9 @@ export default async function LoginPage({
       : null;
   const googleEnabled = isGoogleAuthConfigured();
   const devLoginEnabled = isDevHumanLoginEnabled();
-  const googleLoginHref = referralCode
-    ? `/api/auth/google/login?ref=${referralCode}`
-    : "/api/auth/google/login";
+  const googleLoginParams = new URLSearchParams({ returnTo });
+  if (referralCode) googleLoginParams.set("ref", String(referralCode));
+  const googleLoginHref = `/api/auth/google/login?${googleLoginParams.toString()}`;
 
   return (
     <main className="auth-page">
@@ -82,7 +92,10 @@ export default async function LoginPage({
         {devLoginEnabled && (
           <div className="dev-login-block">
             <div className="supported-accounts-title">Developer Login</div>
-            <DevLoginForm referralCode={referralCode ? String(referralCode) : null} />
+            <DevLoginForm
+              referralCode={referralCode ? String(referralCode) : null}
+              returnTo={returnTo}
+            />
           </div>
         )}
 

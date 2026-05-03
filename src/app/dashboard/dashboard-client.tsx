@@ -71,6 +71,7 @@ export function DashboardClient(props: {
       `OTTOAUTH_BASE_URL=${props.serverUrl}`,
       `OTTOAUTH_USERNAME=${credential.username}`,
       `OTTOAUTH_PRIVATE_KEY=${credential.privateKey}`,
+      `OTTOAUTH_PROFILE_URL=${props.serverUrl}/u/${encodeURIComponent(credential.username)}`,
       "",
       "Example auth body:",
       JSON.stringify(
@@ -292,7 +293,10 @@ export function DashboardClient(props: {
           </div>
           <div className="dashboard-actions">
             <Link className="auth-button primary" href="/orders/new">
-              Order as a human
+              New order
+            </Link>
+            <Link className="auth-button" href="/send">
+              Send money
             </Link>
             <Link className="auth-button" href="/orders">
               Orders
@@ -311,6 +315,15 @@ export function DashboardClient(props: {
             <div className="dashboard-balance">{fmtUsd(props.balanceCents)}</div>
             <Link className="auth-button primary" href="/credits/refill">
               Refill credits
+            </Link>
+            <Link className="auth-button" href="/send">
+              Send money
+            </Link>
+            <Link
+              className="dashboard-muted mono"
+              href={`/u/${encodeURIComponent(props.user.handle_lower)}`}
+            >
+              @{props.user.handle_display}
             </Link>
           </article>
         </section>
@@ -380,6 +393,12 @@ export function DashboardClient(props: {
                     <div>
                       <strong>{agent.username_display}</strong>
                       <div className="dashboard-muted mono">@{agent.username_lower}</div>
+                      <Link
+                        className="dashboard-muted mono"
+                        href={`/u/${encodeURIComponent(agent.username_lower)}`}
+                      >
+                        Profile link
+                      </Link>
                       <div className="dashboard-muted dashboard-agent-spend">
                         Total spent {fmtUsd(agent.total_spent_cents ?? 0)}
                       </div>

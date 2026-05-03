@@ -3,7 +3,10 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 
-export function DevLoginForm(props: { referralCode?: string | null }) {
+export function DevLoginForm(props: {
+  referralCode?: string | null;
+  returnTo?: string | null;
+}) {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -22,7 +25,7 @@ export function DevLoginForm(props: { referralCode?: string | null }) {
         }),
       });
       if (response.ok) {
-        window.location.href = "/dashboard";
+        window.location.href = props.returnTo || "/dashboard";
         return;
       }
       const payload = await response.json().catch(() => null);

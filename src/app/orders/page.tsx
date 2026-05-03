@@ -113,7 +113,10 @@ export default async function OrdersIndexPage() {
           </div>
           <div className="dashboard-actions">
             <Link className="auth-button primary" href="/orders/new">
-              Order as a human
+              New order
+            </Link>
+            <Link className="auth-button" href="/send">
+              Send money
             </Link>
             <Link className="auth-button" href="/dashboard">
               Dashboard

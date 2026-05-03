@@ -1354,6 +1354,209 @@ footer {
   text-decoration: underline;
 }
 
+.payment-page-shell,
+.profile-page {
+  align-items: flex-start;
+}
+
+.payment-shell,
+.profile-shell {
+  max-width: 980px;
+}
+
+.payment-header h1 {
+  max-width: 720px;
+}
+
+.payment-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.payment-compose-card,
+.payment-review-card,
+.payment-complete-card,
+.payment-profile-card {
+  min-width: 0;
+}
+
+.payment-recipient-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.payment-recipient-card,
+.payment-review-recipient {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: #fcfcfc;
+  padding: 12px;
+}
+
+.payment-review-recipient {
+  background: #fff;
+}
+
+.payment-avatar {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  background: #f2f2f2;
+  color: var(--ink);
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.payment-avatar-lg {
+  width: 64px;
+  height: 64px;
+  font-size: 20px;
+}
+
+.payment-avatar img,
+.profile-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.payment-amount-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 12px 16px;
+}
+
+.payment-amount-input span {
+  font-size: clamp(28px, 5vw, 46px);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.payment-amount-input input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: clamp(34px, 7vw, 58px);
+  font-weight: 700;
+  line-height: 1;
+  min-width: 0;
+}
+
+.payment-note-input {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.payment-balance-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--grid);
+  padding-top: 14px;
+  color: var(--muted);
+}
+
+.payment-balance-line strong {
+  color: var(--ink);
+}
+
+.payment-submit-button {
+  justify-self: start;
+}
+
+.payment-review-amount {
+  font-size: clamp(46px, 10vw, 78px);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.payment-note-preview {
+  border: 1px solid var(--line);
+  background: #fcfcfc;
+  padding: 14px 16px;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.payment-success-mark {
+  width: 54px;
+  height: 54px;
+  border: 2px solid var(--line);
+  background: var(--ink);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.payment-qr-image,
+.profile-qr-image {
+  width: min(100%, 280px);
+  height: auto;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 12px;
+  justify-self: start;
+}
+
+.profile-card {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  text-align: center;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: clamp(24px, 6vw, 48px);
+}
+
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  border: 2px solid var(--line);
+  background: #f2f2f2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.profile-link-block {
+  width: min(100%, 560px);
+  border: 1px solid var(--line);
+  background: #f7f7f7;
+  padding: 12px 14px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.profile-actions {
+  justify-content: center;
+}
+
 .docs-page {
   --docs-bg: #fbfaf7;
   --docs-surface: #ffffff;
@@ -2800,6 +3003,10 @@ main.admin-control-plane::after {
     grid-template-columns: 1fr;
   }
 
+  .payment-grid {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-card-span-2 {
     grid-column: auto;
   }
@@ -3023,6 +3230,17 @@ main.admin-control-plane::after {
   .auth-button {
     width: 100%;
     min-height: 46px;
+  }
+
+  .payment-recipient-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-submit-button,
+  .payment-qr-image,
+  .profile-qr-image {
+    justify-self: stretch;
+    width: 100%;
   }
 
   .dashboard-balance {
