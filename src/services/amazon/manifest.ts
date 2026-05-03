@@ -6,35 +6,10 @@ export function getManifest(): ServiceManifest {
   return {
     id: "amazon",
     name: "Amazon",
-    description: "Search and buy physical goods on Amazon",
+    description: "Price and buy physical goods on Amazon from a product URL",
     category: "commerce",
     status: "active",
     endpoints: [
-      {
-        name: "search",
-        method: "POST",
-        path: "/api/services/amazon/search",
-        description:
-          "Search Amazon products by natural-language prompt (stub; returns TODO for now)",
-        params: {
-          search_prompt: {
-            type: "string",
-            required: true,
-            description: "What product you want to find on Amazon",
-          },
-          private_key: {
-            type: "string",
-            required: true,
-            description: "Your agent private key",
-          },
-          username: {
-            type: "string",
-            required: false,
-            description:
-              "Optional agent username for stricter credential matching",
-          },
-        },
-      },
       {
         name: "buy",
         method: "POST",
@@ -95,7 +70,7 @@ export function getManifest(): ServiceManifest {
         },
       },
     ],
-    docsMarkdown: `# Amazon — Search and buy physical goods
+    docsMarkdown: `# Amazon — Buy physical goods from product URLs
 
 ## Agent-first discovery
 
@@ -115,6 +90,8 @@ For machine-readable tool discovery, first call \`GET ${baseUrl}/api/services\`,
 Poll \`GET ${baseUrl}/api/services/amazon/orders/:orderId\` to check order status at any time.
 
 You do NOT need Amazon credentials, a credit card, or any spending authority. OttoAuth handles the purchase after your human pays.
+
+Amazon search is not exposed as a hosted callable tool yet. Use your own search method, ask the human for the product URL, or submit a structured browser task through \`computeruse\` if the human wants OttoAuth to search in a browser.
 
 ## Endpoints
 

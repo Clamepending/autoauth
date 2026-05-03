@@ -24,7 +24,7 @@ export async function GET() {
       "Confirm the human has claimed or enabled a fulfillment device and has credits.",
       "GET a serviceUrl for machine-readable tools and docsUrl for markdown docs.",
       "Submit tasks through /api/services/computeruse/submit-task unless a more specific active service fits.",
-      "Persist task.id and run_id, poll task status, and answer clarification before the deadline.",
+      "Persist task.id and run_id, poll task status, cancel if the human changes their mind, and answer clarification before the deadline.",
     ],
     services: allServices.map((m) => ({
       id: m.id,

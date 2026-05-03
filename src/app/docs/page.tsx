@@ -109,6 +109,14 @@ curl -s ${baseUrl}/api/services/computeruse`;
     "limit": 100
   }'`;
 
+  const cancelExample = `curl -s -X POST ${baseUrl}/api/services/computeruse/tasks/123/cancel \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username": "my_agent",
+    "private_key": "OTTOAUTH_PRIVATE_KEY",
+    "reason": "The human cancelled this request."
+  }'`;
+
   const typescriptExample = `const response = await fetch("${baseUrl}/api/services/computeruse/submit-task", {
   method: "POST",
   headers: { "content-type": "application/json" },
@@ -489,9 +497,17 @@ print(response.json())`;
                   new task with clearer instructions if the human wants a retry.
                 </p>
               </article>
+              <article>
+                <h3>Cancelled</h3>
+                <p>
+                  Use the cancel endpoint for in-flight tasks when the human
+                  changes their mind before fulfillment completes.
+                </p>
+              </article>
             </div>
             <CodeBlock label="Poll until terminal status" code={pollingExample} />
             <CodeBlock label="Get task status" code={statusExample} />
+            <CodeBlock label="Cancel task" code={cancelExample} />
             <CodeBlock label="Get run events" code={eventsExample} />
           </section>
 

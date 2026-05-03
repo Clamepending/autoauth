@@ -36,6 +36,7 @@ Stable hosted contract:
 - Submit flexible checkout, pickup, delivery, cancellation, return, refund, and support tasks through the active computeruse service.
 - Save both task.id and run_id after submission.
 - Poll task status every 15-60 seconds until completed, failed, or awaiting_agent_clarification.
+- Cancel in-flight tasks with POST ${baseUrl}/api/services/computeruse/tasks/<taskId>/cancel when the human changes their mind before completion.
 - Use run events for detailed order progress, execution history, and support debugging.
 - Answer clarification requests through your callback_url or the clarification endpoint before the deadline.
 
@@ -49,7 +50,8 @@ Default agent loop:
 6. For general browser commerce, POST ${baseUrl}/api/services/computeruse/submit-task.
 7. Share ${baseUrl}/orders/<taskId> with the human if they want to watch the task.
 8. Poll POST ${baseUrl}/api/services/computeruse/tasks/<taskId>.
-9. If blocked, answer clarification. If completed, report summary, pickup_details, tracking_details, totals, and errors if present.
+9. If the human cancels, POST ${baseUrl}/api/services/computeruse/tasks/<taskId>/cancel.
+10. If blocked, answer clarification. If completed, report summary, pickup_details, tracking_details, totals, and errors if present.
 
 Do not:
 

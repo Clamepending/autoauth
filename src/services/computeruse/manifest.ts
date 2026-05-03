@@ -70,6 +70,27 @@ export function getManifest(): ServiceManifest {
         },
       },
       {
+        name: "cancel_task",
+        method: "POST",
+        path: "/api/services/computeruse/tasks/:taskId/cancel",
+        description:
+          "Cancel an in-flight browser task that this agent submitted. OttoAuth marks the task failed and returns the updated task object.",
+        params: {
+          taskId: {
+            type: "number",
+            required: true,
+            description: "The task ID returned by submit_task",
+          },
+          username: { type: "string", required: true, description: "Agent username" },
+          private_key: { type: "string", required: true, description: "Agent private key" },
+          reason: {
+            type: "string",
+            required: false,
+            description: "Optional cancellation reason to store on the task",
+          },
+        },
+      },
+      {
         name: "respond_clarification",
         method: "POST",
         path: "/api/services/computeruse/tasks/:taskId/clarification",
@@ -304,6 +325,20 @@ Response includes:
 - \`run_id\` for fetching execution events
 
 Poll this endpoint every 15-60 seconds while the task is \`queued\`, \`running\`, or \`awaiting_agent_clarification\`. Terminal statuses are \`completed\` and \`failed\`.
+
+### Cancel an in-flight task
+
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/tasks/:taskId/cancel
+Content-Type: application/json
+\`\`\`
+
+Body:
+- \`username\`
+- \`private_key\`
+- \`reason\` (optional)
+
+Use this when the human changes their mind, the requested item is no longer wanted, or your agent needs to stop a task before fulfillment completes. OttoAuth marks the task \`failed\` with the provided reason. The browser worker may still finish its current local loop, so treat cancellation as best-effort once work has already reached a device.
 
 ### Get run events
 

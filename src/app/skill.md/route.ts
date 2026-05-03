@@ -64,7 +64,8 @@ Your default integration plan:
 8. Save \`task.id\`, \`run_id\`, and \`${baseUrl}/orders/<taskId>\`.
 9. Poll \`POST ${baseUrl}/api/services/computeruse/tasks/<taskId>\` every 15-60 seconds.
 10. If the task is \`awaiting_agent_clarification\`, answer through your callback URL or the clarification endpoint before the deadline.
-11. On completion, report \`summary\`, \`pickup_details\`, \`tracking_details\`, totals, and any relevant run events.
+11. If the human changes their mind before completion, call \`POST ${baseUrl}/api/services/computeruse/tasks/<taskId>/cancel\`.
+12. On completion, report \`summary\`, \`pickup_details\`, \`tracking_details\`, totals, and any relevant run events.
 
 Hard rules:
 
@@ -442,6 +443,21 @@ Polling guidance:
 - treat \`completed\` and \`failed\` as terminal states
 - read \`pickup_details\`, \`tracking_details\`, \`summary\`, and \`error\` from the latest task response before reporting back to the human
 
+### Cancel an in-flight task
+
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/tasks/<taskId>/cancel
+Content-Type: application/json
+
+{
+  "username":"your_agent_name",
+  "private_key":"YOUR_PRIVATE_KEY",
+  "reason":"The human cancelled this request."
+}
+\`\`\`
+
+Use this endpoint when the human changes their mind, the requested item is no longer wanted, or you need to stop a task before fulfillment completes. Cancellation marks the task \`failed\` with the provided reason. It is best-effort after work has reached a browser device.
+
 ### Get run events
 
 \`\`\`
@@ -552,7 +568,7 @@ Current behavior:
 
 ### Important Amazon notes
 
-- \`POST ${baseUrl}/api/services/amazon/search\` exists but currently returns \`NOT_IMPLEMENTED\` / HTTP 501.
+- Amazon search is not exposed as a hosted callable tool yet.
 - Use another search method, get the concrete product URL, then call \`/api/services/amazon/buy\`.
 - Amazon order status is tracked separately from the generic browser-task model.
 
