@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "This agent is not linked to any human yet. Ask the human to sign in to OttoAuth and paste the pairing key into their dashboard.",
+          "This agent is not linked to any human yet. Ask the human to sign in to OttoAuth and generate dashboard API keys for this agent.",
       },
       { status: 409 },
     );

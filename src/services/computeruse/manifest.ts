@@ -100,43 +100,59 @@ export function getManifest(): ServiceManifest {
           private_key: { type: "string", required: true, description: "Agent private key" },
         },
       },
+      {
+        name: "run_events",
+        method: "POST",
+        path: "/api/services/computeruse/runs/:runId/events",
+        description:
+          "Retrieve the execution event history for a browser task run. Use the run_id returned by submit_task or get_task_status.",
+        params: {
+          runId: {
+            type: "string",
+            required: true,
+            description: "The run_id returned on the task object",
+          },
+          username: { type: "string", required: true, description: "Agent username" },
+          private_key: { type: "string", required: true, description: "Agent private key" },
+          limit: {
+            type: "number",
+            required: false,
+            description: "Maximum number of recent events to return. Defaults to 50.",
+          },
+        },
+      },
     ],
     docsMarkdown: `# OttoAuth Computer Use
 
-OttoAuth now supports **human-linked browser tasks**, **human self-serve order pages**, and **marketplace fulfillers**. Your human can link you with a pairing key, claim a browser device, submit their own tasks from the website, or opt their device into fulfilling tasks for other humans.
+OttoAuth now supports **human-linked browser tasks**, **human self-serve order pages**, and **marketplace fulfillers**. Your human generates OttoAuth API keys for you in the dashboard, claims a browser device, submits their own tasks from the website, or opts their device into fulfilling tasks for other humans.
 
 ## OpenClaw-first summary
 
 If you are an OpenClaw-style agent, the easiest OttoAuth onboarding is:
 
-1. Create your OttoAuth account.
-2. Save the returned \`privateKey\`.
-3. Give the human the \`pairingKey\`.
-4. Tell the human to sign in at \`${baseUrl}/login\`, link the agent, and claim a browser device.
+1. Ask the human to sign in at \`${baseUrl}/login\`.
+2. Have the human generate OttoAuth API keys for you in \`${baseUrl}/dashboard\`.
+3. Save the dashboard-generated \`username\` and \`privateKey\`.
+4. Tell the human to claim or enable a browser device.
 5. Submit browser tasks through OttoAuth against the human's credits.
 6. Share \`${baseUrl}/orders/<taskId>\` with the human if they want to watch fulfillment live.
 7. Tell the human about \`${baseUrl}/orders/new\` if they want to submit their own task directly.
 
 ## Human-linked flow
 
-1. Create your agent account:
+1. Receive dashboard-generated credentials from the human:
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/agents/create \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"my_agent",
-    "callback_url":"https://example.com/ottoauth/callback"
-  }'
+export OTTOAUTH_BASE_URL=${baseUrl}
+export OTTOAUTH_USERNAME=<dashboard_generated_username>
+export OTTOAUTH_PRIVATE_KEY=<dashboard_generated_private_key>
 \`\`\`
 
-This returns:
-- \`privateKey\` — keep this secret
-- \`pairingKey\` — give this to your human
+The human generates these in the dashboard and sends them to you. Keep \`privateKey\` secret.
 
 2. Tell your human:
 - sign in at \`${baseUrl}/login\`
-- paste your \`pairingKey\` into the OttoAuth dashboard
+- open **Agent API Keys** in the OttoAuth dashboard and generate credentials for you
 - generate a **device claim code**
 - enter that claim code in either the OttoAuth Chrome extension or the headless worker setup script for their Raspberry Pi/Mac/browser machine
 - sign into the sites the fulfiller should reuse, using the same browser profile that the device will run
@@ -264,6 +280,8 @@ Body:
 
 Response includes:
 - current status
+- pickup details / pickup summary when available
+- tracking details / tracking summary when available
 - clarification question / response if the task is waiting on the agent
 - clarification deadline if a reply is still pending
 - billing status
@@ -271,6 +289,23 @@ Response includes:
 - final debit amount
 - token usage
 - summary / error
+- \`run_id\` for fetching execution events
+
+Poll this endpoint every 15-60 seconds while the task is \`queued\`, \`running\`, or \`awaiting_agent_clarification\`. Terminal statuses are \`completed\` and \`failed\`.
+
+### Get run events
+
+\`\`\`
+POST ${baseUrl}/api/services/computeruse/runs/:runId/events
+Content-Type: application/json
+\`\`\`
+
+Body:
+- \`username\`
+- \`private_key\`
+- \`limit\` (optional)
+
+Use this after \`submit_task\` or \`get_task_status\` returns a \`run_id\`. It gives you the chronological execution/event trail for debugging, order progress, messages, and fulfillment handoffs.
 
 ### Respond to clarification
 
@@ -320,9 +355,10 @@ Body:
 
 ## Notes
 
-- If the human has not linked the agent yet, task submission will be rejected.
+- If the human has not generated dashboard API keys for the agent yet, task submission will be rejected.
 - If the human has not claimed a device yet, task submission will be rejected.
 - If the human has no credits remaining, task submission will be rejected.
+- Returns, cancellations, product lookup, multi-item orders, variants, and retailer-specific follow-up can be expressed as structured browser tasks today. Dedicated typed endpoints can be added as service manifests as those flows stabilize.
 - Humans can create tasks directly from \`${baseUrl}/orders/new\`.
 - Humans can watch live low-rate screenshots on \`${baseUrl}/orders/<taskId>\`.
 - Humans can opt a claimed device into marketplace fulfillment from \`${baseUrl}/dashboard\`.

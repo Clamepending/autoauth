@@ -138,7 +138,13 @@ function formatLastSeen(status: ExtensionFulfillmentStatus | null) {
   return new Date(status.lastSeenAt).toLocaleString();
 }
 
-export function CurrentBrowserFulfillmentClient({ serverUrl }: { serverUrl: string }) {
+export function CurrentBrowserFulfillmentClient({
+  serverUrl,
+  embedded = false,
+}: {
+  serverUrl: string;
+  embedded?: boolean;
+}) {
   const normalizedServerUrl = useMemo(() => serverUrl.replace(/\/+$/, ""), [serverUrl]);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionFulfillmentStatus | null>(null);
   const [bridgeState, setBridgeState] = useState<"idle" | "checking" | "ready" | "missing" | "configuring">(
@@ -271,9 +277,8 @@ export function CurrentBrowserFulfillmentClient({ serverUrl }: { serverUrl: stri
   const deviceLabel = extensionStatus?.deviceId || "Not paired yet";
   const workerLabel = workerStatusText(extensionStatus);
 
-  return (
-    <main className="dashboard-page" style={{ minHeight: "auto", paddingBottom: 0 }}>
-      <section className="dashboard-shell">
+  const content = (
+    <div className={embedded ? "dashboard-embedded-fulfillment" : "dashboard-shell"}>
         <div className="dashboard-header">
           <div>
             <div className="eyebrow">Current Device Fulfillment</div>
@@ -359,7 +364,16 @@ export function CurrentBrowserFulfillmentClient({ serverUrl }: { serverUrl: stri
             </div>
           </article>
         </section>
-      </section>
+      </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <main className="dashboard-page" style={{ minHeight: "auto", paddingBottom: 0 }}>
+      {content}
     </main>
   );
 }

@@ -52,7 +52,7 @@ export default async function LoginPage({
         <div className="eyebrow">Human Login</div>
         <h1>Sign in to OttoAuth</h1>
         <p className="lede">
-          Link your agents, manage credits, and link the fulfillment agent that will handle orders on your behalf.
+          Generate agent API keys, manage credits, and configure fulfillment devices that can handle orders on your behalf.
         </p>
 
         {referralCode && (
@@ -88,7 +88,7 @@ export default async function LoginPage({
 
         <div className="card">
           <strong>What happens after login</strong>
-          Paste your agent&apos;s link code into your dashboard, then link a fulfillment agent with a short code from OttoAuth.
+          Generate OttoAuth credentials in your dashboard, send them to your agent, then configure a fulfillment device when you are ready.
         </div>
 
         <p className="auth-footer">
