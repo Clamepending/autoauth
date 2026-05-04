@@ -43,6 +43,7 @@ export function DashboardClient(props: {
   ledger: CreditLedgerRecord[];
   serverUrl: string;
   agentSkillCommand: string;
+  showUserFulfillmentControls?: boolean;
 }) {
   const [copiedReferralLink, setCopiedReferralLink] = useState(false);
   const [agentName, setAgentName] = useState("my-agent");
@@ -464,6 +465,7 @@ export function DashboardClient(props: {
           </article>
         </section>
 
+        {props.showUserFulfillmentControls ? (
         <details className="dashboard-advanced">
           <summary>Advanced</summary>
           <div className="dashboard-advanced-content">
@@ -573,6 +575,7 @@ export function DashboardClient(props: {
             <CurrentBrowserFulfillmentClient serverUrl={props.serverUrl} embedded />
           </div>
         </details>
+        ) : null}
       </section>
     </main>
   );

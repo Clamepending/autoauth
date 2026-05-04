@@ -7,7 +7,7 @@ import {
 import { buildGenericTaskGoal } from "@/lib/computeruse-task-prompts";
 import {
   enqueueComputerUseLocalAgentGoalTask,
-  selectComputerUseDeviceForHumanTask,
+  selectInternalComputerUseDevice,
   verifyComputerUseDeviceToken,
   type ComputerUseDeviceRecord,
 } from "@/lib/computeruse-store";
@@ -112,14 +112,6 @@ async function authorizeRetry(
       response: NextResponse.json(
         { error: "This device can only retry orders originally assigned to it." },
         { status: 403 },
-      ),
-    };
-  }
-  if (device.human_user_id == null) {
-    return {
-      response: NextResponse.json(
-        { error: "This fulfillment device is not linked to a human account." },
-        { status: 409 },
       ),
     };
   }
@@ -229,22 +221,13 @@ export async function POST(request: Request, context: Context) {
 
   const selectedDevice = retryActor.device
     ? { selection: retryActor.selection, device: retryActor.device }
-    : await selectComputerUseDeviceForHumanTask({
-        requesterHumanUserId: retryActor.requester.id,
-        fulfillmentMode: "auto",
-      });
+    : await selectInternalComputerUseDevice();
   if (!selectedDevice?.device) {
     return NextResponse.json(
       {
         error:
-          "No enabled claimed browser device or online marketplace fulfiller is available right now.",
+          "OttoAuth internal fulfillment is not available right now. Try again shortly.",
       },
-      { status: 409 },
-    );
-  }
-  if (selectedDevice.device.human_user_id == null) {
-    return NextResponse.json(
-      { error: "Selected fulfillment device is not linked to a human account." },
       { status: 409 },
     );
   }
@@ -272,11 +255,11 @@ export async function POST(request: Request, context: Context) {
       retry_of_run_id: originalTask.run_id,
       task_prompt: originalTask.task_prompt,
       requester_human_user_id: retryActor.requester.id,
-      fulfiller_human_user_id: selectedDevice.device.human_user_id,
       device_id: selectedDevice.device.device_id,
       credit_balance_cents: creditBalance,
       max_charge_cents: effectiveMaxCharge,
       selection: selectedDevice.selection,
+      fulfillment_provider: "ottoauth_internal",
       website_url: originalTask.website_url,
       shipping_address_present: Boolean(originalTask.shipping_address),
     },
@@ -305,9 +288,9 @@ export async function POST(request: Request, context: Context) {
       retry_actor: retryActor.actor,
       retry_of_task_id: originalTask.id,
       requester_human_user_id: retryActor.requester.id,
-      fulfiller_human_user_id: selectedDevice.device.human_user_id,
       device_id: selectedDevice.device.device_id,
       selection: selectedDevice.selection,
+      fulfillment_provider: "ottoauth_internal",
     },
   });
 
@@ -317,7 +300,7 @@ export async function POST(request: Request, context: Context) {
     humanUserId: retryActor.requester.id,
     deviceId: selectedDevice.device.device_id,
     submissionSource: "human",
-    fulfillerHumanUserId: selectedDevice.device.human_user_id,
+    fulfillerHumanUserId: null,
     taskPrompt: originalTask.task_prompt,
     taskTitle: originalTask.task_title || originalTask.task_prompt.slice(0, 80),
     websiteUrl: originalTask.website_url,
@@ -349,9 +332,7 @@ export async function POST(request: Request, context: Context) {
     retried_from_task_id: originalTask.id,
     fulfillment: {
       selection: selectedDevice.selection,
-      device_id: selectedDevice.device.device_id,
-      fulfiller_human_user_id: selectedDevice.device.human_user_id,
-      device_label: selectedDevice.device.label,
+      provider: "ottoauth_internal",
     },
   });
 }

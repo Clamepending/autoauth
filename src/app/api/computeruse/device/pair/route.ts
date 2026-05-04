@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         },
         deviceToken: paired.auth_token,
         note:
-          "Device paired without a human claim code. It can poll OttoAuth, but human-linked tasks will not route to it until a dashboard-generated claim code is supplied.",
+          "Device paired without a human claim code. It is treated as an internal OttoAuth fulfillment worker and can receive internally routed tasks after it is online.",
       },
       { headers: corsHeaders() },
     );

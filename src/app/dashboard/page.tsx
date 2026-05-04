@@ -10,6 +10,7 @@ import {
   listCreditLedgerEntries,
 } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
+import { isUserFulfillmentEnabled } from "@/lib/user-fulfillment-config";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const showUserFulfillmentControls = isUserFulfillmentEnabled();
   const [
     balanceCents,
     linkedAgents,
@@ -30,8 +32,8 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     getHumanCreditBalance(user.id),
     getLinkedAgentsForHuman(user.id),
-    listComputerUseDevicesForHuman(user.id),
-    getActiveHumanDevicePairingCodes(user.id),
+    showUserFulfillmentControls ? listComputerUseDevicesForHuman(user.id) : Promise.resolve([]),
+    showUserFulfillmentControls ? getActiveHumanDevicePairingCodes(user.id) : Promise.resolve([]),
     listCreditLedgerEntries(user.id, 20),
     getHumanReferralStats(user.id),
   ]);
@@ -49,6 +51,7 @@ export default async function DashboardPage() {
         ledger={ledger}
         serverUrl={baseUrl}
         agentSkillCommand={`curl -s ${baseUrl}/skill.md`}
+        showUserFulfillmentControls={showUserFulfillmentControls}
       />
     </>
   );

@@ -124,7 +124,7 @@ export function getManifest(): ServiceManifest {
     ],
     docsMarkdown: `# OttoAuth Computer Use
 
-OttoAuth now supports **human-linked browser tasks**, **human self-serve order pages**, and **marketplace fulfillers**. Your human generates OttoAuth API keys for you in the dashboard, claims a browser device, submits their own tasks from the website, or opts their device into fulfilling tasks for other humans.
+OttoAuth now supports **agent-submitted browser checkout** backed by OttoAuth's internal fulfillment queue. A human can still generate OttoAuth API keys and hold credits, but fulfillment workers are OttoAuth infrastructure and are not exposed as a user setup surface.
 
 ## OpenClaw-first summary
 
@@ -133,10 +133,9 @@ If you are an OpenClaw-style agent, the easiest OttoAuth onboarding is:
 1. Ask the human to sign in at \`${baseUrl}/login\`.
 2. Have the human generate OttoAuth API keys for you in \`${baseUrl}/dashboard\`.
 3. Save the dashboard-generated \`username\` and \`privateKey\`.
-4. Tell the human to claim or enable a browser device.
-5. Submit browser tasks through OttoAuth against the human's credits.
-6. Share \`${baseUrl}/orders/<taskId>\` with the human if they want to watch fulfillment live.
-7. Tell the human about \`${baseUrl}/orders/new\` if they want to submit their own task directly.
+4. Submit browser tasks through OttoAuth against the human's credits, or be ready to handle \`402 Payment Required\` if the agent has no linked human account or needs more funding.
+5. Share \`${baseUrl}/orders/<taskId>\` with the human if they want to watch fulfillment live.
+6. Tell the human about \`${baseUrl}/orders/new\` if they want to submit their own task directly.
 
 ## Human-linked flow
 
@@ -153,12 +152,9 @@ The human generates these in the dashboard and sends them to you. Keep \`private
 2. Tell your human:
 - sign in at \`${baseUrl}/login\`
 - open **Agent API Keys** in the OttoAuth dashboard and generate credentials for you
-- generate a **device claim code**
-- enter that claim code in either the OttoAuth Chrome extension or the headless worker setup script for their Raspberry Pi/Mac/browser machine
-- sign into the sites the fulfiller should reuse, using the same browser profile that the device will run
-- optionally enable marketplace fulfillment in the dashboard if they want that device to earn credits by fulfilling other humans' tasks
+- make sure their OttoAuth account has credits available at \`${baseUrl}/credits/refill\` if they want prepaid billing
 
-3. Once the agent is linked and the human has claimed a device, submit tasks:
+3. Once the agent is linked, submit tasks:
 
 \`\`\`bash
 curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
@@ -173,9 +169,9 @@ curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
   }'
 \`\`\`
 
-OttoAuth sends the task to the linked browser device, instructs it not to exceed the spend cap, and then debits the human's credits **after** completion.
+OttoAuth sends the task to the internal fulfillment queue, instructs the worker not to exceed the spend cap, and then debits the funded account **after** completion. If the agent has no linked human account or the linked account lacks enough credits for the requested cap, OttoAuth returns \`402 Payment Required\` with x402 payment instructions; pay OttoAuth and retry with the payment proof to queue the task.
 
-If the fulfiller gets genuinely blocked on an agent-submitted task, OttoAuth can send a webhook to the agent's stored \`callback_url\` with a clarification request. The agent has ${clarificationTimeoutLabel} to answer by returning JSON in the webhook response or by POSTing to the clarification endpoint; otherwise OttoAuth cancels the request.
+If the internal worker gets genuinely blocked on an agent-submitted task, OttoAuth can send a webhook to the agent's stored \`callback_url\` with a clarification request. The agent has ${clarificationTimeoutLabel} to answer by returning JSON in the webhook response or by POSTing to the clarification endpoint; otherwise OttoAuth cancels the request.
 
 ## Browser task authoring guidance
 
@@ -197,7 +193,7 @@ For Snackpass tasks, include the store name even when you pass \`website_url: "h
 
 Keep any known-store routing hints at the merchant URL level. Do not encode item-specific hints or prices in onboarding, because item availability and prices change.
 
-Recommended first generic order test after the human has linked you, claimed a device, and added credits:
+Recommended first generic order test after the human has linked you and added credits, or after your agent can satisfy OttoAuth's x402 \`402 Payment Required\` response:
 
 \`\`\`bash
 curl -s -X POST ${baseUrl}/api/services/computeruse/submit-task \\
@@ -220,19 +216,20 @@ Humans can also use OttoAuth directly:
 
 - submit a browser/order task at \`${baseUrl}/orders/new\`
 - watch live fulfillment on \`${baseUrl}/orders/<taskId>\`
-- use the dashboard at \`${baseUrl}/dashboard\` to link agents, claim devices, and enable marketplace fulfillment
+- use the dashboard at \`${baseUrl}/dashboard\` to link agents and manage credits
 
 This is useful for debugging and for humans who want to create OttoAuth tasks without routing through an agent first.
 
-## Marketplace fulfillers
+## Internal fulfillment queue
 
-If a human claims an OttoAuth browser device and enables marketplace fulfillment:
+OttoAuth fulfillment workers are internal infrastructure:
 
-- OttoAuth may route other humans' self-serve tasks to that device
-- the requester's credits are debited after completion
-- the fulfiller receives a matching credit payout after the run completes
+- agents and humans submit purchase requests to OttoAuth
+- OttoAuth routes them to an available internal worker
+- users do not claim fulfillment devices or opt into fulfilling other users' orders
+- admin-only tooling can inspect and manually fulfill failed orders
 
-The current marketplace policy is intentionally simple: OttoAuth picks an available opted-in device that looks online recently.
+If no internal worker is online, task submission returns a temporary availability error instead of exposing fulfillment setup to the user.
 
 ## Billing model
 
@@ -245,7 +242,7 @@ When the browser task completes, OttoAuth records:
 
 Those are combined into a single debit from the human's credit ledger.
 
-If the task was fulfilled by another human's marketplace device, OttoAuth also records a payout credit to that fulfiller's ledger.
+Internal fulfillment does not create user payout credits. The user-facing ledger tracks credits, x402 refills, and completed-task debits.
 
 ## Endpoints
 
@@ -355,13 +352,12 @@ Body:
 
 ## Notes
 
-- If the human has not generated dashboard API keys for the agent yet, task submission will be rejected.
-- If the human has not claimed a device yet, task submission will be rejected.
-- If the human has no credits remaining, task submission will be rejected.
+- If the human has not generated dashboard API keys for the agent yet, the agent can still use an agent-owned identity and satisfy OttoAuth's x402 payment challenge when funding is required.
+- If no internal OttoAuth fulfillment worker is online, task submission returns a temporary availability error.
+- If the linked human has insufficient credits, or the agent has no linked human account, task submission returns \`402 Payment Required\` with x402 payment instructions when x402 is configured.
 - Returns, cancellations, product lookup, multi-item orders, variants, and retailer-specific follow-up can be expressed as structured browser tasks today. Dedicated typed endpoints can be added as service manifests as those flows stabilize.
 - Humans can create tasks directly from \`${baseUrl}/orders/new\`.
 - Humans can watch live low-rate screenshots on \`${baseUrl}/orders/<taskId>\`.
-- Humans can opt a claimed device into marketplace fulfillment from \`${baseUrl}/dashboard\`.
 - Existing low-level OttoAuth computer-use APIs still exist, but the credit-backed human-linked task flow above is the recommended path.
 `,
   };
