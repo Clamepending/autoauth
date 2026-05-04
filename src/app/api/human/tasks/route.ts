@@ -11,7 +11,7 @@ import {
 } from "@/lib/fulfillment-playbooks";
 import {
   enqueueComputerUseLocalAgentGoalTask,
-  selectComputerUseDeviceForHumanTask,
+  selectInternalComputerUseDevice,
 } from "@/lib/computeruse-store";
 import {
   createGenericBrowserTask,
@@ -63,16 +63,6 @@ export async function POST(request: Request) {
     maxChargeCents: requestedMaxCharge,
     requestJson,
   } = purchaseRequest;
-  const fulfillmentModeRaw =
-    typeof payload.fulfillment_mode === "string"
-      ? payload.fulfillment_mode
-      : typeof payload.fulfillmentMode === "string"
-        ? payload.fulfillmentMode
-        : "auto";
-  const fulfillmentMode =
-    fulfillmentModeRaw === "own_device" || fulfillmentModeRaw === "marketplace"
-      ? fulfillmentModeRaw
-      : "auto";
 
   const creditBalance = await getHumanCreditBalance(user.id);
   if (creditBalance <= 0) {
@@ -99,22 +89,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const selection = await selectComputerUseDeviceForHumanTask({
-    requesterHumanUserId: user.id,
-    fulfillmentMode,
-  });
+  const selection = await selectInternalComputerUseDevice();
   if (!selection?.device) {
-    const error =
-      fulfillmentMode === "own_device"
-        ? "You do not have an enabled claimed OttoAuth browser device right now."
-        : fulfillmentMode === "marketplace"
-          ? "No online marketplace fulfillment device is available right now."
-          : "No enabled claimed browser device or online marketplace fulfiller is available right now.";
-    return NextResponse.json({ error }, { status: 409 });
-  }
-  if (selection.device.human_user_id == null) {
     return NextResponse.json(
-      { error: "Selected fulfillment device is not linked to a human account." },
+      { error: "OttoAuth internal fulfillment is not available right now. Try again shortly." },
       { status: 409 },
     );
   }
@@ -154,11 +132,11 @@ export async function POST(request: Request) {
       task_prompt: taskPrompt,
       raw_task: rawTask,
       requester_human_user_id: user.id,
-      fulfiller_human_user_id: selection.device.human_user_id,
       device_id: selection.device.device_id,
       credit_balance_cents: creditBalance,
       max_charge_cents: effectiveMaxCharge,
       selection: selection.selection,
+      fulfillment_provider: "ottoauth_internal",
       website_url: websiteUrl,
       url_policy: urlPolicy,
       shipping_address_present: Boolean(shippingAddress),
@@ -187,9 +165,9 @@ export async function POST(request: Request) {
       task_kind: "generic_browser_task",
       submission_source: "human",
       requester_human_user_id: user.id,
-      fulfiller_human_user_id: selection.device.human_user_id,
       device_id: selection.device.device_id,
       selection: selection.selection,
+      fulfillment_provider: "ottoauth_internal",
       fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
@@ -200,7 +178,7 @@ export async function POST(request: Request) {
     humanUserId: user.id,
     deviceId: selection.device.device_id,
     submissionSource: "human",
-    fulfillerHumanUserId: selection.device.human_user_id,
+    fulfillerHumanUserId: null,
     taskPrompt,
     taskTitle,
     websiteUrl,
@@ -217,9 +195,7 @@ export async function POST(request: Request) {
     fulfillment_playbooks: fulfillmentPlaybookSummaries,
     fulfillment: {
       selection: selection.selection,
-      device_id: selection.device.device_id,
-      fulfiller_human_user_id: selection.device.human_user_id,
-      device_label: selection.device.label,
+      provider: "ottoauth_internal",
     },
   });
 }

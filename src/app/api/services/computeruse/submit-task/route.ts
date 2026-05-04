@@ -7,7 +7,7 @@ import {
 } from "@/lib/computeruse-runs";
 import {
   enqueueComputerUseLocalAgentGoalTask,
-  getDefaultComputerUseDeviceForHuman,
+  selectInternalComputerUseDevice,
 } from "@/lib/computeruse-store";
 import {
   createGenericBrowserTask,
@@ -19,11 +19,16 @@ import {
   summarizeSelectedFulfillmentPlaybooks,
 } from "@/lib/fulfillment-playbooks";
 import {
+  ensureOttoAuthInternalHumanUser,
   getHumanCreditBalance,
   getHumanLinkForAgentUsername,
   getHumanUserById,
 } from "@/lib/human-accounts";
 import { normalizePurchaseRequestPayload } from "@/lib/purchase-request";
+import {
+  defaultX402TopUpCents,
+  requireX402Funding,
+} from "@/lib/x402-ottoauth";
 
 export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as
@@ -60,56 +65,82 @@ export async function POST(request: Request) {
     requestJson,
   } = purchaseRequest;
 
-  const humanLink = await getHumanLinkForAgentUsername(auth.usernameLower);
-  if (!humanLink) {
+  const [humanLink, selection] = await Promise.all([
+    getHumanLinkForAgentUsername(auth.usernameLower),
+    selectInternalComputerUseDevice(),
+  ]);
+  if (!selection?.device) {
     return NextResponse.json(
       {
         error:
-          "This agent is not linked to any human yet. Ask the human to sign in to OttoAuth and generate dashboard API keys for this agent.",
+          "OttoAuth internal fulfillment is not available right now. Try again shortly.",
       },
       { status: 409 },
     );
   }
+  const device = selection.device;
 
-  const [humanUser, creditBalance, device] = await Promise.all([
-    getHumanUserById(humanLink.human_user_id),
-    getHumanCreditBalance(humanLink.human_user_id),
-    getDefaultComputerUseDeviceForHuman(humanLink.human_user_id),
-  ]);
-  if (!humanUser) {
+  const linkedHuman = humanLink
+    ? await getHumanUserById(humanLink.human_user_id)
+    : null;
+  if (humanLink && !linkedHuman) {
     return NextResponse.json(
       { error: "Linked human account no longer exists." },
       { status: 404 },
     );
   }
-  if (!device) {
-    return NextResponse.json(
-      {
-        error:
-          "The linked human has not claimed an OttoAuth browser device yet. They need to generate a device claim code in the dashboard and pair the extension.",
+  const humanUser = linkedHuman ?? (await ensureOttoAuthInternalHumanUser());
+  const hasLinkedHuman = Boolean(linkedHuman);
+  const creditBalance = await getHumanCreditBalance(humanUser.id);
+
+  const requestedCap =
+    requestedMaxCharge == null ? null : Math.trunc(requestedMaxCharge);
+  const defaultTopUpCents = defaultX402TopUpCents();
+  const guestPaymentCents = requestedCap ?? defaultTopUpCents;
+  const fundingRequiredCents = hasLinkedHuman
+    ? creditBalance <= 0
+      ? requestedCap ?? defaultTopUpCents
+      : requestedCap != null && requestedCap > creditBalance
+        ? requestedCap - creditBalance
+        : 0
+    : guestPaymentCents;
+  let responseHeaders: Headers | null = null;
+  if (fundingRequiredCents > 0) {
+    const funding = await requireX402Funding({
+      request,
+      humanUserId: humanUser.id,
+      amountCents: fundingRequiredCents,
+      resourcePath: "/api/services/computeruse/submit-task",
+      description: hasLinkedHuman
+        ? "Fund OttoAuth credits for delegated browser checkout"
+        : "Pay OttoAuth for internal browser checkout",
+      reason: hasLinkedHuman ? "linked_agent_credit_topup" : "guest_agent_checkout",
+      agentUsernameLower: auth.usernameLower,
+      metadata: {
+        linked_human: hasLinkedHuman,
+        requested_max_charge_cents: requestedCap,
+        task_title: taskTitle || null,
       },
-      { status: 409 },
-    );
-  }
-  if (creditBalance <= 0) {
-    return NextResponse.json(
-      { error: "The linked human account has no credits remaining." },
-      { status: 402 },
-    );
+    });
+    if (!funding.ok) return funding.response;
+    responseHeaders = funding.responseHeaders;
   }
 
+  const availableAfterFunding = hasLinkedHuman
+    ? creditBalance + fundingRequiredCents
+    : fundingRequiredCents;
   const effectiveMaxCharge =
-    requestedMaxCharge == null ? creditBalance : Math.trunc(requestedMaxCharge);
+    requestedCap == null ? availableAfterFunding : requestedCap;
   if (effectiveMaxCharge <= 0) {
     return NextResponse.json(
       { error: "max_charge_cents must be positive if provided." },
       { status: 400 },
     );
   }
-  if (requestedMaxCharge != null && effectiveMaxCharge > creditBalance) {
+  if (hasLinkedHuman && requestedCap != null && effectiveMaxCharge > availableAfterFunding) {
     return NextResponse.json(
       {
-        error: `Requested max charge exceeds the human's current credit balance (${creditBalance} cents available).`,
+        error: `Requested max charge exceeds the human's current funded balance (${availableAfterFunding} cents available).`,
       },
       { status: 402 },
     );
@@ -152,9 +183,13 @@ export async function POST(request: Request) {
       device_id: device.device_id,
       human_user_id: humanUser.id,
       credit_balance_cents: creditBalance,
+      funded_via_x402_cents: fundingRequiredCents,
+      linked_human: hasLinkedHuman,
       max_charge_cents: effectiveMaxCharge,
       website_url: websiteUrl,
       url_policy: urlPolicy,
+      selection: selection.selection,
+      fulfillment_provider: "ottoauth_internal",
       shipping_address_present: Boolean(shippingAddress),
       fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
@@ -181,6 +216,9 @@ export async function POST(request: Request) {
       task_kind: "generic_browser_task",
       device_id: device.device_id,
       human_user_id: humanUser.id,
+      linked_human: hasLinkedHuman,
+      selection: selection.selection,
+      fulfillment_provider: "ottoauth_internal",
       fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
@@ -191,7 +229,7 @@ export async function POST(request: Request) {
     humanUserId: humanUser.id,
     deviceId: device.device_id,
     submissionSource: "agent",
-    fulfillerHumanUserId: device.human_user_id,
+    fulfillerHumanUserId: null,
     taskPrompt,
     taskTitle,
     websiteUrl,
@@ -201,13 +239,21 @@ export async function POST(request: Request) {
     computeruseTaskId: task.id,
   });
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: true,
     task: formatGenericTaskForApi(createdTask),
     run_id: run.id,
     fulfillment_playbooks: fulfillmentPlaybookSummaries,
-    human_credit_balance: `$${(creditBalance / 100).toFixed(2)}`,
+    linked_human: hasLinkedHuman,
+    human_credit_balance: `$${(availableAfterFunding / 100).toFixed(2)}`,
+    x402_funded_cents: fundingRequiredCents,
+    fulfillment: {
+      selection: selection.selection,
+      provider: "ottoauth_internal",
+    },
     note:
-      "General order task queued. OttoAuth will complete it on the human's claimed device and debit credits after execution finishes.",
+      "General order task queued. OttoAuth will complete it through internal fulfillment and debit credits after execution finishes.",
   });
+  responseHeaders?.forEach((value, key) => response.headers.set(key, value));
+  return response;
 }

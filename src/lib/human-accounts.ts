@@ -800,6 +800,42 @@ export async function getHumanUserByEmail(email: string) {
   return row ? mapHumanUser(row) : null;
 }
 
+export async function ensureOttoAuthInternalHumanUser() {
+  await ensureHumanAccountSchema();
+  const configuredId = Number(process.env.OTTOAUTH_INTERNAL_HUMAN_USER_ID ?? "");
+  if (Number.isInteger(configuredId) && configuredId > 0) {
+    const configured = await getHumanUserById(configuredId);
+    if (configured) return configured;
+  }
+
+  const email = normalizeEmail(
+    process.env.OTTOAUTH_INTERNAL_HUMAN_EMAIL || "ottoauth-internal@ottoauth.local",
+  );
+  const existing = await getHumanUserByEmail(email);
+  if (existing) return existing;
+
+  const client = getTursoClient();
+  const now = new Date().toISOString();
+  const insertResult = await client.execute({
+    sql: `INSERT INTO human_users
+          (email, email_verified, google_sub, auth_provider, display_name, picture_url, created_at, updated_at)
+          VALUES (?, 1, NULL, 'system', 'OttoAuth Internal', NULL, ?, ?)`,
+    args: [email, now, now],
+  });
+  const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
+  let userId = rawId != null ? Number(rawId) : 0;
+  if (userId === 0) {
+    const fallback = await client.execute({
+      sql: "SELECT id FROM human_users WHERE email = ? LIMIT 1",
+      args: [email],
+    });
+    userId = Number((fallback.rows?.[0] as { id?: number | string } | undefined)?.id ?? 0);
+  }
+  const user = userId > 0 ? await getHumanUserById(userId) : null;
+  if (!user) throw new Error("Failed to create OttoAuth internal human user.");
+  return user;
+}
+
 export async function upsertHumanUserFromGoogle(params: {
   email: string;
   googleSub: string;

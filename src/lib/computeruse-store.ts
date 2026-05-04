@@ -46,6 +46,11 @@ export type FulfillmentAgentRecord = {
   registration_updated_at: string | null;
 };
 
+export type InternalComputerUseDeviceSelection = {
+  selection: "ottoauth_internal";
+  device: ComputerUseDeviceRecord;
+};
+
 let cuTransportSchemaReady = false;
 
 export async function ensureComputerUseTransportSchema() {
@@ -282,7 +287,7 @@ export async function claimComputerUseDeviceForHuman(params: {
   const enabledValue =
     existing && existing.human_user_id != null
       ? (existing.marketplace_enabled ? 1 : 0)
-      : 1;
+      : 0;
   await client.execute({
     sql: `UPDATE computeruse_devices
           SET human_user_id = ?, label = COALESCE(?, label), marketplace_enabled = ?, updated_at = ?
@@ -323,6 +328,43 @@ export async function getDefaultComputerUseDeviceForHuman(humanUserId: number) {
   });
   const row = result.rows?.[0] as unknown as Record<string, unknown> | undefined;
   return row ? mapDeviceRow(row) : null;
+}
+
+export async function listInternalComputerUseDevices(params?: {
+  onlySeenSinceMinutes?: number;
+  limit?: number;
+}) {
+  await ensureComputerUseTransportSchema();
+  const client = getTursoClient();
+  const limit = Math.max(1, Math.min(params?.limit ?? 20, 200));
+  const onlySeenSinceMinutes = Math.max(1, Math.min(params?.onlySeenSinceMinutes ?? 10, 1440));
+  const cutoff = new Date(Date.now() - onlySeenSinceMinutes * 60 * 1000).toISOString();
+  const result = await client.execute({
+    sql: `SELECT d.*, COUNT(t.id) AS active_task_count
+          FROM computeruse_devices d
+          LEFT JOIN computeruse_tasks t
+            ON t.device_id = d.device_id
+            AND t.status IN ('queued', 'delivered')
+          WHERE d.human_user_id IS NULL
+            AND d.last_seen_at IS NOT NULL
+            AND d.last_seen_at >= ?
+          GROUP BY d.device_id
+          ORDER BY active_task_count ASC, d.last_seen_at DESC, d.updated_at DESC, d.paired_at DESC
+          LIMIT ?`,
+    args: [cutoff, limit],
+  });
+  return ((result.rows ?? []) as unknown as Record<string, unknown>[]).map(mapDeviceRow);
+}
+
+export async function selectInternalComputerUseDevice(params?: {
+  onlySeenSinceMinutes?: number;
+}): Promise<InternalComputerUseDeviceSelection | null> {
+  const devices = await listInternalComputerUseDevices({
+    onlySeenSinceMinutes: params?.onlySeenSinceMinutes ?? 10,
+    limit: 1,
+  });
+  const device = devices[0] ?? null;
+  return device ? { selection: "ottoauth_internal", device } : null;
 }
 
 export async function touchComputerUseDeviceSeen(deviceId: string) {

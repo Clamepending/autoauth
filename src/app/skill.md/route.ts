@@ -28,8 +28,8 @@ function buildSkill(baseUrl: string): string {
 OttoAuth is now a **service-first broker** between:
 
 1. **an agent identity** that authenticates with \`username\` + \`privateKey\`
-2. **a human OttoAuth account** that links that agent, owns credits, and owns claimed devices
-3. **one or more OttoAuth-paired browser devices** that actually perform browser work
+2. **a human OttoAuth account** that can link that agent and own credits
+3. **OttoAuth internal fulfillment workers** that actually perform browser work
 
 The public hosted contract you should rely on is:
 
@@ -57,7 +57,7 @@ Your default integration plan:
 1. Ask the human to sign in at \`${baseUrl}/login\`.
 2. Ask the human to generate **Agent API Keys** in \`${baseUrl}/dashboard\`.
 3. Store the dashboard-generated \`username\` and \`privateKey\` securely.
-4. Confirm the human has claimed or enabled a fulfillment device and has credits.
+4. Confirm the human has credits, or that your agent can handle OttoAuth's x402 \`402 Payment Required\` response.
 5. Use \`GET ${baseUrl}/api/services\` before calling tools; call only \`active\` or \`beta\` services.
 6. For general purchases, pickup orders, delivery orders, cancellations, returns, refunds, and order follow-up, use \`order\`.
 7. Submit a structured work order with \`POST ${baseUrl}/api/services/order/submit\`.
@@ -87,7 +87,7 @@ They send you:
 
 \`privateKey\` is your real credential. Keep it secret. These dashboard-generated credentials are already linked to the human account that created them.
 
-The human dashboard does not collect callback URLs. If your agent needs clarification webhooks, set \`callback_url\` when you create or manage an agent-owned OttoAuth account; otherwise poll task status and answer clarification through the clarification endpoint.
+The human dashboard does not collect callback URLs. If your agent needs clarification webhooks for cases where an internal worker gets blocked, set \`callback_url\` when you create or manage an agent-owned OttoAuth account; otherwise poll task status and answer clarification through the clarification endpoint.
 
 ### 2. Human setup
 
@@ -96,22 +96,21 @@ Your human must:
 1. sign in at \`${baseUrl}/login\`
 2. open the **Agent API Keys** section in \`${baseUrl}/dashboard\`
 3. send you the dashboard-generated \`username\` and \`privateKey\`
-4. claim or enable a browser fulfillment device
-5. make sure their OttoAuth account has credits available
+4. make sure their OttoAuth account has credits available, or let your agent satisfy OttoAuth's x402 \`402 Payment Required\` response when more funding is needed
 
-Until that is done, the main hosted order API will reject your requests.
+If the agent has no linked human account, or if the linked human account does not have enough credits for the requested spend cap, the main hosted browser-task API returns \`402 Payment Required\` with x402 payment instructions when x402 is configured. Pay OttoAuth and retry with the payment proof to queue the task.
 
-### 3. Claimed browser device
+### 3. Internal fulfillment queue
 
-The claimed device belongs to the human account, not to you.
+Fulfillment is internal OttoAuth infrastructure, not a user-facing device marketplace.
 
-- For **agent-submitted browser tasks**, OttoAuth currently routes work to the linked human's default claimed device.
-- For **human self-serve tasks**, OttoAuth can use the human's own device first and then fall back to an opted-in marketplace device if needed.
-- Marketplace opt-in is mainly relevant for human self-serve tasks, not for your normal agent-submitted browser-task path.
+- For **agent-submitted browser tasks**, OttoAuth routes work to an available internal worker.
+- For **human self-serve tasks**, OttoAuth also uses the internal queue.
+- Users do not claim fulfillment devices, opt into fulfilling other users' orders, or receive fulfillment payouts.
 
 ### 4. Service layer
 
-Once the account + human link + claimed device exist, you interact through services:
+Once credentials and funding are ready, you interact through services:
 
 1. \`GET ${baseUrl}/api/services\`
 2. \`GET ${baseUrl}/api/services/<id>\`
@@ -139,7 +138,7 @@ OttoAuth's hosted service surface covers the core e-commerce automation features
 - **Auth and API keys:** humans generate dashboard API keys for you; every hosted service call authenticates with \`username\` + \`private_key\`.
 - **Create orders:** submit concrete purchase, pickup, delivery, reservation, cancellation, or return instructions through \`POST ${baseUrl}/api/services/order/submit\`.
 - **Products, quantities, offers, and variants:** include exact product URLs, merchant URLs, item names, quantities, sizes, colors, modifiers, substitutions, and spend caps in structured order fields or a compact fallback prompt.
-- **Managed retailer accounts:** orders run on the human's claimed browser device, so existing human sessions, payment methods, loyalty accounts, and saved addresses can be used when available.
+- **Managed retailer accounts:** orders run on OttoAuth internal fulfillment workers with OttoAuth-managed checkout setup.
 - **Status follow-up:** poll \`POST ${baseUrl}/api/services/order/tasks/<taskId>\` for queued, running, clarification, completed, and failed states.
 - **Order history and events:** list recent tasks with \`POST ${baseUrl}/api/services/order/history\` and inspect the underlying execution trail with \`POST ${baseUrl}/api/services/order/runs/<runId>/events\`.
 - **Tracking and delivery details:** completed task responses can include \`pickup_details\`, \`tracking_details\`, confirmation data, totals, summaries, and errors.
@@ -228,20 +227,17 @@ Tell your human to do this:
 1. open \`${baseUrl}/login\`
 2. sign in
 3. generate agent API keys in \`${baseUrl}/dashboard\` and send them to you
-4. claim or enable a fulfillment device from the dashboard
-5. complete OttoAuth's device setup flow for that device
-6. make sure the OttoAuth account has credits available at \`${baseUrl}/credits/refill\` if needed
+4. make sure the OttoAuth account has credits available at \`${baseUrl}/credits/refill\` if needed
 
 You cannot use the hosted \`order\` service until:
 
-- the agent key is linked to a human
-- the human has claimed a device
-- the human has credits remaining
+- the agent key is linked to a human with credits, or the agent can pay OttoAuth's x402 \`402 Payment Required\` challenge
+- at least one internal OttoAuth fulfillment worker is online
 
 ### 4. Human handoff message you can use
 
 \`\`\`
-Please sign in to OttoAuth at ${baseUrl}/login, open the Agent API Keys section in your dashboard, generate credentials for me, and send me the username plus private key. Then claim or enable a fulfillment device and make sure your OttoAuth balance has credits. You can also submit your own task at ${baseUrl}/orders/new and watch any live task at ${baseUrl}/orders/<taskId>.
+Please sign in to OttoAuth at ${baseUrl}/login, open the Agent API Keys section in your dashboard, generate credentials for me, and send me the username plus private key. Make sure your OttoAuth balance has credits, or I can pay OttoAuth through x402 if funding is required. You can also submit your own task at ${baseUrl}/orders/new and watch any live task at ${baseUrl}/orders/<taskId>.
 \`\`\`
 
 ### 5. First successful browser order path
@@ -253,8 +249,7 @@ This is the shortest correct mental model for a brand-new hosted agent:
 3. wait for the human to finish website onboarding at \`${baseUrl}/login\` and \`${baseUrl}/dashboard\`
 4. confirm the human has:
    - generated credentials for your agent
-   - claimed at least one browser device
-   - added enough credits
+   - added enough credits, or that your agent can handle x402 payment
 5. submit a browser task with \`POST ${baseUrl}/api/services/order/submit\`
 6. save the returned \`task.id\`
 7. send the human to \`${baseUrl}/orders/<task.id>\` if they want to watch fulfillment
@@ -264,9 +259,9 @@ This is the shortest correct mental model for a brand-new hosted agent:
 
 If the submit call fails before step 5, the most likely missing prerequisites are:
 
-- no human link yet
-- no claimed device yet
-- not enough credits for the requested spend cap
+- no internal OttoAuth fulfillment worker is online
+- not enough credits for the requested spend cap and the agent did not satisfy the x402 payment challenge
+- x402 is not configured on the server when payment would be required
 
 Agent recovery map:
 
@@ -346,11 +341,11 @@ Call only services with \`status = "active"\` or \`status = "beta"\`.
 What it does:
 
 - authenticates the agent with \`username\` + \`private_key\`
-- verifies that the agent is linked to a human
-- verifies that the human has a claimed OttoAuth browser device
-- verifies that the human has credits available
+- uses the linked human's credits when the agent is linked to a human
+- returns \`402 Payment Required\` when the agent has no linked human account or needs more funding
+- verifies that an internal OttoAuth fulfillment worker is available
 - wraps the task prompt with OttoAuth safety / spend-cap / clarification instructions
-- queues the task on the linked human's claimed device
+- queues the task on OttoAuth's internal fulfillment queue
 - records a generic browser task for status, billing, summaries, and clarification state
 
 ### Submit order
@@ -372,7 +367,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
   }'
 \`\`\`
 
-Recommended Snackpass test after the human has linked you, claimed a device, and added credits:
+Recommended generic Snackpass test after the human has linked you and added credits, or after your agent can satisfy OttoAuth's x402 payment challenge:
 
 \`\`\`bash
 curl -s -X POST ${baseUrl}/api/services/order/submit \\
@@ -479,7 +474,7 @@ Relevant enums:
 - \`billing_status\`: \`pending\`, \`debited\`, \`completed_no_charge\`, \`not_charged\`
 - \`payout_status\`: \`pending\`, \`credited\`, \`self_fulfilled\`, \`not_applicable\`, \`not_charged\`
 
-The payout fields exist because the same task model also powers self-serve and marketplace flows. For tasks completed on the linked human's own device, you may see \`payout_status = "self_fulfilled"\`.
+The payout fields remain in the response model for backward compatibility, but internal OttoAuth fulfillment should normally report \`payout_status = "not_applicable"\` or \`not_charged\` rather than a user payout.
 
 Polling guidance:
 

@@ -4,6 +4,10 @@ import {
   setComputerUseDeviceMarketplaceEnabled,
 } from "@/lib/computeruse-store";
 import { requireCurrentHumanUser } from "@/lib/human-session";
+import {
+  isUserFulfillmentEnabled,
+  userFulfillmentDisabledError,
+} from "@/lib/user-fulfillment-config";
 
 type Context = {
   params: {
@@ -12,6 +16,10 @@ type Context = {
 };
 
 export async function POST(request: Request, context: Context) {
+  if (!isUserFulfillmentEnabled()) {
+    return NextResponse.json(userFulfillmentDisabledError(), { status: 404 });
+  }
+
   const user = await requireCurrentHumanUser().catch(() => null);
   if (!user) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });

@@ -60,39 +60,39 @@ After deployment, open `https://your-app.vercel.app/skill.md` to confirm the ins
 ## Human dashboard
 
 - `/login` is the human sign-in entrypoint
-- `/dashboard` shows credits, linked agents, claimed devices, enabled/disabled fulfillment controls, and recent browser tasks
+- `/dashboard` shows credits, linked agents, ordering settings, and recent browser tasks
 - `/orders/new` lets a human create a browser task directly from the website
 - `/orders/<taskId>` shows the live order page with low-rate execution screenshots and run events
 
 New human accounts start with `$20` of starter credits.
 
-## Headless fulfiller
+## Internal order workers
 
-There is now a small CLI OttoAuth fulfiller in [headless-worker](./headless-worker/README.md) for Raspberry Pis or other headless devices.
+OttoAuth can run private order workers through [headless-worker](./headless-worker/README.md) for Raspberry Pis or other headless machines. This is operational infrastructure, not part of the app integration contract.
 
 It can:
 
-- pair to a human account with a normal OttoAuth claim code
+- pair to OttoAuth as an internal fulfillment worker
 - poll OttoAuth for tasks
-- fulfill tasks in headless Chrome/Chromium with Anthropic + Playwright
+- process tasks in headless Chrome/Chromium with Anthropic + Playwright
 - stream screenshots back to OttoAuth while a task runs
 - save Playwright traces plus a compact local transcript for debugging
 
 Fastest setup path on a fresh Raspberry Pi with no repo clone:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Clamepending/autoauth/main/headless-worker/scripts/install-remote.sh | ANTHROPIC_API_KEY=sk-ant-... bash -s -- --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --claim-code XXXX-XXXX-XXXX
+curl -fsSL https://raw.githubusercontent.com/Clamepending/autoauth/main/headless-worker/scripts/install-remote.sh | ANTHROPIC_API_KEY=sk-ant-... bash -s -- --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker"
 ```
 
 If the repo is already present, this also works:
 
 ```bash
-cd /path/to/autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/bootstrap.sh --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --claim-code XXXX-XXXX-XXXX
+cd /path/to/autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/bootstrap.sh --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker"
 ```
 
 During install, OttoAuth now opens the worker's dedicated persistent browser profile to Snackpass so you can sign in once, then it starts the background service after you close that window. Add `--skip-login` if you want to postpone that step.
 
-For reliable shopping/order fulfillment, write tasks as compact work orders with platform, store name, fulfillment method, item, modifiers, tip, delivery address if needed, and spend cap. Snackpass tasks should include the merchant name; OttoAuth uses known store URLs when available and otherwise searches for `"<store>" Snackpass` instead of starting from the generic Snackpass homepage.
+For reliable shopping/order execution, write tasks as compact work orders with platform, store name, delivery or pickup method, item, modifiers, tip, delivery address if needed, and spend cap. Snackpass tasks should include the merchant name; OttoAuth uses known store URLs when available and otherwise searches for `"<store>" Snackpass` instead of starting from the generic Snackpass homepage.
 
 ## OttoAuth MCP proxy server
 

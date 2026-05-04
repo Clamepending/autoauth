@@ -12,6 +12,7 @@ import {
   listAgentSpendTotalsForHuman,
   listGenericBrowserTasksRelatedToHuman,
 } from "@/lib/generic-browser-tasks";
+import { isUserFulfillmentEnabled } from "@/lib/user-fulfillment-config";
 
 export async function GET() {
   const user = await getCurrentHumanUser();
@@ -19,6 +20,7 @@ export async function GET() {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
+  const exposeUserFulfillment = isUserFulfillmentEnabled();
   const [
     balanceCents,
     linkedAgents,
@@ -31,11 +33,19 @@ export async function GET() {
   ] = await Promise.all([
     getHumanCreditBalance(user.id),
     getLinkedAgentsForHuman(user.id),
-    listComputerUseDevicesForHuman(user.id),
-    getActiveHumanDevicePairingCodes(user.id),
+    exposeUserFulfillment ? listComputerUseDevicesForHuman(user.id) : Promise.resolve([]),
+    exposeUserFulfillment ? getActiveHumanDevicePairingCodes(user.id) : Promise.resolve([]),
     listCreditLedgerEntries(user.id, 20),
     listGenericBrowserTasksRelatedToHuman(user.id, 20),
-    getHumanFulfillmentRatingStats(user.id),
+    exposeUserFulfillment
+      ? getHumanFulfillmentRatingStats(user.id)
+      : Promise.resolve({
+          human_user_id: user.id,
+          submitted_task_count: 0,
+          fulfilled_task_count: 0,
+          rating_count: 0,
+          average_rating: null,
+        }),
     listAgentSpendTotalsForHuman(user.id),
   ]);
   const spendByAgentId = new Map(

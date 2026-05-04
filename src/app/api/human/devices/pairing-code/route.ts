@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { createHumanDevicePairingCode } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
+import {
+  isUserFulfillmentEnabled,
+  userFulfillmentDisabledError,
+} from "@/lib/user-fulfillment-config";
 
 export async function POST(request: Request) {
+  if (!isUserFulfillmentEnabled()) {
+    return NextResponse.json(userFulfillmentDisabledError(), { status: 404 });
+  }
+
   const user = await getCurrentHumanUser();
   if (!user) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });

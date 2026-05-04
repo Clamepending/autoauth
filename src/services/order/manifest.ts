@@ -23,7 +23,7 @@ export function getManifest(): ServiceManifest {
         method: "POST",
         path: "/api/services/order/submit",
         description:
-          "Queue an Amazon, Snackpass, retail, food, grocery, return, cancellation, or support order on the linked human's claimed OttoAuth browser device.",
+          "Queue an Amazon, Snackpass, retail, food, grocery, return, cancellation, or support order on OttoAuth's internal fulfillment queue.",
         params: {
           username: { type: "string", required: true, description: "Agent username" },
           private_key: { type: "string", required: true, description: "Agent private key" },
@@ -214,7 +214,7 @@ OttoAuth turns each order into structured request hints, retrieves the matching 
 3. GET \`${baseUrl}/api/services\`.
 4. GET \`${baseUrl}/api/services/order\` for machine-readable tools.
 5. Ask the human for dashboard-generated \`username\` and \`privateKey\`.
-6. Confirm the human has claimed or enabled a browser device and has credits.
+6. Confirm the human has credits, or that your agent can handle OttoAuth's x402 \`402 Payment Required\` response.
 7. Submit through \`POST ${baseUrl}/api/services/order/submit\`.
 8. Save \`task.id\` and \`run_id\`, share \`${baseUrl}/orders/<taskId>\` if useful, poll status, inspect run events, and answer clarification before the deadline.
 
@@ -398,8 +398,8 @@ Include platform, merchant, fulfillment method, item, quantity, variants, modifi
 ## Notes
 
 - The human generates API keys in the dashboard and sends the agent \`username\` plus \`privateKey\`.
-- The human must claim or enable a browser device before hosted order submission works.
-- The human must keep enough credits available for the requested spend cap.
+- OttoAuth routes hosted orders to internal fulfillment workers; users do not claim fulfillment devices.
+- The human must keep enough credits available for the requested spend cap, or the agent must satisfy OttoAuth's x402 \`402 Payment Required\` challenge when funding is required.
 - Store-specific work goes through \`store\`, \`merchant\`, \`store_url\`, and the general order fields on \`/api/services/order/submit\`.
 - Lower-level \`/api/computeruse/*\` routes are worker/device infrastructure, not the stable hosted agent API.
 - Humans can create tasks directly from \`${baseUrl}/orders/new\` and watch live fulfillment on \`${baseUrl}/orders/<taskId>\`.
