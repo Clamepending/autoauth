@@ -28,8 +28,8 @@ OttoAuth should own:
 - x402 or future MPP funding when an agent lacks linked human credits.
 - Delegated spending mandates such as per-order caps, merchant allowlists, and
   category restrictions.
-- Commerce routing across ACP, Zinc, native adapters, and OttoAuth internal
-  browser fulfillment.
+- Commerce routing across direct vendor APIs, Zinc, ACP-style checkout, and
+  OttoAuth internal browser agents.
 - Internal fulfillment queueing, worker scheduling, retry, screenshots, receipts,
   tracking, and admin fallback.
 - A single agent-facing status and event API.
@@ -49,6 +49,8 @@ The agentic commerce stack has several layers:
   or needs more spend capacity.
 - Merchant checkout: ACP handles merchants that expose agent checkout endpoints.
 - Retail execution: Zinc handles supported retailers that do not expose ACP.
+- Direct vendor APIs: Mouser, DigiKey, Treatstock, and future private vendor
+  integrations can complete orders without a browser worker when configured.
 - Long-tail execution: OttoAuth internal fulfillment agents handle stores and
   workflows that neither ACP nor Zinc covers.
 
@@ -62,8 +64,8 @@ flowchart TD
   OttoAuth --> Router["Commerce Router"]
   Router --> ACP["ACP Merchant Adapter"]
   Router --> Zinc["Zinc Retail Adapter"]
-  Router --> Native["Native Store Adapters"]
-  Router --> Internal["OttoAuth Internal Fulfillment Queue"]
+  Router --> API["Direct Vendor API Adapters"]
+  Router --> Internal["OttoAuth Agent Fulfillment Queue"]
   Internal --> Workers["Internal Browser Fulfillment Workers"]
   Workers --> Stores["Any Store A Human Can Use"]
   OttoAuth --> Status["Unified Status, Events, Receipts"]
@@ -86,10 +88,10 @@ flowchart TD
    request needs more credits, OttoAuth returns `402 Payment Required` with x402
    instructions. The agent pays OttoAuth and retries.
 6. OttoAuth builds a commerce route plan:
+   - API when a direct vendor API adapter is configured
    - ACP when the merchant exposes ACP checkout
    - Zinc when the retailer is in Zinc's supported coverage
-   - native adapter when OttoAuth owns a direct integration
-   - internal browser fulfillment for long-tail or not-yet-integrated stores
+   - OttoAuth agents for long-tail or not-yet-integrated stores
 7. OttoAuth queues work into internal fulfillment.
 8. The agent polls a single OttoAuth task/status API and reads run events,
    receipts, pickup details, tracking details, failures, and clarifications.
@@ -121,10 +123,16 @@ The first implementation does not need a full AP2 cryptographic envelope. It
 should still use the same shape so a future signed mandate can replace the
 inline JSON without changing the order API.
 
-## Routing Rails
+## Fulfillment Categories
 
-The commerce router should separate the best long-term rail from the rail
-actually used today.
+Every order should carry a durable fulfillment category:
+
+- `api`: fulfilled by a direct vendor API adapter.
+- `zinc`: fulfilled by Zinc.
+- `ottoauth_agents`: fulfilled by OttoAuth internal browser agents.
+
+The commerce router should also separate the best long-term rail from the rail
+actually used today:
 
 - `preferred_rail`: where OttoAuth wants to send this request as integrations
   come online.
@@ -132,8 +140,11 @@ actually used today.
 
 For example, Amazon should have `preferred_rail = "zinc"` because Zinc is a good
 execution provider for common retailers, but `execution_rail =
-"ottoauth_internal"` until a live Zinc adapter is configured. Snackpass or
-DigiKey can remain OttoAuth internal until native adapters exist.
+"ottoauth_agents"` until a live Zinc adapter is configured. Mouser should have
+`preferred_rail = "api"` and can use `execution_rail = "api"` when Mouser API
+credentials and API checkout fields are present. Xometry, Protolabs, and Fictiv
+should route to `ottoauth_agents` by default unless OttoAuth has private API
+credentials and a native endpoint payload.
 
 This lets OttoAuth position itself as the one-stop commerce bridge immediately
 without misrepresenting which lower-level integrations are live.
@@ -153,7 +164,9 @@ without misrepresenting which lower-level integrations are live.
   status, receipt.
 - Add a Zinc adapter for supported retail orders.
 - Add ACP adapter support for merchants that expose ACP.
-- Keep internal browser fulfillment as the fallback rail.
+- Add direct API adapters for Mouser, DigiKey, Treatstock, and private
+  manufacturing APIs.
+- Keep OttoAuth agents as the fallback rail.
 
 ### Phase 3: Strong Mandates
 
@@ -185,7 +198,9 @@ The response includes:
 
 - `commerce_route`
 - `commerce_mandate`
-- `fulfillment.provider = "ottoauth_internal"`
+- `task.fulfillment_category`
+- `task.fulfillment_provider`
+- `task.commerce_adapter_id`
 - `task`
 - `run_id`
 

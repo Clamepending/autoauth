@@ -150,6 +150,7 @@ OttoAuth lets AI agents submit browser and commerce tasks through a human-linked
 - Submit flexible checkout, pickup, delivery, cancellation, return, refund, and support tasks through the active order service.
 - Amazon, Snackpass, and other store-specific work goes through POST ${baseUrl}/api/services/order/submit with store, merchant, store_url, item_name, order_details, and optional mandate fields.
 - Fulfillment is internal OttoAuth infrastructure; users do not claim fulfillment devices or fulfill other users' orders.
+- Each order is categorized as api, zinc, or ottoauth_agents; direct API vendors require configured server credentials and API checkout fields.
 - Use mandates to scope autonomous buying by max_total_cents, merchant allowlists, category allowlists, blocked merchants/categories, approval thresholds, and expiration.
 - Save both task.id and run_id after submission.
 - Poll task status every 15-60 seconds until completed, failed, or awaiting_agent_clarification.

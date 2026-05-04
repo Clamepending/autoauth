@@ -154,8 +154,9 @@ OttoAuth's hosted service surface covers the core e-commerce automation features
 - **Create orders:** submit concrete purchase, pickup, delivery, reservation, cancellation, or return instructions through \`POST ${baseUrl}/api/services/order/submit\`.
 - **Products, quantities, offers, and variants:** include exact product URLs, merchant URLs, item names, quantities, sizes, colors, modifiers, substitutions, and spend caps in structured order fields or a compact fallback prompt.
 - **Managed retailer accounts:** orders run on OttoAuth internal fulfillment workers with OttoAuth-managed checkout setup.
-- **Commerce routing:** responses include \`commerce_route\` with the preferred future rail such as \`zinc\`, \`acp\`, \`native_adapter\`, or \`ottoauth_internal\`; current execution remains \`ottoauth_internal\` unless a live adapter is explicitly added.
-- **Mandates:** include \`mandate\` to scope per-order spend, merchant/category allowlists, blocked merchants/categories, approval thresholds, and expiration.
+- **Commerce routing:** every order is categorized as \`api\`, \`zinc\`, or \`ottoauth_agents\`. Responses include \`commerce_route\`, and task status persists \`fulfillment_category\`, \`fulfillment_provider\`, and \`commerce_adapter_id\`.
+- **Direct API vendors:** Mouser, DigiKey, and Treatstock can run through configured API adapters when the request includes API checkout fields. Xometry, Protolabs, and Fictiv route to OttoAuth agents unless private API credentials and a native endpoint payload are configured.
+- **Mandates:** include \`mandate\` to scope per-order spend, merchant/category allowlists, blocked merchants/categories, approval thresholds, and expiration. Categories include \`retail\`, \`food\`, \`grocery\`, \`travel\`, \`industrial_parts\`, \`custom_manufacturing\`, and \`services\`.
 - **Status follow-up:** poll \`POST ${baseUrl}/api/services/order/tasks/<taskId>\` for queued, running, clarification, completed, and failed states.
 - **Order history and events:** list recent tasks with \`POST ${baseUrl}/api/services/order/history\` and inspect the underlying execution trail with \`POST ${baseUrl}/api/services/order/runs/<runId>/events\`.
 - **Tracking and delivery details:** completed task responses can include \`pickup_details\`, \`tracking_details\`, confirmation data, totals, summaries, and errors.
@@ -434,6 +435,9 @@ Optional:
 - \`max_charge_cents\`
 - \`mandate\`
 - top-level mandate shortcuts: \`allowed_categories\`, \`allowed_merchants\`, \`blocked_categories\`, \`blocked_merchants\`, \`approval_required_over_cents\`
+- \`api_checkout\` for configured direct vendor APIs
+- \`items\`, \`parts\`, or \`line_items\` for part-number API orders such as Mouser
+- \`model_urls\` for Treatstock 3D printing API orders
 
 Important semantics:
 
@@ -442,6 +446,7 @@ Important semantics:
 - If \`max_charge_cents\` is provided and exceeds the human's current credit balance, the request is rejected.
 - If the request violates the mandate, OttoAuth returns \`403\` before x402 funding or queueing.
 - \`store\`, \`merchant\`, \`store_url\`, \`website_url\`, and \`shipping_address\` are hints and constraints for the fulfiller, not separate services.
+- If a direct API adapter is configured but the request does not include enough API checkout fields, OttoAuth routes the order to internal agents instead of guessing vendor API payloads.
 - Agent-submitted tasks do **not** use live human chat as their main clarification channel. They use the webhook flow described below.
 
 Response includes:
@@ -451,6 +456,7 @@ Response includes:
 - \`run_id\`
 - \`commerce_route\`
 - \`commerce_mandate\`
+- \`task.fulfillment_category\`, \`task.fulfillment_provider\`, and \`task.commerce_adapter_id\`
 - \`human_credit_balance\`
 - \`fulfillment_playbooks\` when OttoAuth matched supported site playbooks
 - \`failure_classification\` on failed tasks, with category, stage, retryability, matched signals, and suggested action

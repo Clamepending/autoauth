@@ -3,6 +3,7 @@ import { authenticateAgent } from "@/services/_shared/auth";
 import {
   appendComputerUseRunEvent,
   createComputerUseRun,
+  markComputerUseRunFinalState,
   markComputerUseRunWaitingForTask,
 } from "@/lib/computeruse-runs";
 import {
@@ -10,6 +11,7 @@ import {
   selectInternalComputerUseDevice,
 } from "@/lib/computeruse-store";
 import {
+  completeGenericBrowserTaskDirectly,
   createGenericBrowserTask,
   formatGenericTaskForApi,
 } from "@/lib/generic-browser-tasks";
@@ -27,6 +29,7 @@ import {
   formatCommerceRoutePlanForApi,
   planCommerceRoute,
 } from "@/lib/commerce-router";
+import { executeCommerceApiCheckout } from "@/lib/commerce-api-adapters";
 import {
   ensureOttoAuthInternalHumanUser,
   getHumanCreditBalance,
@@ -38,6 +41,22 @@ import {
   defaultX402TopUpCents,
   requireX402Funding,
 } from "@/lib/x402-ottoauth";
+
+function hasDirectApiCheckoutPayload(payload: Record<string, unknown>) {
+  return Boolean(
+    payload.api_checkout ||
+      payload.apiCheckout ||
+      payload.vendor_api ||
+      payload.vendorApi ||
+      Array.isArray(payload.items) ||
+      Array.isArray(payload.parts) ||
+      Array.isArray(payload.line_items) ||
+      Array.isArray(payload.model_urls) ||
+      Array.isArray(payload.modelUrls) ||
+      Array.isArray(payload.file_urls) ||
+      Array.isArray(payload.fileUrls),
+  );
+}
 
 export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as
@@ -106,6 +125,7 @@ export async function POST(request: Request) {
     platformHint,
     fulfillment,
     requestJson,
+    apiCheckoutRequested: hasDirectApiCheckoutPayload(payload),
   });
   const commerceRouteForApi = formatCommerceRoutePlanForApi(commerceRoutePlan);
   const commerceMandateDecision = evaluateCommerceMandate({
@@ -134,20 +154,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const [humanLink, selection] = await Promise.all([
-    getHumanLinkForAgentUsername(auth.usernameLower),
-    selectInternalComputerUseDevice(),
-  ]);
-  if (!selection?.device) {
-    return NextResponse.json(
-      {
-        error:
-          "OttoAuth internal fulfillment is not available right now. Try again shortly.",
-      },
-      { status: 409 },
-    );
-  }
-  const device = selection.device;
+  const humanLink = await getHumanLinkForAgentUsername(auth.usernameLower);
 
   const linkedHuman = humanLink
     ? await getHumanUserById(humanLink.human_user_id)
@@ -213,6 +220,137 @@ export async function POST(request: Request) {
     );
   }
 
+  if (commerceRoutePlan.fulfillmentCategory === "api") {
+    const apiDeviceId = `api:${commerceRoutePlan.adapterId}`;
+    const run = await createComputerUseRun({
+      agentUsername: auth.usernameLower,
+      deviceId: apiDeviceId,
+      taskPrompt,
+    });
+    await appendComputerUseRunEvent({
+      runId: run.id,
+      type: "commerce.api.run.created",
+      data: {
+        task_prompt: taskPrompt,
+        raw_task: rawTask,
+        device_id: apiDeviceId,
+        human_user_id: humanUser.id,
+        credit_balance_cents: creditBalance,
+        funded_via_x402_cents: fundingRequiredCents,
+        linked_human: hasLinkedHuman,
+        max_charge_cents: effectiveMaxCharge,
+        website_url: websiteUrl,
+        url_policy: urlPolicy,
+        fulfillment_provider: commerceRoutePlan.executionRail,
+        fulfillment_category: commerceRoutePlan.fulfillmentCategory,
+        commerce_route: commerceRouteForApi,
+        commerce_mandate: commerceMandateForApi,
+        shipping_address_present: Boolean(shippingAddress),
+      },
+    });
+
+    const createdTask = await createGenericBrowserTask({
+      agentId: auth.agent.id,
+      agentUsernameLower: auth.usernameLower,
+      humanUserId: humanUser.id,
+      deviceId: apiDeviceId,
+      submissionSource: "agent",
+      fulfillerHumanUserId: null,
+      taskPrompt,
+      taskTitle,
+      websiteUrl,
+      shippingAddress,
+      maxChargeCents: effectiveMaxCharge,
+      runId: run.id,
+      computeruseTaskId: null,
+      fulfillmentProvider: commerceRoutePlan.executionRail,
+      commerceAdapterId: commerceRoutePlan.adapterId,
+      commerceFulfillmentCategory: commerceRoutePlan.fulfillmentCategory,
+      commerceRoute: commerceRouteForApi,
+      commerceMandate: commerceMandateForApi,
+    });
+
+    await appendComputerUseRunEvent({
+      runId: run.id,
+      type: "commerce.api.checkout.started",
+      data: {
+        task_id: createdTask.id,
+        adapter_id: commerceRoutePlan.adapterId,
+        merchant_key: commerceRoutePlan.merchantKey,
+        max_charge_cents: effectiveMaxCharge,
+      },
+    });
+
+    const apiResult = await executeCommerceApiCheckout({
+      payload,
+      purchaseRequest,
+      routePlan: commerceRoutePlan,
+      maxChargeCents: effectiveMaxCharge,
+    });
+    await appendComputerUseRunEvent({
+      runId: run.id,
+      type:
+        apiResult.status === "completed"
+          ? "commerce.api.checkout.completed"
+          : "commerce.api.checkout.failed",
+      data: {
+        task_id: createdTask.id,
+        adapter_id: commerceRoutePlan.adapterId,
+        result: apiResult.result,
+        error: apiResult.error,
+      },
+    });
+    await markComputerUseRunFinalState({
+      runId: run.id,
+      status: apiResult.status,
+      result: apiResult.result,
+      error: apiResult.error,
+    });
+    const finalized = await completeGenericBrowserTaskDirectly({
+      taskId: createdTask.id,
+      status: apiResult.status,
+      result: apiResult.result,
+      error: apiResult.error,
+    });
+    const taskForApi = finalized?.task ?? createdTask;
+    const response = NextResponse.json({
+      ok: apiResult.status === "completed",
+      task: formatGenericTaskForApi(taskForApi),
+      run_id: run.id,
+      commerce_route: commerceRouteForApi,
+      commerce_mandate: commerceMandateForApi,
+      linked_human: hasLinkedHuman,
+      human_credit_balance: `$${(availableAfterFunding / 100).toFixed(2)}`,
+      x402_funded_cents: fundingRequiredCents,
+      fulfillment: {
+        selection: {
+          mode: "api",
+          adapter_id: commerceRoutePlan.adapterId,
+        },
+        provider: commerceRoutePlan.executionRail,
+        category: commerceRoutePlan.fulfillmentCategory,
+      },
+      note:
+        apiResult.status === "completed"
+          ? "Order completed through a direct vendor API adapter."
+          : "Direct vendor API checkout failed before internal fallback. Inspect task.error and run events.",
+    });
+    responseHeaders?.forEach((value, key) => response.headers.set(key, value));
+    return response;
+  }
+
+  const selection = await selectInternalComputerUseDevice();
+  if (!selection?.device) {
+    return NextResponse.json(
+      {
+        error:
+          "OttoAuth internal fulfillment is not available right now. Try again shortly.",
+      },
+      { status: 409 },
+    );
+  }
+  const device = selection.device;
+
   const fulfillmentPlaybooks = selectFulfillmentPlaybooks({
     rawTask,
     taskPrompt,
@@ -257,6 +395,7 @@ export async function POST(request: Request) {
       url_policy: urlPolicy,
       selection: selection.selection,
       fulfillment_provider: commerceRoutePlan.executionRail,
+      fulfillment_category: commerceRoutePlan.fulfillmentCategory,
       commerce_route: commerceRouteForApi,
       commerce_mandate: commerceMandateForApi,
       shipping_address_present: Boolean(shippingAddress),
@@ -288,6 +427,7 @@ export async function POST(request: Request) {
       linked_human: hasLinkedHuman,
       selection: selection.selection,
       fulfillment_provider: commerceRoutePlan.executionRail,
+      fulfillment_category: commerceRoutePlan.fulfillmentCategory,
       commerce_route: commerceRouteForApi,
       commerce_mandate: commerceMandateForApi,
       fulfillment_playbooks: fulfillmentPlaybookSummaries,
@@ -308,6 +448,11 @@ export async function POST(request: Request) {
     maxChargeCents: effectiveMaxCharge,
     runId: run.id,
     computeruseTaskId: task.id,
+    fulfillmentProvider: commerceRoutePlan.executionRail,
+    commerceAdapterId: commerceRoutePlan.adapterId,
+    commerceFulfillmentCategory: commerceRoutePlan.fulfillmentCategory,
+    commerceRoute: commerceRouteForApi,
+    commerceMandate: commerceMandateForApi,
   });
 
   const response = NextResponse.json({
@@ -323,6 +468,7 @@ export async function POST(request: Request) {
     fulfillment: {
       selection: selection.selection,
       provider: commerceRoutePlan.executionRail,
+      category: commerceRoutePlan.fulfillmentCategory,
     },
     note:
       "General order task queued. OttoAuth will complete it through internal fulfillment and debit credits after execution finishes.",

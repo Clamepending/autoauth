@@ -17,6 +17,7 @@ import {
   classifyFulfillmentFailure,
   extractFulfillmentFailureClassification,
 } from "@/lib/fulfillment-failures";
+import type { CommerceFulfillmentCategory } from "@/lib/commerce-adapter-config";
 
 export type GenericBrowserTaskStatus =
   | "queued"
@@ -77,6 +78,11 @@ export type GenericBrowserTaskRecord = {
   run_id: string | null;
   computeruse_task_id: string | null;
   result_json: string | null;
+  fulfillment_provider: string;
+  commerce_adapter_id: string | null;
+  commerce_fulfillment_category: CommerceFulfillmentCategory;
+  commerce_route_json: string | null;
+  commerce_mandate_json: string | null;
   pickup_details: GenericBrowserTaskPickupDetails | null;
   pickup_summary: string | null;
   tracking_details: GenericBrowserTaskTrackingDetails | null;
@@ -178,6 +184,12 @@ export type GenericBrowserTaskTrackingDetails = {
 
 let schemaReady = false;
 
+function normalizeFulfillmentCategory(value: unknown): CommerceFulfillmentCategory {
+  return value === "api" || value === "zinc" || value === "ottoauth_agents"
+    ? value
+    : "ottoauth_agents";
+}
+
 function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
   const resultJson = row.result_json == null ? null : String(row.result_json);
   const parsedResult = parseJsonObject(resultJson);
@@ -223,6 +235,17 @@ function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
     computeruse_task_id:
       row.computeruse_task_id == null ? null : String(row.computeruse_task_id),
     result_json: resultJson,
+    fulfillment_provider:
+      row.fulfillment_provider == null ? "ottoauth_agents" : String(row.fulfillment_provider),
+    commerce_adapter_id:
+      row.commerce_adapter_id == null ? null : String(row.commerce_adapter_id),
+    commerce_fulfillment_category: normalizeFulfillmentCategory(
+      row.commerce_fulfillment_category,
+    ),
+    commerce_route_json:
+      row.commerce_route_json == null ? null : String(row.commerce_route_json),
+    commerce_mandate_json:
+      row.commerce_mandate_json == null ? null : String(row.commerce_mandate_json),
     pickup_details: pickupDetails,
     pickup_summary: formatPickupSummary(pickupDetails),
     tracking_details: trackingDetails,
@@ -704,6 +727,11 @@ export async function ensureGenericBrowserTaskSchema() {
       run_id TEXT,
       computeruse_task_id TEXT,
       result_json TEXT,
+      fulfillment_provider TEXT NOT NULL DEFAULT 'ottoauth_agents',
+      commerce_adapter_id TEXT,
+      commerce_fulfillment_category TEXT NOT NULL DEFAULT 'ottoauth_agents',
+      commerce_route_json TEXT,
+      commerce_mandate_json TEXT,
       usage_json TEXT,
       clarification_request TEXT,
       clarification_requested_at TEXT,
@@ -855,6 +883,41 @@ export async function ensureGenericBrowserTaskSchema() {
       "clarification_callback_last_attempt_at",
     );
   }
+  if (!columns.some((c) => c.name === "fulfillment_provider")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN fulfillment_provider TEXT NOT NULL DEFAULT 'ottoauth_agents'",
+      "fulfillment_provider",
+    );
+  }
+  if (!columns.some((c) => c.name === "commerce_adapter_id")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN commerce_adapter_id TEXT",
+      "commerce_adapter_id",
+    );
+  }
+  if (!columns.some((c) => c.name === "commerce_fulfillment_category")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN commerce_fulfillment_category TEXT NOT NULL DEFAULT 'ottoauth_agents'",
+      "commerce_fulfillment_category",
+    );
+  }
+  if (!columns.some((c) => c.name === "commerce_route_json")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN commerce_route_json TEXT",
+      "commerce_route_json",
+    );
+  }
+  if (!columns.some((c) => c.name === "commerce_mandate_json")) {
+    await safeAddColumn(
+      client,
+      "ALTER TABLE generic_browser_tasks ADD COLUMN commerce_mandate_json TEXT",
+      "commerce_mandate_json",
+    );
+  }
   await client.execute(
     "CREATE INDEX IF NOT EXISTS idx_generic_browser_tasks_agent ON generic_browser_tasks(agent_username_lower, created_at)",
   );
@@ -916,6 +979,11 @@ export async function createGenericBrowserTask(params: {
   maxChargeCents?: number | null;
   runId?: string | null;
   computeruseTaskId?: string | null;
+  fulfillmentProvider?: string | null;
+  commerceAdapterId?: string | null;
+  commerceFulfillmentCategory?: CommerceFulfillmentCategory | null;
+  commerceRoute?: Record<string, unknown> | null;
+  commerceMandate?: Record<string, unknown> | null;
 }) {
   await ensureGenericBrowserTaskSchema();
   const client = getTursoClient();
@@ -924,8 +992,10 @@ export async function createGenericBrowserTask(params: {
     sql: `INSERT INTO generic_browser_tasks
           (agent_id, agent_username_lower, human_user_id, device_id, submission_source,
            fulfiller_human_user_id, task_title, task_prompt, website_url, shipping_address, max_charge_cents, status,
-           billing_status, payout_cents, payout_status, run_id, computeruse_task_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', 'pending', 0, 'pending', ?, ?, ?, ?)`,
+           billing_status, payout_cents, payout_status, run_id, computeruse_task_id,
+           fulfillment_provider, commerce_adapter_id, commerce_fulfillment_category,
+           commerce_route_json, commerce_mandate_json, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', 'pending', 0, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       params.agentId,
       params.agentUsernameLower.trim().toLowerCase(),
@@ -940,6 +1010,11 @@ export async function createGenericBrowserTask(params: {
       params.maxChargeCents ?? null,
       params.runId?.trim() || null,
       params.computeruseTaskId?.trim() || null,
+      params.fulfillmentProvider?.trim() || "ottoauth_agents",
+      params.commerceAdapterId?.trim() || null,
+      normalizeFulfillmentCategory(params.commerceFulfillmentCategory),
+      params.commerceRoute ? JSON.stringify(params.commerceRoute) : null,
+      params.commerceMandate ? JSON.stringify(params.commerceMandate) : null,
       now,
       now,
     ],
@@ -1629,6 +1704,149 @@ export async function completeGenericBrowserTaskFromExtension(params: {
   };
 }
 
+export async function completeGenericBrowserTaskDirectly(params: {
+  taskId: number;
+  status: "completed" | "failed";
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+}) {
+  await ensureGenericBrowserTaskSchema();
+  const existing = await getGenericBrowserTaskById(params.taskId);
+  if (!existing) return null;
+  if (existing.completed_at) {
+    return {
+      task: existing,
+      remainingCreditsCents: await getHumanCreditBalance(existing.human_user_id),
+      failureClassification: extractFulfillmentFailureClassification(
+        parseJsonObject(existing.result_json),
+      ),
+    };
+  }
+
+  const billing = extractBillingFields(params.result ?? null);
+  const finalSummary = buildFallbackTaskSummary({
+    status: params.status,
+    result: params.result,
+    error: params.error,
+    existingTaskTitle: existing.task_title,
+  });
+  const failureClassification =
+    params.status === "failed"
+      ? classifyFulfillmentFailure({
+          taskPrompt: existing.task_prompt,
+          websiteUrl: existing.website_url,
+          result: params.result,
+          error: params.error,
+        })
+      : null;
+  const storedResult =
+    failureClassification && params.result
+      ? {
+          ...params.result,
+          failure_classification: failureClassification,
+        }
+      : failureClassification
+        ? { failure_classification: failureClassification }
+        : params.result;
+  const shouldCharge = params.status === "completed";
+  const goodsCents = shouldCharge ? billing.goodsCents : 0;
+  const shippingCents = shouldCharge ? billing.shippingCents : 0;
+  const taxCents = shouldCharge ? billing.taxCents : 0;
+  const otherCents = shouldCharge ? billing.otherCents : 0;
+  const totalCents = goodsCents + shippingCents + taxCents + otherCents;
+  const now = new Date().toISOString();
+  const billingStatus: GenericBrowserTaskBillingStatus = shouldCharge
+    ? totalCents > 0
+      ? "debited"
+      : "completed_no_charge"
+    : "not_charged";
+  const payoutStatus: GenericBrowserTaskPayoutStatus = shouldCharge
+    ? "not_applicable"
+    : "not_charged";
+
+  if (shouldCharge && totalCents > 0) {
+    await addCreditLedgerEntry({
+      humanUserId: existing.human_user_id,
+      amountCents: -totalCents,
+      entryType: "task_debit",
+      description:
+        finalSummary ||
+        existing.task_title ||
+        `Direct API order task #${existing.id} completed`,
+      referenceType: "generic_browser_task",
+      referenceId: String(existing.id),
+      metadata: {
+        merchant: billing.merchant,
+        currency: billing.currency,
+        goods_cents: goodsCents,
+        shipping_cents: shippingCents,
+        tax_cents: taxCents,
+        other_cents: otherCents,
+        fulfillment_provider: existing.fulfillment_provider,
+        commerce_adapter_id: existing.commerce_adapter_id,
+        commerce_fulfillment_category: existing.commerce_fulfillment_category,
+      },
+    });
+  }
+
+  const client = getTursoClient();
+  await client.execute({
+    sql: `UPDATE generic_browser_tasks
+          SET status = ?, billing_status = ?, payout_cents = 0, payout_status = ?, payout_credited_at = NULL,
+              merchant = ?, currency = ?,
+              goods_cents = ?, shipping_cents = ?, tax_cents = ?, other_cents = ?,
+              inference_cents = 0, total_cents = ?, input_tokens = 0, output_tokens = 0,
+              result_json = ?, usage_json = NULL, summary = ?, error = ?, charged_at = ?, completed_at = ?, updated_at = ?
+          WHERE id = ?`,
+    args: [
+      params.status,
+      billingStatus,
+      payoutStatus,
+      billing.merchant,
+      billing.currency,
+      goodsCents,
+      shippingCents,
+      taxCents,
+      otherCents,
+      totalCents,
+      storedResult ? JSON.stringify(storedResult) : null,
+      finalSummary,
+      params.error?.trim() || null,
+      shouldCharge ? now : null,
+      now,
+      now,
+      existing.id,
+    ],
+  });
+
+  const updated = await getGenericBrowserTaskById(existing.id);
+  if (!updated) return null;
+  const remainingCredits = await getHumanCreditBalance(existing.human_user_id);
+  if (updated.status === "completed") {
+    const requester = await getHumanUserById(existing.human_user_id);
+    if (requester?.email) {
+      void sendOrderCompletionEmail({
+        recipient: {
+          email: requester.email,
+          displayName: requester.display_name,
+        },
+        task: updated,
+        remainingCreditsCents: remainingCredits,
+      }).catch((error) => {
+        console.error(
+          `[generic-browser-tasks] Failed to send API completion email for task ${updated.id}:`,
+          error,
+        );
+      });
+    }
+  }
+  return {
+    task: updated,
+    remainingCreditsCents: remainingCredits,
+    failureClassification,
+  };
+}
+
 export async function rateGenericBrowserTaskByRequester(params: {
   taskId: number;
   requesterHumanUserId: number;
@@ -1700,6 +1918,11 @@ export function formatGenericTaskForApi(task: GenericBrowserTaskRecord, viewer?:
     tracking_details: task.tracking_details,
     tracking_summary: task.tracking_summary,
     fulfillment_details_missing: task.fulfillment_details_missing,
+    fulfillment_provider: task.fulfillment_provider,
+    fulfillment_category: task.commerce_fulfillment_category,
+    commerce_adapter_id: task.commerce_adapter_id,
+    commerce_route: parseJsonObject(task.commerce_route_json),
+    commerce_mandate: parseJsonObject(task.commerce_mandate_json),
     clarification: task.clarification_request
       ? {
           question: task.clarification_request,

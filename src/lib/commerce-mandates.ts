@@ -4,6 +4,7 @@ export type CommerceCategory =
   | "grocery"
   | "travel"
   | "industrial_parts"
+  | "custom_manufacturing"
   | "services";
 
 export type InferredCommerceCategory = CommerceCategory | "unknown";
@@ -112,6 +113,23 @@ const CATEGORY_ALIASES: Record<CommerceCategory, string[]> = {
     "mouser",
     "jlcpcb",
     "pcb",
+  ],
+  custom_manufacturing: [
+    "custom manufacturing",
+    "manufacturing",
+    "3d printing",
+    "3d print",
+    "additive",
+    "additive manufacturing",
+    "cnc",
+    "prototype",
+    "prototyping",
+    "xometry",
+    "protolabs",
+    "proto labs",
+    "fictiv",
+    "treatstock",
+    "treat stock",
   ],
   services: [
     "service",

@@ -3,20 +3,27 @@ import {
   normalizeCommerceSlug,
   type InferredCommerceCategory,
 } from "@/lib/commerce-mandates";
+import {
+  directApiAdapterConfigured,
+  type CommerceFulfillmentCategory,
+} from "@/lib/commerce-adapter-config";
 
 export type CommerceFulfillmentRail =
   | "acp"
   | "zinc"
-  | "native_adapter"
-  | "ottoauth_internal";
+  | "api"
+  | "ottoauth_agents";
 
 export type CommerceAdapterStatus = "active" | "planned";
 
 export type CommerceRoutePlan = {
   preferredRail: CommerceFulfillmentRail;
-  executionRail: "ottoauth_internal";
+  executionRail: CommerceFulfillmentRail;
+  fulfillmentCategory: CommerceFulfillmentCategory;
+  preferredFulfillmentCategory: CommerceFulfillmentCategory;
   adapterId: string;
   adapterStatus: CommerceAdapterStatus;
+  adapterConfigured: boolean;
   merchantKey: string | null;
   category: InferredCommerceCategory;
   confidence: number;
@@ -33,15 +40,19 @@ type CommerceRouteInput = {
   platformHint?: string | null;
   fulfillment?: string | null;
   requestJson?: Record<string, unknown> | null;
+  apiCheckoutRequested?: boolean;
 };
 
 type CommerceAdapterHint = {
   merchantKey: string;
   adapterId: string;
   rail: CommerceFulfillmentRail;
+  fallbackRail: CommerceFulfillmentRail;
+  fulfillmentCategory: CommerceFulfillmentCategory;
   status: CommerceAdapterStatus;
   aliases: string[];
   domains: string[];
+  requiresConfiguration?: boolean;
 };
 
 type ScoredCommerceAdapter = {
@@ -57,6 +68,8 @@ const ZINC_RETAIL_ADAPTERS: CommerceAdapterHint[] = [
     merchantKey: "amazon",
     adapterId: "zinc.amazon",
     rail: "zinc",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "zinc",
     status: "planned",
     aliases: ["amazon", "amazon.com", "amazon prime"],
     domains: ["amazon.com"],
@@ -65,6 +78,8 @@ const ZINC_RETAIL_ADAPTERS: CommerceAdapterHint[] = [
     merchantKey: "walmart",
     adapterId: "zinc.walmart",
     rail: "zinc",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "zinc",
     status: "planned",
     aliases: ["walmart", "wal mart"],
     domains: ["walmart.com"],
@@ -73,6 +88,8 @@ const ZINC_RETAIL_ADAPTERS: CommerceAdapterHint[] = [
     merchantKey: "target",
     adapterId: "zinc.target",
     rail: "zinc",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "zinc",
     status: "planned",
     aliases: ["target"],
     domains: ["target.com"],
@@ -81,6 +98,8 @@ const ZINC_RETAIL_ADAPTERS: CommerceAdapterHint[] = [
     merchantKey: "bestbuy",
     adapterId: "zinc.bestbuy",
     rail: "zinc",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "zinc",
     status: "planned",
     aliases: ["best buy", "bestbuy"],
     domains: ["bestbuy.com"],
@@ -91,45 +110,104 @@ const ACP_ADAPTERS: CommerceAdapterHint[] = [
   {
     merchantKey: "acp",
     adapterId: "acp.checkout",
-    rail: "acp",
+    rail: "api",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "api",
     status: "planned",
     aliases: ["acp", "agentic commerce protocol", "shopify", "stripe shared payment token"],
     domains: ["myshopify.com"],
   },
 ];
 
-const OTTOAUTH_INTERNAL_ADAPTERS: CommerceAdapterHint[] = [
+const DIRECT_API_ADAPTERS: CommerceAdapterHint[] = [
+  {
+    merchantKey: "mouser",
+    adapterId: "api.mouser",
+    rail: "api",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "api",
+    status: "active",
+    aliases: ["mouser", "mouser electronics"],
+    domains: ["mouser.com"],
+    requiresConfiguration: true,
+  },
+  {
+    merchantKey: "digikey",
+    adapterId: "api.digikey",
+    rail: "api",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "api",
+    status: "active",
+    aliases: ["digikey", "digi key", "digi-key"],
+    domains: ["digikey.com"],
+    requiresConfiguration: true,
+  },
+  {
+    merchantKey: "treatstock",
+    adapterId: "api.treatstock",
+    rail: "api",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "api",
+    status: "active",
+    aliases: ["treatstock", "treat stock"],
+    domains: ["treatstock.com"],
+    requiresConfiguration: true,
+  },
+  {
+    merchantKey: "xometry",
+    adapterId: "api.xometry",
+    rail: "api",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "api",
+    status: "planned",
+    aliases: ["xometry"],
+    domains: ["xometry.com"],
+    requiresConfiguration: true,
+  },
+  {
+    merchantKey: "protolabs",
+    adapterId: "api.protolabs",
+    rail: "api",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "api",
+    status: "planned",
+    aliases: ["protolabs", "proto labs", "prodesk"],
+    domains: ["protolabs.com", "buildit.protolabs.com"],
+    requiresConfiguration: true,
+  },
+  {
+    merchantKey: "fictiv",
+    adapterId: "api.fictiv",
+    rail: "api",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "api",
+    status: "planned",
+    aliases: ["fictiv"],
+    domains: ["fictiv.com", "app.fictiv.com"],
+    requiresConfiguration: true,
+  },
+];
+
+const OTTOAUTH_AGENT_ADAPTERS: CommerceAdapterHint[] = [
   {
     merchantKey: "snackpass",
     adapterId: "ottoauth.browser.snackpass",
-    rail: "ottoauth_internal",
+    rail: "ottoauth_agents",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "ottoauth_agents",
     status: "active",
     aliases: ["snackpass", "snack pass"],
     domains: ["snackpass.co", "order.snackpass.co"],
   },
   {
-    merchantKey: "digikey",
-    adapterId: "ottoauth.browser.digikey",
-    rail: "ottoauth_internal",
-    status: "active",
-    aliases: ["digikey", "digi key"],
-    domains: ["digikey.com"],
-  },
-  {
     merchantKey: "mcmaster",
     adapterId: "ottoauth.browser.mcmaster",
-    rail: "ottoauth_internal",
+    rail: "ottoauth_agents",
+    fallbackRail: "ottoauth_agents",
+    fulfillmentCategory: "ottoauth_agents",
     status: "active",
     aliases: ["mcmaster", "mcmaster carr", "mcmaster-carr"],
     domains: ["mcmaster.com"],
-  },
-  {
-    merchantKey: "mouser",
-    adapterId: "ottoauth.browser.mouser",
-    rail: "ottoauth_internal",
-    status: "active",
-    aliases: ["mouser"],
-    domains: ["mouser.com"],
   },
 ];
 
@@ -207,9 +285,10 @@ function scoreAdapter(
 
 function bestAdapter(input: CommerceRouteInput) {
   const candidates = [
+    ...DIRECT_API_ADAPTERS,
     ...ACP_ADAPTERS,
     ...ZINC_RETAIL_ADAPTERS,
-    ...OTTOAUTH_INTERNAL_ADAPTERS,
+    ...OTTOAUTH_AGENT_ADAPTERS,
   ]
     .map((adapter) => scoreAdapter(adapter, input))
     .filter((candidate): candidate is ScoredCommerceAdapter => Boolean(candidate))
@@ -218,14 +297,28 @@ function bestAdapter(input: CommerceRouteInput) {
   return candidates[0] ?? null;
 }
 
-function adapterNote(adapter: CommerceAdapterHint | null) {
+function adapterNote(
+  adapter: CommerceAdapterHint | null,
+  executionRail: CommerceFulfillmentRail,
+  configured: boolean,
+  apiCheckoutRequested: boolean,
+) {
   if (!adapter) {
-    return "No specialized commerce adapter matched, so OttoAuth will use internal browser fulfillment.";
+    return "No specialized commerce adapter matched, so OttoAuth will use OttoAuth agents.";
   }
-  if (adapter.rail === "ottoauth_internal") {
-    return "This request is executable now through OttoAuth internal browser fulfillment.";
+  if (executionRail === "ottoauth_agents") {
+    if (adapter.rail === "api" && !configured) {
+      return `${adapter.adapterId} is the preferred API rail, but credentials are not configured; OttoAuth agents will fulfill this order.`;
+    }
+    if (adapter.rail === "api" && configured && !apiCheckoutRequested) {
+      return `${adapter.adapterId} is configured, but the request did not include API checkout fields; OttoAuth agents will fulfill this order.`;
+    }
+    if (adapter.rail === "zinc") {
+      return `${adapter.adapterId} is the preferred Zinc rail; current execution remains OttoAuth agents until Zinc is configured.`;
+    }
+    return "This request is executable now through OttoAuth agents.";
   }
-  return `${adapter.adapterId} is the preferred future rail for this merchant; current execution remains OttoAuth internal browser fulfillment.`;
+  return `${adapter.adapterId} is configured and selected for direct API execution.`;
 }
 
 export function planCommerceRoute(input: CommerceRouteInput): CommerceRoutePlan {
@@ -238,22 +331,37 @@ export function planCommerceRoute(input: CommerceRouteInput): CommerceRoutePlan 
   });
   const match = bestAdapter(input);
   const adapter = match?.adapter ?? null;
-  const preferredRail = adapter?.rail ?? "ottoauth_internal";
+  const preferredRail = adapter?.rail ?? "ottoauth_agents";
   const adapterId = adapter?.adapterId ?? "ottoauth.browser.generic";
   const adapterStatus = adapter?.status ?? "active";
+  const adapterConfigured = adapter ? directApiAdapterConfigured(adapter.adapterId) : false;
+  const executionRail =
+    adapter?.rail === "api" && adapterConfigured && input.apiCheckoutRequested
+      ? "api"
+      : adapter?.fallbackRail ?? "ottoauth_agents";
+  const preferredFulfillmentCategory = adapter?.fulfillmentCategory ?? "ottoauth_agents";
+  const fulfillmentCategory: CommerceFulfillmentCategory =
+    executionRail === "api"
+      ? "api"
+      : executionRail === "zinc"
+        ? "zinc"
+        : "ottoauth_agents";
   const reasons = match?.reasons ?? ["default internal browser fulfillment fallback"];
 
   return {
     preferredRail,
-    executionRail: "ottoauth_internal",
+    executionRail,
+    fulfillmentCategory,
+    preferredFulfillmentCategory,
     adapterId,
     adapterStatus,
+    adapterConfigured,
     merchantKey: adapter?.merchantKey ?? null,
     category,
     confidence: Math.min(match?.score ?? 25, 100),
     reasons,
     userFulfillmentExposed: false,
-    note: adapterNote(adapter),
+    note: adapterNote(adapter, executionRail, adapterConfigured, Boolean(input.apiCheckoutRequested)),
   };
 }
 
@@ -261,8 +369,11 @@ export function formatCommerceRoutePlanForApi(plan: CommerceRoutePlan) {
   return {
     preferred_rail: plan.preferredRail,
     execution_rail: plan.executionRail,
+    fulfillment_category: plan.fulfillmentCategory,
+    preferred_fulfillment_category: plan.preferredFulfillmentCategory,
     adapter_id: plan.adapterId,
     adapter_status: plan.adapterStatus,
+    adapter_configured: plan.adapterConfigured,
     merchant_key: plan.merchantKey,
     category: plan.category,
     confidence: plan.confidence,

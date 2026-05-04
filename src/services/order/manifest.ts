@@ -117,7 +117,7 @@ export function getManifest(): ServiceManifest {
             type: "array",
             required: false,
             description:
-              "Top-level shortcut for mandate.allowed_categories, such as retail, food, grocery, travel, industrial_parts, or services.",
+              "Top-level shortcut for mandate.allowed_categories, such as retail, food, grocery, travel, industrial_parts, custom_manufacturing, or services.",
           },
           allowed_merchants: {
             type: "array",
@@ -142,6 +142,24 @@ export function getManifest(): ServiceManifest {
             required: false,
             description:
               "Top-level shortcut for mandate.approval_required_over_cents. Until approval handoff is implemented, OttoAuth rejects requests above this threshold.",
+          },
+          api_checkout: {
+            type: "object",
+            required: false,
+            description:
+              "Optional direct vendor API checkout payload. Used for configured API adapters such as Mouser, DigiKey, Treatstock, and private manufacturing APIs.",
+          },
+          items: {
+            type: "array",
+            required: false,
+            description:
+              "Structured line items for API-capable vendors. For Mouser, include mouser_part_number and quantity.",
+          },
+          model_urls: {
+            type: "array",
+            required: false,
+            description:
+              "Public STL/PLY/3MF model URLs for Treatstock API quoting and order placement.",
           },
         },
       },
@@ -243,7 +261,7 @@ Use it for Amazon, Snackpass, restaurants, grocery, retailers, product purchases
 
 OttoAuth turns each order into structured request hints, retrieves the matching fulfillment playbook(s), and injects only those site-specific tactics into the browser task. Built-in playbooks currently cover Snackpass, Amazon, Instacart, Grubhub, Uber / Uber Eats, McMaster-Carr, eBay, Airbnb, Google Flights, and Booking.com.
 
-OttoAuth is also the commerce routing layer. Agents can submit one order request while OttoAuth decides the best long-term rail: ACP for merchants that expose agent checkout, Zinc for supported retailers, native OttoAuth adapters where available, and OttoAuth internal browser fulfillment for long-tail stores. Fulfillment remains internal OttoAuth infrastructure; no user fulfillment marketplace is exposed.
+OttoAuth is also the commerce routing layer. Agents can submit one order request while OttoAuth categorizes fulfillment as \`api\`, \`zinc\`, or \`ottoauth_agents\`. Direct API adapters cover configured vendors such as Mouser, DigiKey, and Treatstock. Zinc is the target rail for supported retailers such as Amazon and Walmart. OttoAuth agents remain the fallback for Snackpass, long-tail websites, and manufacturing providers without a public checkout API. Fulfillment remains internal OttoAuth infrastructure; no user fulfillment marketplace is exposed.
 
 ## Agent-readable startup contract
 
@@ -291,6 +309,9 @@ Core optional fields:
 - \`shipping_address\`
 - \`max_charge_cents\`
 - \`mandate\`: scoped spend and merchant/category rules for delegated buying
+- \`api_checkout\`: native or semi-structured API checkout payload for configured API vendors
+- \`items\`: part-number line items for API vendors such as Mouser
+- \`model_urls\`: STL/PLY/3MF URLs for Treatstock 3D printing
 - \`task_prompt\` for freeform detail
 
 The browser device's city, IP geolocation, or physical desktop location is never a substitute for the requester-provided delivery, pickup, destination, or search location. Include \`pickup_location\` or \`shipping_address\` whenever local availability matters.
@@ -305,7 +326,7 @@ Use mandates to constrain what an autonomous agent may buy before OttoAuth funds
     "id": "office-supplies-weekly",
     "max_total_cents": 7500,
     "max_daily_cents": 15000,
-    "allowed_categories": ["retail", "industrial_parts"],
+    "allowed_categories": ["retail", "industrial_parts", "custom_manufacturing"],
     "allowed_merchants": ["amazon", "digikey", "mcmaster"],
     "blocked_merchants": ["ebay"],
     "approval_required_over_cents": 5000,
@@ -331,17 +352,86 @@ Submit responses and run events include \`commerce_route\`:
 
 \`\`\`json
 {
-  "preferred_rail": "zinc",
-  "execution_rail": "ottoauth_internal",
-  "adapter_id": "zinc.amazon",
-  "adapter_status": "planned",
-  "merchant_key": "amazon",
-  "category": "retail",
+  "preferred_rail": "api",
+  "execution_rail": "api",
+  "fulfillment_category": "api",
+  "preferred_fulfillment_category": "api",
+  "adapter_id": "api.mouser",
+  "adapter_status": "active",
+  "adapter_configured": true,
+  "merchant_key": "mouser",
+  "category": "industrial_parts",
   "user_fulfillment_exposed": false
 }
 \`\`\`
 
-\`preferred_rail\` is OttoAuth's target integration path as adapters come online. \`execution_rail\` is what will run the order today. For now, live hosted orders still execute through \`ottoauth_internal\`, which lets OttoAuth preserve one stable agent API while adding Zinc, ACP, and native adapters behind the scenes.
+\`fulfillment_category\` is the durable order classification: \`api\`, \`zinc\`, or \`ottoauth_agents\`. \`preferred_rail\` is OttoAuth's target integration path. \`execution_rail\` is what will run the order today. If an API adapter is configured and the request includes API checkout fields, OttoAuth can complete the order directly through the vendor API. Otherwise OttoAuth falls back to internal agents.
+
+Current adapter behavior:
+
+- Mouser: direct API when \`OTTOAUTH_MOUSER_API_KEY\` or \`MOUSER_API_KEY\` is configured and the request includes \`api_checkout\`, \`items\`, \`parts\`, or \`line_items\`.
+- DigiKey: direct API pass-through when \`OTTOAUTH_DIGIKEY_ACCESS_TOKEN\` and \`OTTOAUTH_DIGIKEY_CLIENT_ID\` are configured and \`api_checkout.native_endpoint_path\` plus \`api_checkout.native_order_request\` are supplied. DigiKey Ordering is OAuth-gated.
+- Treatstock: direct API when \`OTTOAUTH_TREATSTOCK_PRIVATE_KEY\` is configured and the request includes \`model_urls\` or \`api_checkout.printable_pack_id\`.
+- Xometry, Protolabs, and Fictiv: routed to OttoAuth agents by default because public self-serve checkout APIs were not documented. Private API execution is available if \`OTTOAUTH_<VENDOR>_API_BASE_URL\`, \`OTTOAUTH_<VENDOR>_API_KEY\`, \`api_checkout.native_endpoint_path\`, and a native request are provided.
+
+## API checkout examples
+
+Mouser direct API:
+
+\`\`\`json
+{
+  "store": "mouser",
+  "items": [
+    { "mouser_part_number": "595-NE555P", "quantity": 10 }
+  ],
+  "api_checkout": {
+    "currency_code": "USD",
+    "shipping_method_code": 1,
+    "payment_method_code": 31,
+    "card_last_four": "4113",
+    "submit_order": true
+  },
+  "max_charge_cents": 5000
+}
+\`\`\`
+
+DigiKey direct API pass-through:
+
+\`\`\`json
+{
+  "store": "digikey",
+  "api_checkout": {
+    "native_endpoint_path": "/ordering/v3/orders",
+    "native_order_request": {
+      "SubmitOrder": true
+    }
+  },
+  "max_charge_cents": 5000
+}
+\`\`\`
+
+Treatstock direct API:
+
+\`\`\`json
+{
+  "store": "treatstock",
+  "model_urls": ["https://example.com/part.stl"],
+  "api_checkout": {
+    "material_group": "PLA",
+    "color": "Black",
+    "shipping_address": {
+      "country": "US",
+      "zip": "20003",
+      "city": "WASHINGTON",
+      "state": "DC",
+      "street": "727 C ST SE",
+      "firstName": "Bill",
+      "lastName": "Jobs"
+    }
+  },
+  "max_charge_cents": 15000
+}
+\`\`\`
 
 ## Amazon example
 
