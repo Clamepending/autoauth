@@ -17,7 +17,7 @@ Usage:
         --server https://ottoauth.vercel.app \
         --device-id raspberry-pi-worker-1 \
         --label "Raspberry Pi Worker" \
-        --claim-code XXXX-XXXX-XXXX
+        --internal-worker-token TOKEN
 
 Extra flags for the remote installer:
   --install-dir PATH       Stable install directory for the OttoAuth repo

@@ -240,18 +240,22 @@ export async function requireX402Funding(params: X402FundingResource): Promise<X
   try {
     paymentPayload = decodePaymentPayload(params.request);
   } catch (error) {
-    const paymentRequired = await createPaymentRequired(
-      { ...params, amountCents },
-      error instanceof Error ? error.message : "Invalid x402 payment payload.",
-    );
-    return {
-      ok: false,
-      response: paymentRequiredResponse({
-        paymentRequired,
-        amountCents,
-        error: "Invalid x402 payment payload.",
-      }),
-    };
+    try {
+      const paymentRequired = await createPaymentRequired(
+        { ...params, amountCents },
+        error instanceof Error ? error.message : "Invalid x402 payment payload.",
+      );
+      return {
+        ok: false,
+        response: paymentRequiredResponse({
+          paymentRequired,
+          amountCents,
+          error: "Invalid x402 payment payload.",
+        }),
+      };
+    } catch (challengeError) {
+      return { ok: false, response: facilitatorUnavailableResponse(amountCents, challengeError) };
+    }
   }
 
   if (!paymentPayload) {

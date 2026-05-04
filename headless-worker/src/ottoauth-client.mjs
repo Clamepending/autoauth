@@ -22,6 +22,7 @@ export async function pairDevice({
   deviceId,
   deviceLabel,
   pairingCode,
+  internalWorkerToken,
 }) {
   const normalizedServerUrl = normalizeServerUrl(serverUrl);
   if (!normalizedServerUrl) {
@@ -31,16 +32,21 @@ export async function pairDevice({
     throw new Error('A device id is required.');
   }
 
+  const requestBody = {
+    device_id: deviceId.trim(),
+    device_label: (deviceLabel || deviceId).trim(),
+    pairing_code: String(pairingCode || '').trim(),
+  };
+  if (internalWorkerToken?.trim()) {
+    requestBody.internal_worker_token = internalWorkerToken.trim();
+  }
+
   const response = await fetch(`${normalizedServerUrl}/api/computeruse/device/pair`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      device_id: deviceId.trim(),
-      device_label: (deviceLabel || deviceId).trim(),
-      pairing_code: String(pairingCode || '').trim(),
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   const payload = await parseJsonSafe(response);

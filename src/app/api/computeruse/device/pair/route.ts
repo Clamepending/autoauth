@@ -1,5 +1,10 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { claimComputerUseDeviceForHuman, pairComputerUseDevice } from "@/lib/computeruse-store";
+import {
+  claimComputerUseDeviceForHuman,
+  getComputerUseDeviceById,
+  pairComputerUseDevice,
+} from "@/lib/computeruse-store";
 import {
   consumeHumanDevicePairingCode,
   previewHumanDevicePairingCode,
@@ -12,6 +17,35 @@ function corsHeaders() {
     "Access-Control-Allow-Headers": "Content-Type",
     "Cache-Control": "no-store",
   };
+}
+
+function internalWorkerPairingToken() {
+  return (process.env.OTTOAUTH_INTERNAL_WORKER_PAIRING_TOKEN || "").trim();
+}
+
+function requestInternalWorkerPairingToken(
+  request: Request,
+  payload: Record<string, unknown> | null,
+) {
+  return (
+    request.headers.get("x-ottoauth-internal-worker-token") ||
+    request.headers.get("X-OttoAuth-Internal-Worker-Token") ||
+    (typeof payload?.internal_worker_token === "string"
+      ? payload.internal_worker_token
+      : typeof payload?.internalWorkerToken === "string"
+        ? payload.internalWorkerToken
+        : "")
+  ).trim();
+}
+
+function isValidInternalWorkerPairingToken(expected: string, actual: string) {
+  if (!expected || !actual) return false;
+  const expectedBytes = Buffer.from(expected);
+  const actualBytes = Buffer.from(actual);
+  return (
+    expectedBytes.length === actualBytes.length &&
+    timingSafeEqual(expectedBytes, actualBytes)
+  );
 }
 
 export async function OPTIONS() {
@@ -42,8 +76,34 @@ export async function POST(request: Request) {
         ? payload.pairingCode.trim()
         : "";
 
-  const paired = await pairComputerUseDevice(deviceId);
   if (!pairingCode) {
+    const expectedInternalToken = internalWorkerPairingToken();
+    const suppliedInternalToken = requestInternalWorkerPairingToken(request, payload);
+    if (!isValidInternalWorkerPairingToken(expectedInternalToken, suppliedInternalToken)) {
+      return NextResponse.json(
+        {
+          error:
+            "Internal worker pairing requires a trusted OttoAuth worker token.",
+        },
+        { status: 403, headers: corsHeaders() },
+      );
+    }
+
+    const existing = await getComputerUseDeviceById(deviceId);
+    if (existing?.human_user_id != null) {
+      return NextResponse.json(
+        {
+          error:
+            "This device is already claimed by a human account. Use a new device id for internal worker pairing.",
+        },
+        { status: 409, headers: corsHeaders() },
+      );
+    }
+
+    const paired = await pairComputerUseDevice({
+      deviceId,
+      internalWorkerEnabled: true,
+    });
     return NextResponse.json(
       {
         ok: true,
@@ -55,11 +115,24 @@ export async function POST(request: Request) {
         },
         deviceToken: paired.auth_token,
         note:
-          "Device paired without a human claim code. It is treated as an internal OttoAuth fulfillment worker and can receive internally routed tasks after it is online.",
+          "Trusted internal OttoAuth fulfillment worker paired. It can receive internally routed tasks after it is online.",
       },
       { headers: corsHeaders() },
     );
   }
+
+  const existing = await getComputerUseDeviceById(deviceId);
+  if (existing?.internal_worker_enabled) {
+    return NextResponse.json(
+      {
+        error:
+          "This device id belongs to a trusted internal worker. Use a different device id for human device claiming.",
+      },
+      { status: 409, headers: corsHeaders() },
+    );
+  }
+
+  const paired = await pairComputerUseDevice(deviceId);
 
   const pairingPreview = await previewHumanDevicePairingCode(pairingCode);
   if (!pairingPreview || pairingPreview.status === "expired" || pairingPreview.status === "consumed") {

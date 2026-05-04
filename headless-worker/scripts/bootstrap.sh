@@ -15,13 +15,15 @@ Usage:
     --server https://ottoauth.vercel.app \
     --device-id raspberry-pi-worker-1 \
     --label "Raspberry Pi Worker" \
-    --claim-code XXXX-XXXX-XXXX
+    --internal-worker-token TOKEN
 
 Flags:
   --server URL              OttoAuth base URL (required)
   --device-id ID            Stable device id (required)
   --label LABEL             Human-readable device label (optional)
-  --claim-code CODE         Device claim code from OttoAuth dashboard (required)
+  --claim-code CODE         Device claim code from OttoAuth dashboard
+  --internal-worker-token TOKEN
+                            Trusted internal worker pairing token
   --browser-path PATH       Chrome/Chromium path (optional, auto-detected if omitted)
   --profile-dir PATH        Chrome/Chromium user data dir to reuse for the worker
   --profile-name NAME       Chrome profile directory name inside the user data dir (for example: Default)
@@ -150,6 +152,7 @@ SERVER_URL=""
 DEVICE_ID=""
 DEVICE_LABEL=""
 CLAIM_CODE=""
+INTERNAL_WORKER_TOKEN="${OTTOAUTH_INTERNAL_WORKER_PAIRING_TOKEN:-}"
 BROWSER_PATH_OVERRIDE=""
 PROFILE_DIR_OVERRIDE="${OTTOAUTH_PROFILE_DIR:-}"
 PROFILE_NAME_OVERRIDE="${OTTOAUTH_PROFILE_NAME:-}"
@@ -172,6 +175,8 @@ while [[ $# -gt 0 ]]; do
       DEVICE_LABEL="${2:-}"; shift 2 ;;
     --claim-code)
       CLAIM_CODE="${2:-}"; shift 2 ;;
+    --internal-worker-token)
+      INTERNAL_WORKER_TOKEN="${2:-}"; shift 2 ;;
     --browser-path)
       BROWSER_PATH_OVERRIDE="${2:-}"; shift 2 ;;
     --profile-dir)
@@ -208,8 +213,8 @@ if [[ -z "${ANTHROPIC_API_KEY:-}" && -z "${CLAUDE_API_KEY:-}" ]]; then
   exit 1
 fi
 
-if [[ -z "$SERVER_URL" || -z "$DEVICE_ID" || -z "$CLAIM_CODE" ]]; then
-  echo "--server, --device-id, and --claim-code are required." >&2
+if [[ -z "$SERVER_URL" || -z "$DEVICE_ID" || ( -z "$CLAIM_CODE" && -z "$INTERNAL_WORKER_TOKEN" ) ]]; then
+  echo "--server, --device-id, and either --claim-code or --internal-worker-token are required." >&2
   usage
   exit 1
 fi
@@ -256,7 +261,11 @@ LAUNCH_AGENT_DOMAIN="gui/$(id -u)"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[dry-run] Would install npm dependencies in $ROOT_DIR"
-  echo "[dry-run] Would pair device $DEVICE_ID ($DEVICE_LABEL) to $SERVER_URL"
+  if [[ -n "$INTERNAL_WORKER_TOKEN" && -z "$CLAIM_CODE" ]]; then
+    echo "[dry-run] Would pair trusted internal worker $DEVICE_ID ($DEVICE_LABEL) to $SERVER_URL"
+  else
+    echo "[dry-run] Would pair device $DEVICE_ID ($DEVICE_LABEL) to $SERVER_URL"
+  fi
   if [[ "$SKIP_LOGIN" -eq 0 ]]; then
     if [[ -n "$LOGIN_URL" ]]; then
       echo "[dry-run] Would launch a visible sign-in browser at $LOGIN_URL"
@@ -286,7 +295,13 @@ echo "[bootstrap] Installing headless-worker dependencies..."
 run_in_worker_env npm install
 
 echo "[bootstrap] Pairing device with OttoAuth..."
-PAIR_ARGS=(./src/cli.mjs pair --server "$SERVER_URL" --device-id "$DEVICE_ID" --label "$DEVICE_LABEL" --claim-code "$CLAIM_CODE")
+PAIR_ARGS=(./src/cli.mjs pair --server "$SERVER_URL" --device-id "$DEVICE_ID" --label "$DEVICE_LABEL")
+if [[ -n "$CLAIM_CODE" ]]; then
+  PAIR_ARGS+=(--claim-code "$CLAIM_CODE")
+fi
+if [[ -n "$INTERNAL_WORKER_TOKEN" ]]; then
+  PAIR_ARGS+=(--internal-worker-token "$INTERNAL_WORKER_TOKEN")
+fi
 if [[ -n "$BROWSER_PATH" ]]; then
   PAIR_ARGS+=(--browser-path "$BROWSER_PATH")
 fi

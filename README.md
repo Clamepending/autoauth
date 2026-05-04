@@ -81,14 +81,16 @@ It can:
 Fastest setup path on a fresh Raspberry Pi with no repo clone:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Clamepending/autoauth/main/headless-worker/scripts/install-remote.sh | ANTHROPIC_API_KEY=sk-ant-... bash -s -- --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker"
+curl -fsSL https://raw.githubusercontent.com/Clamepending/autoauth/main/headless-worker/scripts/install-remote.sh | ANTHROPIC_API_KEY=sk-ant-... bash -s -- --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --internal-worker-token "$OTTOAUTH_INTERNAL_WORKER_PAIRING_TOKEN"
 ```
 
 If the repo is already present, this also works:
 
 ```bash
-cd /path/to/autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/bootstrap.sh --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker"
+cd /path/to/autoauth && ANTHROPIC_API_KEY=sk-ant-... ./headless-worker/scripts/bootstrap.sh --server https://ottoauth.vercel.app --device-id raspberry-pi-worker-1 --label "Raspberry Pi Worker" --internal-worker-token "$OTTOAUTH_INTERNAL_WORKER_PAIRING_TOKEN"
 ```
+
+Trusted internal workers require `OTTOAUTH_INTERNAL_WORKER_PAIRING_TOKEN` on the OttoAuth server and the matching `--internal-worker-token` during pairing. Public device pairing without a human claim code is rejected.
 
 During install, OttoAuth now opens the worker's dedicated persistent browser profile to Snackpass so you can sign in once, then it starts the background service after you close that window. Add `--skip-login` if you want to postpone that step.
 

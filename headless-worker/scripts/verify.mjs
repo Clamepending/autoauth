@@ -135,7 +135,10 @@ async function main() {
 
   const missingPairArg = await runCommand('node', [cliPath, 'pair', '--server', baseUrl], workerRoot);
   assert.notEqual(missingPairArg.code, 0);
-  assert.match(missingPairArg.stderr, /--claim-code is required|--server, --device-id, and --claim-code are required/);
+  assert.match(
+    missingPairArg.stderr,
+    /--claim-code or --internal-worker-token is required|--server, --device-id, and either --claim-code or --internal-worker-token are required/,
+  );
 
   const pairResult = await pairDevice({
     serverUrl: baseUrl,

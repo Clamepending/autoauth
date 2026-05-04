@@ -9,6 +9,7 @@ export type ComputerUseDeviceRecord = {
   human_user_id: number | null;
   label: string | null;
   marketplace_enabled: boolean;
+  internal_worker_enabled: boolean;
   last_seen_at: string | null;
   paired_at: string;
   updated_at: string;
@@ -66,6 +67,7 @@ export async function ensureComputerUseTransportSchema() {
       human_user_id INTEGER,
       label TEXT,
       marketplace_enabled INTEGER NOT NULL DEFAULT 0,
+      internal_worker_enabled INTEGER NOT NULL DEFAULT 0,
       last_seen_at TEXT,
       paired_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -90,6 +92,11 @@ export async function ensureComputerUseTransportSchema() {
   if (!deviceColumns.some((c) => c.name === "last_seen_at")) {
     await client.execute("ALTER TABLE computeruse_devices ADD COLUMN last_seen_at TEXT");
   }
+  if (!deviceColumns.some((c) => c.name === "internal_worker_enabled")) {
+    await client.execute(
+      "ALTER TABLE computeruse_devices ADD COLUMN internal_worker_enabled INTEGER NOT NULL DEFAULT 0"
+    );
+  }
   await client.execute(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_cu_devices_browser_token ON computeruse_devices(browser_token)"
   );
@@ -98,6 +105,9 @@ export async function ensureComputerUseTransportSchema() {
   );
   await client.execute(
     "CREATE INDEX IF NOT EXISTS idx_cu_devices_marketplace ON computeruse_devices(marketplace_enabled, last_seen_at)"
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_cu_devices_internal_worker ON computeruse_devices(internal_worker_enabled, last_seen_at)"
   );
 
   await client.execute(
@@ -181,25 +191,37 @@ function mapDeviceRow(row: Record<string, unknown>): ComputerUseDeviceRecord {
         : Number(row.human_user_id),
     label: row.label == null ? null : String(row.label),
     marketplace_enabled: Boolean(Number(row.marketplace_enabled ?? 0)),
+    internal_worker_enabled: Boolean(Number(row.internal_worker_enabled ?? 0)),
     last_seen_at: row.last_seen_at == null ? null : String(row.last_seen_at),
     paired_at: String(row.paired_at),
     updated_at: String(row.updated_at),
   };
 }
 
-export async function pairComputerUseDevice(deviceId: string) {
+export async function pairComputerUseDevice(params: string | {
+  deviceId: string;
+  internalWorkerEnabled?: boolean;
+}) {
   await ensureComputerUseTransportSchema();
   const client = getTursoClient();
-  const normalized = deviceId.trim() || "local-device-1";
+  const normalized =
+    (typeof params === "string" ? params : params.deviceId).trim() || "local-device-1";
+  const internalWorkerEnabled =
+    typeof params === "string" ? false : Boolean(params.internalWorkerEnabled);
   const existing = await getComputerUseDeviceById(normalized);
+  if (existing?.internal_worker_enabled && !internalWorkerEnabled) {
+    throw new Error("Internal worker devices require trusted pairing.");
+  }
   const now = new Date().toISOString();
   const authToken = randomToken("mockdev");
 
   await client.execute({
-    sql: `INSERT INTO computeruse_devices (device_id, auth_token, browser_token, human_user_id, label, paired_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO computeruse_devices
+            (device_id, auth_token, browser_token, human_user_id, label, marketplace_enabled, internal_worker_enabled, paired_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(device_id) DO UPDATE SET
             auth_token = excluded.auth_token,
+            internal_worker_enabled = excluded.internal_worker_enabled,
             updated_at = excluded.updated_at`,
     args: [
       normalized,
@@ -207,6 +229,8 @@ export async function pairComputerUseDevice(deviceId: string) {
       existing?.browser_token ?? null,
       existing?.human_user_id ?? null,
       existing?.label ?? null,
+      existing?.marketplace_enabled ? 1 : 0,
+      internalWorkerEnabled ? 1 : 0,
       existing?.paired_at ?? now,
       now,
     ],
@@ -290,7 +314,11 @@ export async function claimComputerUseDeviceForHuman(params: {
       : 0;
   await client.execute({
     sql: `UPDATE computeruse_devices
-          SET human_user_id = ?, label = COALESCE(?, label), marketplace_enabled = ?, updated_at = ?
+          SET human_user_id = ?,
+              label = COALESCE(?, label),
+              marketplace_enabled = ?,
+              internal_worker_enabled = 0,
+              updated_at = ?
           WHERE device_id = ?`,
     args: [
       params.humanUserId,
@@ -346,6 +374,7 @@ export async function listInternalComputerUseDevices(params?: {
             ON t.device_id = d.device_id
             AND t.status IN ('queued', 'delivered')
           WHERE d.human_user_id IS NULL
+            AND d.internal_worker_enabled = 1
             AND d.last_seen_at IS NOT NULL
             AND d.last_seen_at >= ?
           GROUP BY d.device_id

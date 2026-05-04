@@ -20,6 +20,7 @@ Common flags:
   --device-id raspberry-pi-worker-1
   --label "Raspberry Pi Worker"
   --claim-code XXXX-XXXX-XXXX
+  --internal-worker-token TOKEN
   --browser-path /path/to/chrome
   --site snackpass,grubhub,instacart,uber,amazon
   --url https://order.snackpass.co/
@@ -64,13 +65,16 @@ async function commandPair(flags) {
   const deviceId = String(flags['device-id'] || existing.deviceId || 'headless-worker-1').trim();
   const deviceLabel = String(flags.label || existing.deviceLabel || deviceId).trim();
   const pairingCode = String(flags['claim-code'] || '').trim();
+  const internalWorkerToken = String(
+    flags['internal-worker-token'] || process.env.OTTOAUTH_INTERNAL_WORKER_PAIRING_TOKEN || '',
+  ).trim();
   const browserPath = String(flags['browser-path'] || existing.browserPath || '').trim();
 
   if (!serverUrl) {
     throw new Error('--server is required.');
   }
-  if (!pairingCode) {
-    throw new Error('--claim-code is required.');
+  if (!pairingCode && !internalWorkerToken) {
+    throw new Error('--claim-code or --internal-worker-token is required.');
   }
 
   const paired = await pairDevice({
@@ -78,6 +82,7 @@ async function commandPair(flags) {
     deviceId,
     deviceLabel,
     pairingCode,
+    internalWorkerToken,
   });
 
   const nextConfig = {

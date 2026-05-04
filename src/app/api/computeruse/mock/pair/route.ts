@@ -25,7 +25,20 @@ export async function POST(request: Request) {
     normalizeMockDeviceId(payload?.device_id) ||
     "local-device-1";
 
-  const paired = await pairComputerUseDevice(deviceId);
+  let paired;
+  try {
+    paired = await pairComputerUseDevice(deviceId);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not pair mock device.",
+      },
+      { status: 409, headers: corsHeaders() },
+    );
+  }
 
   return NextResponse.json(
     {
