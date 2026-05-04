@@ -155,7 +155,7 @@ OttoAuth's hosted service surface covers the core e-commerce automation features
 - **Products, quantities, offers, and variants:** include exact product URLs, merchant URLs, item names, quantities, sizes, colors, modifiers, substitutions, and spend caps in structured order fields or a compact fallback prompt.
 - **Managed retailer accounts:** orders run on OttoAuth internal fulfillment workers with OttoAuth-managed checkout setup.
 - **Commerce routing:** every order is categorized as \`api\`, \`zinc\`, or \`ottoauth_agents\`. Responses include \`commerce_route\`, and task status persists \`fulfillment_category\`, \`fulfillment_provider\`, and \`commerce_adapter_id\`.
-- **Direct API vendors:** Mouser, DigiKey, and Treatstock can run through configured API adapters when the request includes API checkout fields. Xometry, Protolabs, and Fictiv route to OttoAuth agents unless private API credentials and a native endpoint payload are configured.
+- **Direct API vendors:** Mouser, DigiKey, Treatstock, and JLCPCB can run through configured API adapters when the request includes API checkout fields. Xometry, Protolabs, and Fictiv route to OttoAuth agents unless private API credentials and a native endpoint payload are configured.
 - **Mandates:** include \`mandate\` to scope per-order spend, merchant/category allowlists, blocked merchants/categories, approval thresholds, and expiration. Categories include \`retail\`, \`food\`, \`grocery\`, \`travel\`, \`industrial_parts\`, \`custom_manufacturing\`, and \`services\`.
 - **Status follow-up:** poll \`POST ${baseUrl}/api/services/order/tasks/<taskId>\` for queued, running, clarification, completed, and failed states.
 - **Order history and events:** list recent tasks with \`POST ${baseUrl}/api/services/order/history\` and inspect the underlying execution trail with \`POST ${baseUrl}/api/services/order/runs/<runId>/events\`.
@@ -438,6 +438,7 @@ Optional:
 - \`api_checkout\` for configured direct vendor APIs
 - \`items\`, \`parts\`, or \`line_items\` for part-number API orders such as Mouser
 - \`model_urls\` for Treatstock 3D printing API orders
+- \`api_checkout.native_endpoint_path\` and \`api_checkout.native_order_request\` for JLCPCB PCB/PCBA API orders once JLC API access is approved
 
 Important semantics:
 

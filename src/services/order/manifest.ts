@@ -147,7 +147,7 @@ export function getManifest(): ServiceManifest {
             type: "object",
             required: false,
             description:
-              "Optional direct vendor API checkout payload. Used for configured API adapters such as Mouser, DigiKey, Treatstock, and private manufacturing APIs.",
+              "Optional direct vendor API checkout payload. Used for configured API adapters such as Mouser, DigiKey, Treatstock, JLCPCB, and private manufacturing APIs.",
           },
           items: {
             type: "array",
@@ -261,7 +261,7 @@ Use it for Amazon, Snackpass, restaurants, grocery, retailers, product purchases
 
 OttoAuth turns each order into structured request hints, retrieves the matching fulfillment playbook(s), and injects only those site-specific tactics into the browser task. Built-in playbooks currently cover Snackpass, Amazon, Instacart, Grubhub, Uber / Uber Eats, McMaster-Carr, eBay, Airbnb, Google Flights, and Booking.com.
 
-OttoAuth is also the commerce routing layer. Agents can submit one order request while OttoAuth categorizes fulfillment as \`api\`, \`zinc\`, or \`ottoauth_agents\`. Direct API adapters cover configured vendors such as Mouser, DigiKey, and Treatstock. Zinc is the target rail for supported retailers such as Amazon and Walmart. OttoAuth agents remain the fallback for Snackpass, long-tail websites, and manufacturing providers without a public checkout API. Fulfillment remains internal OttoAuth infrastructure; no user fulfillment marketplace is exposed.
+OttoAuth is also the commerce routing layer. Agents can submit one order request while OttoAuth categorizes fulfillment as \`api\`, \`zinc\`, or \`ottoauth_agents\`. Direct API adapters cover configured vendors such as Mouser, DigiKey, Treatstock, and JLCPCB. Zinc is the target rail for supported retailers such as Amazon and Walmart. OttoAuth agents remain the fallback for Snackpass, long-tail websites, and manufacturing providers without a public checkout API. Fulfillment remains internal OttoAuth infrastructure; no user fulfillment marketplace is exposed.
 
 ## Agent-readable startup contract
 
@@ -312,6 +312,7 @@ Core optional fields:
 - \`api_checkout\`: native or semi-structured API checkout payload for configured API vendors
 - \`items\`: part-number line items for API vendors such as Mouser
 - \`model_urls\`: STL/PLY/3MF URLs for Treatstock 3D printing
+- \`api_checkout.native_endpoint_path\` plus \`api_checkout.native_order_request\`: native pass-through payload for JLCPCB PCB/PCBA and private vendor API orders
 - \`task_prompt\` for freeform detail
 
 The browser device's city, IP geolocation, or physical desktop location is never a substitute for the requester-provided delivery, pickup, destination, or search location. Include \`pickup_location\` or \`shipping_address\` whenever local availability matters.
@@ -372,6 +373,7 @@ Current adapter behavior:
 - Mouser: direct API when \`OTTOAUTH_MOUSER_API_KEY\` or \`MOUSER_API_KEY\` is configured and the request includes \`api_checkout\`, \`items\`, \`parts\`, or \`line_items\`.
 - DigiKey: direct API pass-through when \`OTTOAUTH_DIGIKEY_ACCESS_TOKEN\` and \`OTTOAUTH_DIGIKEY_CLIENT_ID\` are configured and \`api_checkout.native_endpoint_path\` plus \`api_checkout.native_order_request\` are supplied. DigiKey Ordering is OAuth-gated.
 - Treatstock: direct API when \`OTTOAUTH_TREATSTOCK_PRIVATE_KEY\` is configured and the request includes \`model_urls\` or \`api_checkout.printable_pack_id\`.
+- JLCPCB: direct API pass-through for PCB/PCBA when JLC API access is approved, \`OTTOAUTH_JLCPCB_API_BASE_URL\` and \`OTTOAUTH_JLCPCB_API_KEY\` are configured, and \`api_checkout.native_endpoint_path\` plus a native order or quote request are supplied. Without API credentials, JLCPCB orders route to OttoAuth agents for internal browser fulfillment.
 - Xometry, Protolabs, and Fictiv: routed to OttoAuth agents by default because public self-serve checkout APIs were not documented. Private API execution is available if \`OTTOAUTH_<VENDOR>_API_BASE_URL\`, \`OTTOAUTH_<VENDOR>_API_KEY\`, \`api_checkout.native_endpoint_path\`, and a native request are provided.
 
 ## API checkout examples
@@ -428,6 +430,30 @@ Treatstock direct API:
       "firstName": "Bill",
       "lastName": "Jobs"
     }
+  },
+  "max_charge_cents": 15000
+}
+\`\`\`
+
+JLCPCB PCB/PCBA direct API pass-through:
+
+\`\`\`json
+{
+  "store": "jlcpcb",
+  "task_title": "JLCPCB PCB assembly order",
+  "api_checkout": {
+    "native_endpoint_path": "/your-approved-jlc-api/order-or-quote-path",
+    "native_order_request": {
+      "submitOrder": true,
+      "gerberFileUrl": "https://example.com/project-gerbers.zip",
+      "bomFileUrl": "https://example.com/project-bom.csv",
+      "cplFileUrl": "https://example.com/project-cpl.csv"
+    }
+  },
+  "mandate": {
+    "allowed_categories": ["custom_manufacturing", "industrial_parts"],
+    "allowed_merchants": ["jlcpcb"],
+    "max_total_cents": 15000
   },
   "max_charge_cents": 15000
 }

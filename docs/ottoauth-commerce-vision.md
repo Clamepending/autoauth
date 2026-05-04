@@ -49,8 +49,9 @@ The agentic commerce stack has several layers:
   or needs more spend capacity.
 - Merchant checkout: ACP handles merchants that expose agent checkout endpoints.
 - Retail execution: Zinc handles supported retailers that do not expose ACP.
-- Direct vendor APIs: Mouser, DigiKey, Treatstock, and future private vendor
-  integrations can complete orders without a browser worker when configured.
+- Direct vendor APIs: Mouser, DigiKey, Treatstock, JLCPCB, and future private
+  vendor integrations can complete orders without a browser worker when
+  configured.
 - Long-tail execution: OttoAuth internal fulfillment agents handle stores and
   workflows that neither ACP nor Zinc covers.
 
@@ -142,9 +143,11 @@ For example, Amazon should have `preferred_rail = "zinc"` because Zinc is a good
 execution provider for common retailers, but `execution_rail =
 "ottoauth_agents"` until a live Zinc adapter is configured. Mouser should have
 `preferred_rail = "api"` and can use `execution_rail = "api"` when Mouser API
-credentials and API checkout fields are present. Xometry, Protolabs, and Fictiv
-should route to `ottoauth_agents` by default unless OttoAuth has private API
-credentials and a native endpoint payload.
+credentials and API checkout fields are present. JLCPCB should also prefer the
+API rail for PCB and PCBA orders when JLC API access and native checkout payloads
+are configured, then fall back to OttoAuth agents for browser checkout. Xometry,
+Protolabs, and Fictiv should route to `ottoauth_agents` by default unless
+OttoAuth has private API credentials and a native endpoint payload.
 
 This lets OttoAuth position itself as the one-stop commerce bridge immediately
 without misrepresenting which lower-level integrations are live.
@@ -164,8 +167,8 @@ without misrepresenting which lower-level integrations are live.
   status, receipt.
 - Add a Zinc adapter for supported retail orders.
 - Add ACP adapter support for merchants that expose ACP.
-- Add direct API adapters for Mouser, DigiKey, Treatstock, and private
-  manufacturing APIs.
+- Add direct API adapters for Mouser, DigiKey, Treatstock, JLCPCB PCB/PCBA, and
+  private manufacturing APIs.
 - Keep OttoAuth agents as the fallback rail.
 
 ### Phase 3: Strong Mandates

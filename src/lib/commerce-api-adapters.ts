@@ -569,11 +569,13 @@ async function executeTreatstock(params: CommerceApiCheckoutInput) {
 
 async function executePrivateManufacturingApi(
   params: CommerceApiCheckoutInput,
-  adapterId: "api.xometry" | "api.protolabs" | "api.fictiv",
+  adapterId: "api.jlcpcb" | "api.xometry" | "api.protolabs" | "api.fictiv",
 ) {
   const checkout = apiCheckout(params.payload);
   const prefix =
-    adapterId === "api.xometry"
+    adapterId === "api.jlcpcb"
+      ? "OTTOAUTH_JLCPCB"
+      : adapterId === "api.xometry"
       ? "OTTOAUTH_XOMETRY"
       : adapterId === "api.protolabs"
         ? "OTTOAUTH_PROTOLABS"
@@ -610,7 +612,17 @@ async function executePrivateManufacturingApi(
     adapterId,
     merchant,
     summary: `${merchant} private API request completed.`,
-    goodsCents: extractFirstCents(record(data) ?? {}, [["total"], ["price"], ["amount"]]),
+    goodsCents: extractFirstCents(record(data) ?? {}, [
+      ["total"],
+      ["price"],
+      ["amount"],
+      ["totalPrice"],
+      ["total_price"],
+      ["orderTotal"],
+      ["order_total"],
+      ["quote", "total"],
+      ["data", "total"],
+    ]),
     raw: data,
     extra: { endpoint_path: endpointPath },
   });
@@ -626,6 +638,8 @@ export async function executeCommerceApiCheckout(
       return executeDigiKey(params);
     case "api.treatstock":
       return executeTreatstock(params);
+    case "api.jlcpcb":
+      return executePrivateManufacturingApi(params, "api.jlcpcb");
     case "api.xometry":
       return executePrivateManufacturingApi(params, "api.xometry");
     case "api.protolabs":

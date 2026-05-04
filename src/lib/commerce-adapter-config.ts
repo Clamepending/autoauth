@@ -19,6 +19,8 @@ export function directApiAdapterConfigured(adapterId: string) {
       );
     case "api.treatstock":
       return Boolean(env("OTTOAUTH_TREATSTOCK_PRIVATE_KEY") || env("TREATSTOCK_PRIVATE_KEY"));
+    case "api.jlcpcb":
+      return Boolean(env("OTTOAUTH_JLCPCB_API_BASE_URL") && env("OTTOAUTH_JLCPCB_API_KEY"));
     case "api.xometry":
       return Boolean(env("OTTOAUTH_XOMETRY_API_BASE_URL") && env("OTTOAUTH_XOMETRY_API_KEY"));
     case "api.protolabs":
@@ -35,6 +37,7 @@ export function configuredDirectApiAdapterIds() {
     "api.mouser",
     "api.digikey",
     "api.treatstock",
+    "api.jlcpcb",
     "api.xometry",
     "api.protolabs",
     "api.fictiv",
