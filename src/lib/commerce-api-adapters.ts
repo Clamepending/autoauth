@@ -132,6 +132,20 @@ function fail(adapterId: string, message: string, extra: Record<string, unknown>
   };
 }
 
+function failIfOverMaxCharge(
+  adapterId: string,
+  totalCents: number,
+  maxChargeCents: number,
+  extra: Record<string, unknown> = {},
+) {
+  if (totalCents <= 0 || totalCents <= maxChargeCents) return null;
+  return fail(adapterId, "Vendor API total exceeds the OttoAuth spend cap.", {
+    total_cents: totalCents,
+    max_charge_cents: maxChargeCents,
+    ...extra,
+  });
+}
+
 function completed(params: {
   adapterId: string;
   summary: string;
@@ -299,6 +313,13 @@ async function executeMouser(params: CommerceApiCheckoutInput) {
     ["Summary", "OrderTotal"],
     ["OrderSummary", "Total"],
   ]);
+  const overMax = failIfOverMaxCharge(adapterId, goodsCents, params.maxChargeCents, {
+    cart_key: cartKey,
+    cart_response: cartResponse,
+    submit_order: submitOrder,
+    raw: data,
+  });
+  if (overMax) return overMax;
   return completed({
     adapterId,
     merchant: "mouser",
@@ -366,6 +387,11 @@ async function executeDigiKey(params: CommerceApiCheckoutInput) {
     ["total"],
     ["SalesOrder", "Total"],
   ]);
+  const overMax = failIfOverMaxCharge(adapterId, goodsCents, params.maxChargeCents, {
+    endpoint_path: endpointPath,
+    raw: data,
+  });
+  if (overMax) return overMax;
   return completed({
     adapterId,
     merchant: "digikey",
@@ -608,21 +634,27 @@ async function executePrivateManufacturingApi(
     });
   }
   const merchant = adapterId.replace("api.", "");
+  const goodsCents = extractFirstCents(record(data) ?? {}, [
+    ["total"],
+    ["price"],
+    ["amount"],
+    ["totalPrice"],
+    ["total_price"],
+    ["orderTotal"],
+    ["order_total"],
+    ["quote", "total"],
+    ["data", "total"],
+  ]);
+  const overMax = failIfOverMaxCharge(adapterId, goodsCents, params.maxChargeCents, {
+    endpoint_path: endpointPath,
+    raw: data,
+  });
+  if (overMax) return overMax;
   return completed({
     adapterId,
     merchant,
     summary: `${merchant} private API request completed.`,
-    goodsCents: extractFirstCents(record(data) ?? {}, [
-      ["total"],
-      ["price"],
-      ["amount"],
-      ["totalPrice"],
-      ["total_price"],
-      ["orderTotal"],
-      ["order_total"],
-      ["quote", "total"],
-      ["data", "total"],
-    ]),
+    goodsCents,
     raw: data,
     extra: { endpoint_path: endpointPath },
   });
