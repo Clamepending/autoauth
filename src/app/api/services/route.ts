@@ -21,9 +21,9 @@ export async function GET() {
     agentFlow: [
       "Ask the human to generate Agent API Keys in the dashboard.",
       "Store the dashboard-generated username and private_key securely.",
-      "Confirm the human has claimed or enabled a fulfillment device and has credits.",
+      "Confirm the human has credits, or be ready to satisfy OttoAuth's x402 payment challenge.",
       "GET a serviceUrl for machine-readable tools and docsUrl for markdown docs.",
-      "Submit Amazon, Snackpass, and other store work through /api/services/order/submit with store or merchant fields.",
+      "Submit Amazon, Snackpass, and other store work through /api/services/order/submit with store, merchant, and optional mandate fields.",
       "Persist task.id and run_id, poll task status, cancel if the human changes their mind, and answer clarification before the deadline.",
     ],
     services: allServices.map((m) => ({

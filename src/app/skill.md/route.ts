@@ -100,7 +100,22 @@ Your human must:
 
 If the agent has no linked human account, or if the linked human account does not have enough credits for the requested spend cap, the main hosted browser-task API returns \`402 Payment Required\` with x402 payment instructions when x402 is configured. Pay OttoAuth and retry with the payment proof to queue the task.
 
-### 3. Internal fulfillment queue
+### 3. Scoped commerce mandates
+
+For autonomous buying, include a scoped mandate when you submit an order. OttoAuth evaluates the mandate before x402 funding and before internal fulfillment queueing.
+
+Supported mandate fields:
+
+- \`max_total_cents\`
+- \`max_daily_cents\`
+- \`allowed_categories\` and \`blocked_categories\`
+- \`allowed_merchants\` and \`blocked_merchants\`
+- \`approval_required_over_cents\`
+- \`expires_at\`
+
+\`max_total_cents\` becomes the spend cap when \`max_charge_cents\` is omitted. Requests outside the mandate return \`403\` with \`commerce_mandate\` details. The current approval threshold behavior is conservative: requests above \`approval_required_over_cents\` are rejected with \`commerce_mandate.status = "approval_required"\` until a dedicated approval handoff exists.
+
+### 4. Internal fulfillment queue
 
 Fulfillment is internal OttoAuth infrastructure, not a user-facing device marketplace.
 
@@ -108,7 +123,7 @@ Fulfillment is internal OttoAuth infrastructure, not a user-facing device market
 - For **human self-serve tasks**, OttoAuth also uses the internal queue.
 - Users do not claim fulfillment devices, opt into fulfilling other users' orders, or receive fulfillment payouts.
 
-### 4. Service layer
+### 5. Service layer
 
 Once credentials and funding are ready, you interact through services:
 
@@ -139,6 +154,8 @@ OttoAuth's hosted service surface covers the core e-commerce automation features
 - **Create orders:** submit concrete purchase, pickup, delivery, reservation, cancellation, or return instructions through \`POST ${baseUrl}/api/services/order/submit\`.
 - **Products, quantities, offers, and variants:** include exact product URLs, merchant URLs, item names, quantities, sizes, colors, modifiers, substitutions, and spend caps in structured order fields or a compact fallback prompt.
 - **Managed retailer accounts:** orders run on OttoAuth internal fulfillment workers with OttoAuth-managed checkout setup.
+- **Commerce routing:** responses include \`commerce_route\` with the preferred future rail such as \`zinc\`, \`acp\`, \`native_adapter\`, or \`ottoauth_internal\`; current execution remains \`ottoauth_internal\` unless a live adapter is explicitly added.
+- **Mandates:** include \`mandate\` to scope per-order spend, merchant/category allowlists, blocked merchants/categories, approval thresholds, and expiration.
 - **Status follow-up:** poll \`POST ${baseUrl}/api/services/order/tasks/<taskId>\` for queued, running, clarification, completed, and failed states.
 - **Order history and events:** list recent tasks with \`POST ${baseUrl}/api/services/order/history\` and inspect the underlying execution trail with \`POST ${baseUrl}/api/services/order/runs/<runId>/events\`.
 - **Tracking and delivery details:** completed task responses can include \`pickup_details\`, \`tracking_details\`, confirmation data, totals, summaries, and errors.
@@ -363,7 +380,13 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
     "task_title":"Buy AA batteries",
     "store_url":"https://www.amazon.com",
     "shipping_address":"Jane Doe\\n123 Main St Apt 4B\\nSan Francisco, CA 94110",
-    "max_charge_cents": 2500
+    "max_charge_cents": 2500,
+    "mandate": {
+      "id": "office-supplies",
+      "max_total_cents": 2500,
+      "allowed_categories": ["retail"],
+      "allowed_merchants": ["amazon"]
+    }
   }'
 \`\`\`
 
@@ -409,11 +432,15 @@ Optional:
 - \`website_url\`
 - \`shipping_address\`
 - \`max_charge_cents\`
+- \`mandate\`
+- top-level mandate shortcuts: \`allowed_categories\`, \`allowed_merchants\`, \`blocked_categories\`, \`blocked_merchants\`, \`approval_required_over_cents\`
 
 Important semantics:
 
 - If \`max_charge_cents\` is omitted, OttoAuth uses the human's current credit balance as the spend cap.
+- If \`mandate.max_total_cents\` is provided and \`max_charge_cents\` is omitted, OttoAuth uses the mandate max as the spend cap.
 - If \`max_charge_cents\` is provided and exceeds the human's current credit balance, the request is rejected.
+- If the request violates the mandate, OttoAuth returns \`403\` before x402 funding or queueing.
 - \`store\`, \`merchant\`, \`store_url\`, \`website_url\`, and \`shipping_address\` are hints and constraints for the fulfiller, not separate services.
 - Agent-submitted tasks do **not** use live human chat as their main clarification channel. They use the webhook flow described below.
 
@@ -422,6 +449,8 @@ Response includes:
 - \`ok\`
 - \`task\` — the generic browser task object
 - \`run_id\`
+- \`commerce_route\`
+- \`commerce_mandate\`
 - \`human_credit_balance\`
 - \`fulfillment_playbooks\` when OttoAuth matched supported site playbooks
 - \`failure_classification\` on failed tasks, with category, stage, retryability, matched signals, and suggested action

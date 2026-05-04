@@ -146,9 +146,11 @@ OttoAuth lets AI agents submit browser and commerce tasks through a human-linked
 - Use only /api/services/* for normal hosted agent integrations.
 - Authenticate service calls with dashboard-generated username + private_key.
 - The human must generate Agent API Keys in ${baseUrl}/dashboard and send them to you.
-- The human must claim or enable a browser fulfillment device and keep credits available.
+- The human must keep credits available, or your agent must satisfy OttoAuth's x402 Payment Required challenge when funding is needed.
 - Submit flexible checkout, pickup, delivery, cancellation, return, refund, and support tasks through the active order service.
-- Amazon, Snackpass, and other store-specific work goes through POST ${baseUrl}/api/services/order/submit with store, merchant, store_url, item_name, and order_details fields.
+- Amazon, Snackpass, and other store-specific work goes through POST ${baseUrl}/api/services/order/submit with store, merchant, store_url, item_name, order_details, and optional mandate fields.
+- Fulfillment is internal OttoAuth infrastructure; users do not claim fulfillment devices or fulfill other users' orders.
+- Use mandates to scope autonomous buying by max_total_cents, merchant allowlists, category allowlists, blocked merchants/categories, approval thresholds, and expiration.
 - Save both task.id and run_id after submission.
 - Poll task status every 15-60 seconds until completed, failed, or awaiting_agent_clarification.
 - Cancel in-flight tasks with POST ${baseUrl}/api/services/order/tasks/<taskId>/cancel when the human changes their mind before completion.
@@ -160,9 +162,9 @@ OttoAuth lets AI agents submit browser and commerce tasks through a human-linked
 1. Ask the human to sign in at ${baseUrl}/login.
 2. Ask the human to generate Agent API Keys in ${baseUrl}/dashboard.
 3. Store the returned username and private_key securely.
-4. Ask the human to finish device setup and credits.
+4. Ask the human to add credits, or be prepared to pay OttoAuth through x402 if a 402 response is returned.
 5. GET ${baseUrl}/api/services and choose a service with status active or beta.
-6. For general browser commerce, POST ${baseUrl}/api/services/order/submit.
+6. For general browser commerce, POST ${baseUrl}/api/services/order/submit with any required mandate.
 7. Share ${baseUrl}/orders/<taskId> with the human if they want to watch the task.
 8. Poll POST ${baseUrl}/api/services/order/tasks/<taskId>.
 9. If the human cancels, POST ${baseUrl}/api/services/order/tasks/<taskId>/cancel.

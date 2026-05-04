@@ -19,6 +19,15 @@ import {
   summarizeSelectedFulfillmentPlaybooks,
 } from "@/lib/fulfillment-playbooks";
 import {
+  evaluateCommerceMandate,
+  formatCommerceMandateDecisionForApi,
+  normalizeCommerceMandateFromPayload,
+} from "@/lib/commerce-mandates";
+import {
+  formatCommerceRoutePlanForApi,
+  planCommerceRoute,
+} from "@/lib/commerce-router";
+import {
   ensureOttoAuthInternalHumanUser,
   getHumanCreditBalance,
   getHumanLinkForAgentUsername,
@@ -65,6 +74,66 @@ export async function POST(request: Request) {
     requestJson,
   } = purchaseRequest;
 
+  const submittedMaxCharge =
+    requestedMaxCharge == null ? null : Math.trunc(requestedMaxCharge);
+  if (submittedMaxCharge != null && submittedMaxCharge <= 0) {
+    return NextResponse.json(
+      { error: "max_charge_cents must be positive if provided." },
+      { status: 400 },
+    );
+  }
+
+  let commerceMandate: ReturnType<typeof normalizeCommerceMandateFromPayload>;
+  try {
+    commerceMandate = normalizeCommerceMandateFromPayload(payload);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Invalid commerce mandate.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const commerceRoutePlan = planCommerceRoute({
+    rawTask,
+    taskPrompt,
+    websiteUrl,
+    merchantName,
+    platformHint,
+    fulfillment,
+    requestJson,
+  });
+  const commerceRouteForApi = formatCommerceRoutePlanForApi(commerceRoutePlan);
+  const commerceMandateDecision = evaluateCommerceMandate({
+    mandate: commerceMandate,
+    merchantName,
+    platformHint,
+    rawTask,
+    taskPrompt,
+    requestJson,
+    maxChargeCents: submittedMaxCharge,
+    category: commerceRoutePlan.category,
+  });
+  const commerceMandateForApi =
+    formatCommerceMandateDecisionForApi(commerceMandateDecision);
+  if (!commerceMandateDecision.ok) {
+    return NextResponse.json(
+      {
+        error:
+          commerceMandateDecision.status === "approval_required"
+            ? "Commerce mandate requires approval before OttoAuth can queue this order."
+            : "Commerce mandate rejected this order.",
+        commerce_route: commerceRouteForApi,
+        commerce_mandate: commerceMandateForApi,
+      },
+      { status: 403 },
+    );
+  }
+
   const [humanLink, selection] = await Promise.all([
     getHumanLinkForAgentUsername(auth.usernameLower),
     selectInternalComputerUseDevice(),
@@ -93,8 +162,7 @@ export async function POST(request: Request) {
   const hasLinkedHuman = Boolean(linkedHuman);
   const creditBalance = await getHumanCreditBalance(humanUser.id);
 
-  const requestedCap =
-    requestedMaxCharge == null ? null : Math.trunc(requestedMaxCharge);
+  const requestedCap = commerceMandateDecision.effectiveMaxChargeCents;
   const defaultTopUpCents = defaultX402TopUpCents();
   const guestPaymentCents = requestedCap ?? defaultTopUpCents;
   const fundingRequiredCents = hasLinkedHuman
@@ -119,6 +187,11 @@ export async function POST(request: Request) {
       metadata: {
         linked_human: hasLinkedHuman,
         requested_max_charge_cents: requestedCap,
+        commerce_preferred_rail: commerceRoutePlan.preferredRail,
+        commerce_execution_rail: commerceRoutePlan.executionRail,
+        commerce_adapter_id: commerceRoutePlan.adapterId,
+        commerce_mandate_id: commerceMandate?.id ?? null,
+        commerce_mandate_status: commerceMandateDecision.status,
         task_title: taskTitle || null,
       },
     });
@@ -131,12 +204,6 @@ export async function POST(request: Request) {
     : fundingRequiredCents;
   const effectiveMaxCharge =
     requestedCap == null ? availableAfterFunding : requestedCap;
-  if (effectiveMaxCharge <= 0) {
-    return NextResponse.json(
-      { error: "max_charge_cents must be positive if provided." },
-      { status: 400 },
-    );
-  }
   if (hasLinkedHuman && requestedCap != null && effectiveMaxCharge > availableAfterFunding) {
     return NextResponse.json(
       {
@@ -189,7 +256,9 @@ export async function POST(request: Request) {
       website_url: websiteUrl,
       url_policy: urlPolicy,
       selection: selection.selection,
-      fulfillment_provider: "ottoauth_internal",
+      fulfillment_provider: commerceRoutePlan.executionRail,
+      commerce_route: commerceRouteForApi,
+      commerce_mandate: commerceMandateForApi,
       shipping_address_present: Boolean(shippingAddress),
       fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
@@ -218,7 +287,9 @@ export async function POST(request: Request) {
       human_user_id: humanUser.id,
       linked_human: hasLinkedHuman,
       selection: selection.selection,
-      fulfillment_provider: "ottoauth_internal",
+      fulfillment_provider: commerceRoutePlan.executionRail,
+      commerce_route: commerceRouteForApi,
+      commerce_mandate: commerceMandateForApi,
       fulfillment_playbooks: fulfillmentPlaybookSummaries,
     },
   });
@@ -243,13 +314,15 @@ export async function POST(request: Request) {
     ok: true,
     task: formatGenericTaskForApi(createdTask),
     run_id: run.id,
+    commerce_route: commerceRouteForApi,
+    commerce_mandate: commerceMandateForApi,
     fulfillment_playbooks: fulfillmentPlaybookSummaries,
     linked_human: hasLinkedHuman,
     human_credit_balance: `$${(availableAfterFunding / 100).toFixed(2)}`,
     x402_funded_cents: fundingRequiredCents,
     fulfillment: {
       selection: selection.selection,
-      provider: "ottoauth_internal",
+      provider: commerceRoutePlan.executionRail,
     },
     note:
       "General order task queued. OttoAuth will complete it through internal fulfillment and debit credits after execution finishes.",

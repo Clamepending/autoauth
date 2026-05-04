@@ -107,6 +107,42 @@ export function getManifest(): ServiceManifest {
             description:
               "Optional explicit max spend in cents. If omitted, OttoAuth uses the human's current credit balance as the cap.",
           },
+          mandate: {
+            type: "object",
+            required: false,
+            description:
+              "Optional scoped commerce mandate with max_total_cents, allowed_categories, blocked_categories, allowed_merchants, blocked_merchants, approval_required_over_cents, and expires_at.",
+          },
+          allowed_categories: {
+            type: "array",
+            required: false,
+            description:
+              "Top-level shortcut for mandate.allowed_categories, such as retail, food, grocery, travel, industrial_parts, or services.",
+          },
+          allowed_merchants: {
+            type: "array",
+            required: false,
+            description:
+              "Top-level shortcut for mandate.allowed_merchants. OttoAuth rejects requests outside this merchant/store allowlist.",
+          },
+          blocked_categories: {
+            type: "array",
+            required: false,
+            description:
+              "Top-level shortcut for mandate.blocked_categories.",
+          },
+          blocked_merchants: {
+            type: "array",
+            required: false,
+            description:
+              "Top-level shortcut for mandate.blocked_merchants.",
+          },
+          approval_required_over_cents: {
+            type: "number",
+            required: false,
+            description:
+              "Top-level shortcut for mandate.approval_required_over_cents. Until approval handoff is implemented, OttoAuth rejects requests above this threshold.",
+          },
         },
       },
       {
@@ -207,6 +243,8 @@ Use it for Amazon, Snackpass, restaurants, grocery, retailers, product purchases
 
 OttoAuth turns each order into structured request hints, retrieves the matching fulfillment playbook(s), and injects only those site-specific tactics into the browser task. Built-in playbooks currently cover Snackpass, Amazon, Instacart, Grubhub, Uber / Uber Eats, McMaster-Carr, eBay, Airbnb, Google Flights, and Booking.com.
 
+OttoAuth is also the commerce routing layer. Agents can submit one order request while OttoAuth decides the best long-term rail: ACP for merchants that expose agent checkout, Zinc for supported retailers, native OttoAuth adapters where available, and OttoAuth internal browser fulfillment for long-tail stores. Fulfillment remains internal OttoAuth infrastructure; no user fulfillment marketplace is exposed.
+
 ## Agent-readable startup contract
 
 1. Read \`${baseUrl}/llms.txt\`.
@@ -252,9 +290,58 @@ Core optional fields:
 - \`item_name\`, \`quantity\`, \`order_details\`
 - \`shipping_address\`
 - \`max_charge_cents\`
+- \`mandate\`: scoped spend and merchant/category rules for delegated buying
 - \`task_prompt\` for freeform detail
 
 The browser device's city, IP geolocation, or physical desktop location is never a substitute for the requester-provided delivery, pickup, destination, or search location. Include \`pickup_location\` or \`shipping_address\` whenever local availability matters.
+
+## Scoped commerce mandates
+
+Use mandates to constrain what an autonomous agent may buy before OttoAuth funds or queues fulfillment. A mandate can be supplied as a nested \`mandate\` object or by using the top-level shortcut fields.
+
+\`\`\`json
+{
+  "mandate": {
+    "id": "office-supplies-weekly",
+    "max_total_cents": 7500,
+    "max_daily_cents": 15000,
+    "allowed_categories": ["retail", "industrial_parts"],
+    "allowed_merchants": ["amazon", "digikey", "mcmaster"],
+    "blocked_merchants": ["ebay"],
+    "approval_required_over_cents": 5000,
+    "expires_at": "2026-06-01T00:00:00.000Z"
+  }
+}
+\`\`\`
+
+Current mandate enforcement happens synchronously on \`submit_order\`:
+
+- \`max_total_cents\` becomes the spend cap when \`max_charge_cents\` is omitted.
+- Requests above \`max_total_cents\` are rejected before x402 funding.
+- Requests outside \`allowed_merchants\` or \`allowed_categories\` are rejected.
+- Requests matching \`blocked_merchants\` or \`blocked_categories\` are rejected.
+- \`approval_required_over_cents\` currently rejects with \`commerce_mandate.status = "approval_required"\` until an approval handoff exists.
+- \`max_daily_cents\` is returned as mandate metadata; rolling daily enforcement requires persisted mandate spend tracking.
+
+Submit responses and run events include \`commerce_mandate\` with the normalized decision.
+
+## Commerce routing
+
+Submit responses and run events include \`commerce_route\`:
+
+\`\`\`json
+{
+  "preferred_rail": "zinc",
+  "execution_rail": "ottoauth_internal",
+  "adapter_id": "zinc.amazon",
+  "adapter_status": "planned",
+  "merchant_key": "amazon",
+  "category": "retail",
+  "user_fulfillment_exposed": false
+}
+\`\`\`
+
+\`preferred_rail\` is OttoAuth's target integration path as adapters come online. \`execution_rail\` is what will run the order today. For now, live hosted orders still execute through \`ottoauth_internal\`, which lets OttoAuth preserve one stable agent API while adding Zinc, ACP, and native adapters behind the scenes.
 
 ## Amazon example
 
