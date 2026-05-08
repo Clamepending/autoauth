@@ -9,6 +9,7 @@ import {
   markAgentPairingKeyConsumed,
   type AgentRecord,
 } from "@/lib/db";
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 
 export type HumanUserRecord = {
@@ -112,6 +113,7 @@ export type HumanReferralStats = {
 };
 
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 const STARTER_CREDIT_CENTS = 2000;
 export const REFERRAL_BONUS_CENTS = 500;
@@ -609,7 +611,23 @@ export async function qualifyHumanReferralAfterDeposit(params: {
 
 export async function ensureHumanAccountSchema() {
   if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = ensureHumanAccountSchemaOnce().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+  await schemaPromise;
+}
+
+async function ensureHumanAccountSchemaOnce() {
+  if (schemaReady) return;
   await ensureSchema();
+  await runSerializedSchemaMigration(ensureHumanAccountSchemaMigration);
+}
+
+async function ensureHumanAccountSchemaMigration() {
+  if (schemaReady) return;
   const client = getTursoClient();
 
   await client.execute(

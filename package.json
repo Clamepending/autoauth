@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "verify:order-api-contract": "node scripts/verify-order-api-contract.mjs",
     "package:extension": "./scripts/package-extension.sh",
     "mcp:ottoauth": "node scripts/ottoauth-mcp-server.mjs"
   },

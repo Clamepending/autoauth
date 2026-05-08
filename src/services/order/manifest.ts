@@ -238,6 +238,12 @@ Native API adapters are intentionally explicit. OttoAuth should not pretend that
 
 Every order response includes \`order.provider.capabilities\` so clients can see whether OttoAuth believes quote, place_order, cancel, status_tracking, live_tracking, messaging, clarification, dispute, file_upload, proof_of_completion, and refund are supported for that provider.
 
+## Deprecated routes
+
+Do not call \`/api/services/computeruse/*\`, \`/api/computeruse/tasks*\`, \`/api/computeruse/runs*\`, \`/api/computeruse/register-device\`, \`/api/pay/amazon/create-session\`, or \`/api/pay/snackpass/create-session\`. These old public browser-task/payment APIs return \`410 Deprecated API\` with \`replacement_path: "/api/services/order/submit"\`.
+
+Worker/device routes under \`/api/computeruse/device/*\` remain internal fulfillment infrastructure. They are for OttoAuth worker devices, not for hosted agent commerce integrations.
+
 ## Submit an order
 
 The whole integration is two calls when files are needed, one call when they are not.
@@ -253,6 +259,8 @@ curl -s -X POST ${baseUrl}/api/services/order/files \\
 \`\`\`
 
 Take the returned \`files[]\` and pass it directly into the order request. JSON/base64 uploads also work:
+
+File download URLs require \`Authorization: Bearer <agent_private_key>\` for the owning agent, or an authenticated OttoAuth admin session.
 
 \`\`\`json
 {

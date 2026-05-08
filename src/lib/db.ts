@@ -1,4 +1,5 @@
 import { getTursoClient } from "@/lib/turso";
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 
 export type AgentRecord = {
   id: number;
@@ -15,9 +16,25 @@ export type AgentRecord = {
 };
 
 let coreSchemaReady = false;
+let coreSchemaPromise: Promise<void> | null = null;
 
 export async function ensureSchema() {
   if (coreSchemaReady) return;
+  if (!coreSchemaPromise) {
+    coreSchemaPromise = ensureSchemaOnce().catch((error) => {
+      coreSchemaPromise = null;
+      throw error;
+    });
+  }
+  await coreSchemaPromise;
+}
+
+async function ensureSchemaOnce() {
+  if (coreSchemaReady) return;
+  await runSerializedSchemaMigration(ensureSchemaMigration);
+}
+
+async function ensureSchemaMigration() {
   const client = getTursoClient();
 
   await client.execute(

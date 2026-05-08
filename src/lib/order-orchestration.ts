@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { addCreditLedgerEntry, getHumanCreditBalance } from "@/lib/human-accounts";
 import { PLATFORM_CATALOG, type PlatformCatalogEntry } from "@/lib/platform-catalog";
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 
 export type OrderKind =
@@ -417,6 +418,7 @@ const PROVIDERS: ProviderDefinition[] = [
 ];
 
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 function optionalString(value: unknown, maxLength = 2000) {
   if (typeof value !== "string") return null;
@@ -974,6 +976,22 @@ function publicIdFor(orderId: number) {
 }
 
 export async function ensureOrderOrchestrationSchema() {
+  if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = ensureOrderOrchestrationSchemaOnce().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+  await schemaPromise;
+}
+
+async function ensureOrderOrchestrationSchemaOnce() {
+  if (schemaReady) return;
+  await runSerializedSchemaMigration(ensureOrderOrchestrationSchemaMigration);
+}
+
+async function ensureOrderOrchestrationSchemaMigration() {
   if (schemaReady) return;
   const client = getTursoClient();
   await client.execute(

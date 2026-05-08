@@ -1,8 +1,26 @@
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 export async function ensureAmazonSchema() {
+  if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = ensureAmazonSchemaOnce().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+  await schemaPromise;
+}
+
+async function ensureAmazonSchemaOnce() {
+  if (schemaReady) return;
+  await runSerializedSchemaMigration(ensureAmazonSchemaMigration);
+}
+
+async function ensureAmazonSchemaMigration() {
   if (schemaReady) return;
   const client = getTursoClient();
 

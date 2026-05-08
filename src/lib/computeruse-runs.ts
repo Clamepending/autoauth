@@ -1,4 +1,5 @@
 import { ensureSchema } from "@/lib/db";
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 import type { ComputerUseTaskRecord } from "@/lib/computeruse-store";
 
@@ -32,6 +33,7 @@ export type ComputerUseRunEvent = {
 };
 
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 function makeId(prefix: "run" | "runevt") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -39,7 +41,23 @@ function makeId(prefix: "run" | "runevt") {
 
 async function ensureComputerUseRunSchema() {
   if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = ensureComputerUseRunSchemaOnce().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+  await schemaPromise;
+}
+
+async function ensureComputerUseRunSchemaOnce() {
+  if (schemaReady) return;
   await ensureSchema();
+  await runSerializedSchemaMigration(ensureComputerUseRunSchemaMigration);
+}
+
+async function ensureComputerUseRunSchemaMigration() {
+  if (schemaReady) return;
   const client = getTursoClient();
   await client.execute(
     `CREATE TABLE IF NOT EXISTS computeruse_runs (

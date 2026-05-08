@@ -1,8 +1,26 @@
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 export async function ensureSnackpassSchema() {
+  if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = ensureSnackpassSchemaOnce().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+  await schemaPromise;
+}
+
+async function ensureSnackpassSchemaOnce() {
+  if (schemaReady) return;
+  await runSerializedSchemaMigration(ensureSnackpassSchemaMigration);
+}
+
+async function ensureSnackpassSchemaMigration() {
   if (schemaReady) return;
   const client = getTursoClient();
 

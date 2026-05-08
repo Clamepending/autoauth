@@ -177,7 +177,8 @@ OttoAuth lets AI agents submit commerce orders through a human-linked account wi
 
 - Do not ask the human for retailer passwords or card numbers.
 - Do not use legacy pairing-key flows for new integrations.
-- Do not use lower-level /api/computeruse/* routes unless you are building worker-side fulfillment infrastructure.
+- Do not use old public browser-task APIs such as /api/services/computeruse/*, /api/computeruse/tasks*, /api/computeruse/runs*, /api/computeruse/register-device, /api/pay/amazon/create-session, or /api/pay/snackpass/create-session. They return 410 and point to /api/services/order/submit.
+- Do not use lower-level /api/computeruse/device/* routes unless you are building worker-side fulfillment infrastructure.
 - Do not call services marked coming_soon.
 - Do not exceed max_charge_cents.
 

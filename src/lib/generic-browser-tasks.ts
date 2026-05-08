@@ -11,6 +11,7 @@ import {
 } from "@/lib/model-pricing";
 import { sendOrderCompletionEmail } from "@/lib/order-completion-email";
 import { sendOrderConfirmationEmail } from "@/lib/order-confirmation-email";
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 import { makeAgentClarificationDeadline } from "@/lib/computeruse-agent-clarification-config";
 import {
@@ -177,6 +178,7 @@ export type GenericBrowserTaskTrackingDetails = {
 };
 
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 function mapTaskRow(row: Record<string, unknown>): GenericBrowserTaskRecord {
   const resultJson = row.result_json == null ? null : String(row.result_json);
@@ -670,7 +672,23 @@ function extractClarificationRequest(
 
 export async function ensureGenericBrowserTaskSchema() {
   if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = ensureGenericBrowserTaskSchemaOnce().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+  await schemaPromise;
+}
+
+async function ensureGenericBrowserTaskSchemaOnce() {
+  if (schemaReady) return;
   await ensureSchema();
+  await runSerializedSchemaMigration(ensureGenericBrowserTaskSchemaMigration);
+}
+
+async function ensureGenericBrowserTaskSchemaMigration() {
+  if (schemaReady) return;
   const client = getTursoClient();
   await client.execute(
     `CREATE TABLE IF NOT EXISTS generic_browser_tasks (

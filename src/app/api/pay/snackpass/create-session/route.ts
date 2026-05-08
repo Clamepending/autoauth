@@ -1,16 +1,10 @@
-import { NextResponse } from "next/server";
-import { getBaseUrl } from "@/lib/base-url";
+import { deprecatedApiResponse } from "@/lib/legacy-api";
 
 export async function POST() {
-  const baseUrl = getBaseUrl();
-  return NextResponse.json(
-    {
-      error: "SNACKPASS_COMING_SOON",
-      message: "Snackpass payments are disabled until the hosted Snackpass integration is launched.",
-      status: "coming_soon",
-      listServicesUrl: `${baseUrl}/api/services`,
-      orderServiceUrl: `${baseUrl}/api/services/order`,
-    },
-    { status: 503 },
-  );
+  return deprecatedApiResponse({
+    legacyPath: "/api/pay/snackpass/create-session",
+    replacementPath: "/api/services/order/submit",
+    message:
+      "Snackpass-specific payment session creation is deprecated. Submit Snackpass orders through the canonical order API with store='snackpass'.",
+  });
 }

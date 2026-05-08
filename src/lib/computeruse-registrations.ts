@@ -1,4 +1,5 @@
 import { ensureSchema } from "@/lib/db";
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 
 export type ComputerUseAgentDeviceRegistration = {
@@ -10,10 +11,27 @@ export type ComputerUseAgentDeviceRegistration = {
 };
 
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 export async function ensureComputerUseRegistrationSchema() {
   if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = ensureComputerUseRegistrationSchemaOnce().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+  await schemaPromise;
+}
+
+async function ensureComputerUseRegistrationSchemaOnce() {
+  if (schemaReady) return;
   await ensureSchema();
+  await runSerializedSchemaMigration(ensureComputerUseRegistrationSchemaMigration);
+}
+
+async function ensureComputerUseRegistrationSchemaMigration() {
+  if (schemaReady) return;
   const client = getTursoClient();
   await client.execute(
     `CREATE TABLE IF NOT EXISTS computeruse_agent_device_registrations (

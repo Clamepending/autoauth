@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { listComputerUseDevicesForHuman } from "@/lib/computeruse-store";
 import {
+  ensureComputerUseTransportSchema,
+  listComputerUseDevicesForHuman,
+} from "@/lib/computeruse-store";
+import {
+  ensureHumanAccountSchema,
   getActiveHumanDevicePairingCodes,
   getHumanCreditBalance,
   getLinkedAgentsForHuman,
@@ -8,6 +12,7 @@ import {
 } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
 import {
+  ensureGenericBrowserTaskSchema,
   getHumanFulfillmentRatingStats,
   listAgentSpendTotalsForHuman,
   listGenericBrowserTasksRelatedToHuman,
@@ -21,33 +26,27 @@ export async function GET() {
   }
 
   const exposeUserFulfillment = isUserFulfillmentEnabled();
-  const [
-    balanceCents,
-    linkedAgents,
-    devices,
-    pairingCodes,
-    ledger,
-    tasks,
-    fulfillmentStats,
-    agentSpendTotals,
-  ] = await Promise.all([
-    getHumanCreditBalance(user.id),
-    getLinkedAgentsForHuman(user.id),
-    exposeUserFulfillment ? listComputerUseDevicesForHuman(user.id) : Promise.resolve([]),
-    exposeUserFulfillment ? getActiveHumanDevicePairingCodes(user.id) : Promise.resolve([]),
-    listCreditLedgerEntries(user.id, 20),
-    listGenericBrowserTasksRelatedToHuman(user.id, 20),
-    exposeUserFulfillment
-      ? getHumanFulfillmentRatingStats(user.id)
-      : Promise.resolve({
-          human_user_id: user.id,
-          submitted_task_count: 0,
-          fulfilled_task_count: 0,
-          rating_count: 0,
-          average_rating: null,
-        }),
-    listAgentSpendTotalsForHuman(user.id),
-  ]);
+  await ensureHumanAccountSchema();
+  await ensureGenericBrowserTaskSchema();
+  if (exposeUserFulfillment) {
+    await ensureComputerUseTransportSchema();
+  }
+  const balanceCents = await getHumanCreditBalance(user.id);
+  const linkedAgents = await getLinkedAgentsForHuman(user.id);
+  const devices = exposeUserFulfillment ? await listComputerUseDevicesForHuman(user.id) : [];
+  const pairingCodes = exposeUserFulfillment ? await getActiveHumanDevicePairingCodes(user.id) : [];
+  const ledger = await listCreditLedgerEntries(user.id, 20);
+  const tasks = await listGenericBrowserTasksRelatedToHuman(user.id, 20);
+  const fulfillmentStats = exposeUserFulfillment
+    ? await getHumanFulfillmentRatingStats(user.id)
+    : {
+        human_user_id: user.id,
+        submitted_task_count: 0,
+        fulfilled_task_count: 0,
+        rating_count: 0,
+        average_rating: null,
+      };
+  const agentSpendTotals = await listAgentSpendTotalsForHuman(user.id);
   const spendByAgentId = new Map(
     agentSpendTotals.map((entry) => [entry.agent_id, entry.total_spent_cents]),
   );

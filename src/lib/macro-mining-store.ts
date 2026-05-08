@@ -1,4 +1,5 @@
 import { ensureSchema } from "@/lib/db";
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 
 export type MacroTraceRecord = {
@@ -37,10 +38,27 @@ const DEPRECATION_MIN_EXECUTIONS = 20;
 const DEPRECATION_THRESHOLD = 0.4;
 
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 export async function ensureMacroMiningSchema() {
   if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = ensureMacroMiningSchemaOnce().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+  await schemaPromise;
+}
+
+async function ensureMacroMiningSchemaOnce() {
+  if (schemaReady) return;
   await ensureSchema();
+  await runSerializedSchemaMigration(ensureMacroMiningSchemaMigration);
+}
+
+async function ensureMacroMiningSchemaMigration() {
+  if (schemaReady) return;
   const client = getTursoClient();
 
   await client.execute(

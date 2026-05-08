@@ -1,5 +1,6 @@
 import { ensureSchema } from "@/lib/db";
 import { ensureComputerUseRegistrationSchema } from "@/lib/computeruse-registrations";
+import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 
 export type ComputerUseDeviceRecord = {
@@ -53,10 +54,27 @@ export type InternalComputerUseDeviceSelection = {
 };
 
 let cuTransportSchemaReady = false;
+let cuTransportSchemaPromise: Promise<void> | null = null;
 
 export async function ensureComputerUseTransportSchema() {
   if (cuTransportSchemaReady) return;
+  if (!cuTransportSchemaPromise) {
+    cuTransportSchemaPromise = ensureComputerUseTransportSchemaOnce().catch((error) => {
+      cuTransportSchemaPromise = null;
+      throw error;
+    });
+  }
+  await cuTransportSchemaPromise;
+}
+
+async function ensureComputerUseTransportSchemaOnce() {
+  if (cuTransportSchemaReady) return;
   await ensureSchema();
+  await runSerializedSchemaMigration(ensureComputerUseTransportSchemaMigration);
+}
+
+async function ensureComputerUseTransportSchemaMigration() {
+  if (cuTransportSchemaReady) return;
   const client = getTursoClient();
 
   await client.execute(
