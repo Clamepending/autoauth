@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import {
+  checkoutSessionRequiresHumanSession,
   checkoutSessionDisplay,
   getFreshCheckoutSessionById,
   orderSummaryFromPayload,
 } from "@/lib/ottoauth-checkout-sessions";
+import { getCurrentHumanUser } from "@/lib/human-session";
 
 type Props = {
   params: {
@@ -45,6 +47,11 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
   const session = await getFreshCheckoutSessionById(params.sessionId);
   if (!session) notFound();
 
+  const currentHuman = await getCurrentHumanUser();
+  if (!currentHuman) {
+    redirect(`/login?returnTo=${encodeURIComponent(`/checkout/${params.sessionId}`)}`);
+  }
+
   const display = await checkoutSessionDisplay(session);
   const order = display.rawOrder;
   const summary = orderSummaryFromPayload(order);
@@ -57,13 +64,16 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
     typeof quote.billing_mode === "string" && quote.billing_mode
       ? quote.billing_mode.replace(/_/g, " ")
       : "reconciled after fulfillment";
-  const confirmDisabled = session.status !== "open";
+  const ownerMismatch =
+    Boolean(display.linkedHuman) && display.linkedHuman?.id !== currentHuman.id;
+  const confirmDisabled = session.status !== "open" || ownerMismatch;
   const errorMessage =
     firstString(searchParams?.error) || firstString(session.last_error) || "";
   const statusLabel = displayStatus(session.status);
   const quoteStatus = displayStatus(quote.status);
   const quoteConfidence = displayStatus(quote.confidence);
   const isConfirmed = session.status === "confirmed" && Boolean(session.order_task_id);
+  const hostedCheckout = checkoutSessionRequiresHumanSession(session);
 
   return (
     <main className="checkout-page">
@@ -81,6 +91,12 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
         </div>
 
         {errorMessage ? <div className="auth-error">{errorMessage}</div> : null}
+        {ownerMismatch ? (
+          <div className="auth-error">
+            This checkout belongs to {display.linkedHuman?.email}. Sign in with that
+            OttoAuth account to confirm it.
+          </div>
+        ) : null}
         {isConfirmed ? (
           <div className="auth-success">
             OttoAuth received this order and queued it for human fulfillment.
@@ -149,20 +165,17 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
           <aside className="dashboard-card checkout-side-card">
             <div>
               <h2>Account</h2>
-              {display.linkedHuman ? (
-                <div className="checkout-account">
-                  <strong>
-                    {display.linkedHuman.display_name || display.linkedHuman.email}
-                  </strong>
-                  <span>{display.linkedHuman.email}</span>
-                  <span>Credit balance {money(display.linkedHuman.balance_cents)}</span>
-                </div>
-              ) : (
-                <p className="dashboard-muted">
-                  No linked human account was found for this agent. OttoAuth will use
-                  the configured guest funding path if available.
-                </p>
-              )}
+              <div className="checkout-account">
+                <strong>{currentHuman.display_name || currentHuman.email}</strong>
+                <span>{currentHuman.email}</span>
+                <span>
+                  {display.linkedHuman?.id === currentHuman.id
+                    ? `Credit balance ${money(display.linkedHuman.balance_cents)}`
+                    : hostedCheckout
+                      ? "This order will be queued under this OttoAuth account."
+                      : "Signed in on this device."}
+                </span>
+              </div>
             </div>
 
             {isConfirmed ? (

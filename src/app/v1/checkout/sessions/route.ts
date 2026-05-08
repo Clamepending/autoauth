@@ -4,7 +4,9 @@ import { authenticateOttoAuthAgentRequest } from "@/lib/ottoauth-api-auth";
 import {
   checkoutSessionUrl,
   createCheckoutSession,
+  createHostedCheckoutSession,
   formatCheckoutSessionForApi,
+  isHostedCheckoutPayload,
 } from "@/lib/ottoauth-checkout-sessions";
 import { sdkOptionsResponse, sdkRequestOrigin, withSdkCors } from "@/lib/ottoauth-sdk";
 
@@ -25,19 +27,27 @@ export async function POST(request: Request) {
     );
   }
 
-  const auth = await authenticateOttoAuthAgentRequest(request, payload, {
-    scope: "checkout.sessions:create",
-  });
-  if (!auth.ok) return withSdkCors(auth.response, request);
-
   try {
     const baseUrl = sdkRequestOrigin(request);
-    const session = await createCheckoutSession({
-      request,
-      payload,
-      auth,
-      baseUrl,
-    });
+    let session;
+    if (isHostedCheckoutPayload(payload)) {
+      session = await createHostedCheckoutSession({
+        request,
+        payload,
+        baseUrl,
+      });
+    } else {
+      const auth = await authenticateOttoAuthAgentRequest(request, payload, {
+        scope: "checkout.sessions:create",
+      });
+      if (!auth.ok) return withSdkCors(auth.response, request);
+      session = await createCheckoutSession({
+        request,
+        payload,
+        auth,
+        baseUrl,
+      });
+    }
     return withSdkCors(
       NextResponse.json(
         {

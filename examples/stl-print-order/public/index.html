@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Print Order</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Local fabrication app</p>
+            <h1>3D Print Order</h1>
+          </div>
+          <div class="topbar-actions">
+            <button id="sampleButton" class="secondary-button" type="button">Sample cube</button>
+            <button id="checkoutButton" class="primary-button" type="button">Get printed</button>
+          </div>
+        </header>
+
+        <div id="statusBanner" class="status-banner" hidden></div>
+
+        <div class="app-grid">
+          <section class="panel model-panel">
+            <div class="panel-header">
+              <h2>Model</h2>
+            </div>
+
+            <label class="file-drop">
+              <span>STL file</span>
+              <input id="stlFile" type="file" accept=".stl,model/stl" />
+            </label>
+
+            <div class="mesh-card">
+              <span>File</span>
+              <strong id="fileName">No STL selected</strong>
+            </div>
+
+            <div class="stats-grid">
+              <div>
+                <span>Size</span>
+                <strong id="fileSize">-</strong>
+              </div>
+              <div>
+                <span>Triangles</span>
+                <strong id="triangles">-</strong>
+              </div>
+              <div>
+                <span>Bounds</span>
+                <strong id="bounds">-</strong>
+              </div>
+              <div>
+                <span>Volume</span>
+                <strong id="volume">-</strong>
+              </div>
+            </div>
+
+            <div class="estimate-card">
+              <span>Rough estimate</span>
+              <strong id="estimate">$18.00</strong>
+            </div>
+          </section>
+
+          <section class="panel settings-panel" id="printForm">
+            <h2>Print Specs</h2>
+
+            <div class="field-row">
+              <label>
+                Material
+                <select id="material">
+                  <option value="PLA">PLA</option>
+                  <option value="PETG">PETG</option>
+                  <option value="resin">Resin</option>
+                  <option value="nylon">Nylon</option>
+                </select>
+              </label>
+              <label>
+                Color
+                <input id="color" value="black" />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label>
+                Quantity
+                <input id="quantity" type="number" min="1" max="100" value="1" />
+              </label>
+              <label>
+                Max spend
+                <input id="maxSpendUsd" inputmode="decimal" value="20" />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label>
+                Infill
+                <select id="infill">
+                  <option>15%</option>
+                  <option selected>20%</option>
+                  <option>40%</option>
+                  <option>100%</option>
+                </select>
+              </label>
+              <label>
+                Layer height
+                <select id="layerHeight">
+                  <option>0.12 mm</option>
+                  <option selected>0.20 mm</option>
+                  <option>0.28 mm</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Finish
+              <select id="finish">
+                <option>standard</option>
+                <option>smooth surface if available</option>
+                <option>paint-ready</option>
+              </select>
+            </label>
+
+            <label>
+              Provider
+              <select id="provider">
+                <option value="treatstock">Treatstock</option>
+                <option value="craftcloud">Craftcloud</option>
+                <option value="xometry">Xometry</option>
+              </select>
+            </label>
+
+            <label>
+              Shipping address
+              <textarea
+                id="shippingAddress"
+                rows="3"
+                placeholder="Jane Doe&#10;123 Main St&#10;San Francisco, CA 94110"
+              ></textarea>
+            </label>
+
+            <label>
+              Notes
+              <textarea id="notes" rows="3" placeholder="orientation, strength, tolerance, deadline"></textarea>
+            </label>
+          </section>
+
+          <section class="panel checkout-panel">
+            <h2>Order</h2>
+            <div class="estimate-card">
+              <span>Estimated print cost</span>
+              <strong id="sideEstimate">$18.00</strong>
+            </div>
+            <div id="result" class="result"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

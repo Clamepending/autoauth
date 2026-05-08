@@ -56,6 +56,7 @@ export default async function LoginPage({
   if (referralCode) googleLoginParams.set("ref", String(referralCode));
   const googleLoginHref = `/api/auth/google/login?${googleLoginParams.toString()}`;
   const isConnectLogin = returnTo.startsWith("/connect/");
+  const isCheckoutLogin = returnTo.startsWith("/checkout/");
 
   return (
     <main className="auth-page">
@@ -63,7 +64,9 @@ export default async function LoginPage({
         <div className="eyebrow">Human Login</div>
         <h1>Sign in to OttoAuth</h1>
         <p className="lede">
-          {isConnectLogin
+          {isCheckoutLogin
+            ? "Sign in to review and confirm this order."
+            : isConnectLogin
             ? "Sign in to approve this app and continue to checkout."
             : "Manage credits, connected apps, and fulfillment devices that can handle orders on your behalf."}
         </p>

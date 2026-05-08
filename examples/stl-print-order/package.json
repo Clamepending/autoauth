@@ -1,0 +1,8 @@
+{
+  "name": "ottoauth-stl-print-order-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}

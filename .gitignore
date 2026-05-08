@@ -10,7 +10,7 @@ local.db-*
 .vercel
 .env*.local
 .demo-agent-creds.json
-examples/tshirt-designer/.ottoauth-install*.json
+examples/*/.ottoauth-install*.json
 
 # Abhay's AI dev files
 implementation_details.md

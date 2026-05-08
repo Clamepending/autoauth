@@ -54,6 +54,15 @@ export async function POST(request: Request, { params }: Props) {
     maxChargeCents,
   });
   if (!confirmed.ok) {
+    if (confirmed.status === 401) {
+      return NextResponse.redirect(
+        new URL(
+          `/login?returnTo=${encodeURIComponent(`/checkout/${params.sessionId}`)}`,
+          sdkRequestOrigin(request),
+        ),
+        { status: 303 },
+      );
+    }
     return NextResponse.redirect(
       checkoutErrorUrl(request, params.sessionId, confirmed.error),
       { status: 303 },

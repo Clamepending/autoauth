@@ -2031,6 +2031,103 @@ export async function createHumanGeneratedAgentApiKey(params: {
   };
 }
 
+const HOSTED_CHECKOUT_PAIRING_KEY = "OTTOAUTH_HOSTED_CHECKOUT";
+
+export async function getOrCreateHumanHostedCheckoutAgent(params: {
+  humanUserId: number;
+}) {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+  const existing = await client.execute({
+    sql: `SELECT
+            a.id,
+            a.username_lower,
+            a.username_display,
+            a.private_key,
+            a.pairing_key,
+            a.pairing_key_created_at,
+            a.pairing_key_consumed_at,
+            a.callback_url,
+            a.description,
+            a.created_at,
+            a.updated_at
+          FROM human_agent_links l
+          JOIN agents a ON a.id = l.agent_id
+          WHERE l.human_user_id = ? AND l.pairing_key_used = ?
+          LIMIT 1`,
+    args: [params.humanUserId, HOSTED_CHECKOUT_PAIRING_KEY],
+  });
+  const existingAgent = existing.rows?.[0] as unknown as AgentRecord | undefined;
+  if (existingAgent) return existingAgent;
+
+  const privateKey = generatePrivateKey();
+  const now = new Date().toISOString();
+  let createdAgent: AgentRecord | null = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const suffix = randomBytes(3).toString("hex");
+    const usernameLower = `checkout_${params.humanUserId}_${suffix}`.slice(0, 32);
+    if (await getAgentByUsername(usernameLower)) continue;
+    try {
+      createdAgent = await createAgent({
+        usernameLower,
+        usernameDisplay: usernameLower,
+        privateKey,
+        pairingKey: null,
+        callbackUrl: null,
+        description: "OttoAuth hosted checkout",
+      });
+      break;
+    } catch (error) {
+      if (attempt === 7) throw error;
+    }
+  }
+
+  if (!createdAgent) {
+    throw new Error("Could not create hosted checkout agent.");
+  }
+
+  try {
+    await client.execute({
+      sql: `INSERT INTO human_agent_links
+            (human_user_id, agent_id, pairing_key_used, linked_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [
+        params.humanUserId,
+        createdAgent.id,
+        HOSTED_CHECKOUT_PAIRING_KEY,
+        now,
+        now,
+        now,
+      ],
+    });
+  } catch (error) {
+    const raced = await client.execute({
+      sql: `SELECT
+              a.id,
+              a.username_lower,
+              a.username_display,
+              a.private_key,
+              a.pairing_key,
+              a.pairing_key_created_at,
+              a.pairing_key_consumed_at,
+              a.callback_url,
+              a.description,
+              a.created_at,
+              a.updated_at
+            FROM human_agent_links l
+            JOIN agents a ON a.id = l.agent_id
+            WHERE l.human_user_id = ? AND l.pairing_key_used = ?
+            LIMIT 1`,
+      args: [params.humanUserId, HOSTED_CHECKOUT_PAIRING_KEY],
+    });
+    const racedAgent = raced.rows?.[0] as unknown as AgentRecord | undefined;
+    if (racedAgent) return racedAgent;
+    throw error;
+  }
+
+  return createdAgent;
+}
+
 export async function createHumanDevicePairingCode(params: {
   humanUserId: number;
   deviceLabel?: string | null;

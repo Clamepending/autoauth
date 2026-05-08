@@ -1,11 +1,16 @@
 import { randomBytes } from "node:crypto";
 
-import { getAgentById, type AgentRecord } from "@/lib/db";
+import { Buffer } from "node:buffer";
+
+import { generatePrivateKey } from "@/lib/agent-auth";
+import { createAgent, getAgentById, getAgentByUsername } from "@/lib/db";
 import {
-  getHumanCreditBalance,
   getHumanLinkForAgentUsername,
+  getHumanCreditBalance,
   getHumanUserById,
+  getOrCreateHumanHostedCheckoutAgent,
 } from "@/lib/human-accounts";
+import { getCurrentHumanUser } from "@/lib/human-session";
 import {
   createOrderForAgentRequest,
   type AgentOrderAuth,
@@ -18,6 +23,7 @@ import {
 import { normalizeSdkCheckoutPayload } from "@/lib/ottoauth-sdk-checkout";
 import type { OttoAuthAgentAuthSuccess } from "@/lib/ottoauth-api-auth";
 import { resolveNonBrowserPriceQuote } from "@/lib/non-browser-price-quotes";
+import { saveSdkUploadedFile, sdkFileDownloadUrl } from "@/lib/ottoauth-sdk-files";
 import { getTursoClient } from "@/lib/turso";
 
 export type CheckoutSessionStatus =
@@ -53,6 +59,11 @@ type SessionCreateUrls = {
   successUrl: string | null;
   cancelUrl: string | null;
 };
+
+const HOSTED_CHECKOUT_AUTH_MODE = "human_session";
+const CHECKOUT_INTAKE_AGENT_USERNAME = "ottoauth_checkout_intake";
+const MAX_HOSTED_CHECKOUT_FILES = 8;
+const MAX_HOSTED_CHECKOUT_FILE_BYTES = 25 * 1024 * 1024;
 
 let checkoutSessionSchemaReady = false;
 
@@ -267,6 +278,146 @@ function normalizeExpiresAt(value: unknown) {
   return new Date(timestamp).toISOString();
 }
 
+function base64FileBytes(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const cleaned = value.includes(",") ? value.slice(value.indexOf(",") + 1) : value;
+  const bytes = Buffer.from(cleaned, "base64");
+  return bytes.length ? bytes : null;
+}
+
+function stripUploadFields(file: Record<string, unknown>) {
+  const next = { ...file };
+  delete next.content_base64;
+  delete next.contentBase64;
+  delete next.base64;
+  delete next.data;
+  return next;
+}
+
+function publicCheckoutFileName(file: Record<string, unknown>, index: number) {
+  return (
+    optionalString(file.name ?? file.filename ?? file.file_name ?? file.fileName, 240) ??
+    `checkout-file-${index + 1}`
+  );
+}
+
+async function persistHostedCheckoutFiles(params: {
+  payload: Record<string, unknown>;
+  baseUrl: string;
+}) {
+  const payload = { ...params.payload };
+  const nestedOrder = optionalRecord(payload.order) ?? optionalRecord(payload.checkout);
+  const rawOrder = nestedOrder ? { ...nestedOrder } : { ...payload };
+  const rawFiles = Array.isArray(rawOrder.files)
+    ? rawOrder.files
+    : Array.isArray(payload.files)
+      ? payload.files
+      : [];
+  if (!rawFiles.length) return payload;
+  if (rawFiles.length > MAX_HOSTED_CHECKOUT_FILES) {
+    throw new Error(`Attach at most ${MAX_HOSTED_CHECKOUT_FILES} files per checkout.`);
+  }
+
+  const files = [];
+  for (let index = 0; index < rawFiles.length; index += 1) {
+    const record = optionalRecord(rawFiles[index]);
+    if (!record) continue;
+    const bytes = base64FileBytes(
+      record.content_base64 ?? record.contentBase64 ?? record.base64 ?? record.data,
+    );
+    if (!bytes) {
+      files.push(stripUploadFields(record));
+      continue;
+    }
+    if (bytes.length > MAX_HOSTED_CHECKOUT_FILE_BYTES) {
+      throw new Error("Hosted checkout files must be 25 MB or smaller.");
+    }
+
+    const stored = await saveSdkUploadedFile({
+      humanUserId: 0,
+      name: publicCheckoutFileName(record, index),
+      contentType: optionalString(record.content_type ?? record.contentType, 200),
+      bytes,
+      metadata: {
+        hosted_checkout: true,
+        source_app: optionalString(payload.app_id ?? payload.appId, 120),
+        original_metadata: record.metadata ?? null,
+      },
+    });
+    files.push({
+      ...stripUploadFields(record),
+      id: stored.id,
+      file_id: stored.id,
+      name: stored.name,
+      url: sdkFileDownloadUrl({ baseUrl: params.baseUrl, file: stored }),
+      download_url: sdkFileDownloadUrl({ baseUrl: params.baseUrl, file: stored }),
+      content_type: stored.content_type,
+      size: stored.size,
+      size_bytes: stored.size,
+      sha256: stored.sha256,
+      storage_backend: stored.storage_backend || "local",
+    });
+  }
+
+  rawOrder.files = files;
+  delete payload.files;
+  if (optionalRecord(params.payload.order)) {
+    payload.order = rawOrder;
+  } else if (optionalRecord(params.payload.checkout)) {
+    payload.checkout = rawOrder;
+  } else {
+    payload.order = rawOrder;
+  }
+  return payload;
+}
+
+export function isHostedCheckoutPayload(payload: Record<string, unknown>) {
+  const authMode = optionalString(
+    payload.auth_mode ??
+      payload.authMode ??
+      payload.checkout_auth_mode ??
+      payload.checkoutAuthMode,
+    80,
+  );
+  return (
+    authMode === HOSTED_CHECKOUT_AUTH_MODE ||
+    payload.public === true ||
+    payload.require_human_login === true ||
+    payload.requireHumanLogin === true
+  );
+}
+
+export function checkoutSessionRequiresHumanSession(
+  session: OttoAuthCheckoutSessionRecord,
+) {
+  const metadata = parseJsonObject(session.metadata_json) ?? {};
+  const order = parseJsonObject(session.order_json) ?? {};
+  return (
+    metadata.auth_mode === HOSTED_CHECKOUT_AUTH_MODE ||
+    metadata.created_by === "hosted_checkout_intake" ||
+    order.auth_mode === HOSTED_CHECKOUT_AUTH_MODE
+  );
+}
+
+async function getOrCreateCheckoutIntakeAgent() {
+  const existing = await getAgentByUsername(CHECKOUT_INTAKE_AGENT_USERNAME);
+  if (existing) return existing;
+  try {
+    return await createAgent({
+      usernameLower: CHECKOUT_INTAKE_AGENT_USERNAME,
+      usernameDisplay: CHECKOUT_INTAKE_AGENT_USERNAME,
+      privateKey: generatePrivateKey(),
+      pairingKey: null,
+      callbackUrl: null,
+      description: "OttoAuth hosted checkout intake",
+    });
+  } catch {
+    const raced = await getAgentByUsername(CHECKOUT_INTAKE_AGENT_USERNAME);
+    if (raced) return raced;
+    throw new Error("Could not create hosted checkout intake agent.");
+  }
+}
+
 async function resolvePreviewQuote(order: Record<string, unknown>) {
   try {
     return await resolveNonBrowserPriceQuote({
@@ -365,6 +516,37 @@ export async function createCheckoutSession(params: {
   const session = await getCheckoutSessionById(sessionId);
   if (!session) throw new Error("Checkout session creation failed.");
   return session;
+}
+
+export async function createHostedCheckoutSession(params: {
+  request: Request;
+  payload: Record<string, unknown>;
+  baseUrl: string;
+}) {
+  const payloadWithFiles = await persistHostedCheckoutFiles({
+    payload: params.payload,
+    baseUrl: params.baseUrl,
+  });
+  const intakeAgent = await getOrCreateCheckoutIntakeAgent();
+  return createCheckoutSession({
+    request: params.request,
+    baseUrl: params.baseUrl,
+    payload: {
+      ...payloadWithFiles,
+      auth_mode: HOSTED_CHECKOUT_AUTH_MODE,
+      metadata: {
+        ...(optionalRecord(payloadWithFiles.metadata) ?? {}),
+        auth_mode: HOSTED_CHECKOUT_AUTH_MODE,
+        created_by: "hosted_checkout_intake",
+      },
+    },
+    auth: {
+      ok: true,
+      agent: intakeAgent,
+      usernameLower: intakeAgent.username_lower,
+      source: "body",
+    },
+  });
 }
 
 export async function getCheckoutSessionById(id: string) {
@@ -493,6 +675,62 @@ function confirmedCheckoutResult(params: {
   };
 }
 
+async function resolveCheckoutConfirmationAuth(session: OttoAuthCheckoutSessionRecord) {
+  const currentHuman = await getCurrentHumanUser().catch(() => null);
+  if (!currentHuman) {
+    return {
+      ok: false as const,
+      status: 401,
+      error: "Sign in to OttoAuth before confirming this order.",
+    };
+  }
+
+  const existingLink = await getHumanLinkForAgentUsername(session.agent_username_lower);
+  if (existingLink) {
+    if (existingLink.human_user_id !== currentHuman.id) {
+      return {
+        ok: false as const,
+        status: 403,
+        error: "This checkout belongs to a different OttoAuth account.",
+      };
+    }
+    const agent = await getAgentById(session.agent_id);
+    if (!agent) {
+      return {
+        ok: false as const,
+        status: 404,
+        error: "Agent not found.",
+      };
+    }
+    return {
+      ok: true as const,
+      auth: {
+        agent,
+        usernameLower: session.agent_username_lower,
+      } satisfies AgentOrderAuth,
+    };
+  }
+
+  if (!checkoutSessionRequiresHumanSession(session)) {
+    return {
+      ok: false as const,
+      status: 403,
+      error: "This checkout is not linked to an OttoAuth human account.",
+    };
+  }
+
+  const agent = await getOrCreateHumanHostedCheckoutAgent({
+    humanUserId: currentHuman.id,
+  });
+  return {
+    ok: true as const,
+    auth: {
+      agent,
+      usernameLower: agent.username_lower,
+    } satisfies AgentOrderAuth,
+  };
+}
+
 async function waitForCheckoutConfirmation(sessionId: string) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     await sleep(175);
@@ -549,9 +787,12 @@ export async function confirmCheckoutSession(params: {
     };
   }
 
-  const agent = await getAgentById(session.agent_id);
-  if (!agent) {
-    return { ok: false as const, status: 404, error: "Agent not found.", session };
+  const confirmationAuth = await resolveCheckoutConfirmationAuth(session);
+  if (!confirmationAuth.ok) {
+    return {
+      ...confirmationAuth,
+      session,
+    };
   }
 
   const orderPayload = parseJsonObject(session.order_json);
@@ -605,15 +846,21 @@ export async function confirmCheckoutSession(params: {
     };
   }
 
-  const auth: AgentOrderAuth = {
-    agent: agent as AgentRecord,
-    usernameLower: session.agent_username_lower,
-  };
+  await client.execute({
+    sql: "UPDATE checkout_sessions SET agent_id = ?, agent_username_lower = ?, updated_at = ? WHERE id = ? AND status = 'confirming'",
+    args: [
+      confirmationAuth.auth.agent.id,
+      confirmationAuth.auth.usernameLower,
+      lockedAt,
+      session.id,
+    ],
+  });
+
   const baseUrl = params.baseUrl ?? baseUrlFromRequest(params.request);
   const created = await createOrderForAgentRequest({
     request: params.request,
     payload: orderPayload,
-    auth,
+    auth: confirmationAuth.auth,
     resourcePath: `/checkout/${session.id}/confirm`,
   });
   if (!created.ok) {
@@ -642,13 +889,23 @@ export async function confirmCheckoutSession(params: {
   await client.execute({
     sql: `UPDATE checkout_sessions
           SET status = 'confirmed',
+              agent_id = ?,
+              agent_username_lower = ?,
               order_task_id = ?,
               order_public_id = ?,
               confirmed_at = ?,
               last_error = NULL,
               updated_at = ?
           WHERE id = ? AND status = 'confirming'`,
-    args: [created.order.id, publicOrderId, now, now, session.id],
+    args: [
+      confirmationAuth.auth.agent.id,
+      confirmationAuth.auth.usernameLower,
+      created.order.id,
+      publicOrderId,
+      now,
+      now,
+      session.id,
+    ],
   });
   const confirmed = (await getCheckoutSessionById(session.id)) ?? session;
   return {
