@@ -427,10 +427,17 @@ h1 {
   flex: 0 0 auto;
 }
 
+.supported-agent-logo img,
 .supported-agent-logo svg {
   display: block;
   width: 26px;
   height: 26px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.supported-agent-logo img {
+  border-radius: 5px;
 }
 
 .supported-agent-name {
