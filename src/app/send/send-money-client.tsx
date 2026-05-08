@@ -374,7 +374,7 @@ export function SendMoneyClient(props: {
                           void resolveRecipient();
                         }
                       }}
-                      placeholder="@username, email, linked agent username, or profile link"
+                      placeholder="@username, email, or profile link"
                     />
                     <button
                       type="button"

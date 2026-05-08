@@ -355,18 +355,20 @@ export function DashboardClient(props: {
             </p>
           </div>
           <div className="dashboard-actions dashboard-top-actions">
-            <Link className="auth-button primary" href="/orders/new">
+            <Link className="auth-button primary dashboard-new-order-button" href="/orders/new">
               Browse catalog
             </Link>
-            <Link className="auth-button dashboard-action-icon-button" href="/send" aria-label="Send money" title="Send money">
-              <SendMoneyIcon />
-            </Link>
-            <Link className="auth-button dashboard-action-icon-button" href="/orders" aria-label="Orders" title="Orders">
-              <HistoryIcon />
-            </Link>
-            <button className="auth-button dashboard-action-icon-button dashboard-quiet-action" onClick={handleLogout} aria-label="Sign out" title="Sign out">
-              <SignOutIcon />
-            </button>
+            <div className="dashboard-top-icon-row" role="group" aria-label="Dashboard shortcuts">
+              <Link className="auth-button dashboard-action-icon-button" href="/send" aria-label="Send money" title="Send money">
+                <SendMoneyIcon />
+              </Link>
+              <Link className="auth-button dashboard-action-icon-button" href="/orders" aria-label="Orders" title="Orders">
+                <HistoryIcon />
+              </Link>
+              <button className="auth-button dashboard-action-icon-button dashboard-quiet-action" onClick={handleLogout} aria-label="Sign out" title="Sign out">
+                <SignOutIcon />
+              </button>
+            </div>
           </div>
         </div>
 

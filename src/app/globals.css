@@ -655,19 +655,28 @@ footer {
 }
 
 .dashboard-top-actions {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(132px, max-content) max-content;
+  justify-content: end;
   align-items: center;
   gap: 10px;
-  min-width: min(100%, 300px);
+  min-width: max-content;
 }
 
 .dashboard-top-actions > * {
   width: auto;
 }
 
-.dashboard-top-actions .auth-button.primary {
-  min-width: 132px;
+.dashboard-new-order-button {
+  min-width: 150px;
+  min-height: 52px;
+}
+
+.dashboard-top-icon-row {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  gap: 10px;
+  justify-content: end;
 }
 
 .dashboard-quiet-action {
@@ -3356,6 +3365,15 @@ main.admin-control-plane::after {
     width: 100%;
   }
 
+  .dashboard-top-actions {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    min-width: 0;
+  }
+
+  .dashboard-new-order-button {
+    width: 100%;
+  }
+
   .dashboard-grid.metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3463,6 +3481,20 @@ main.admin-control-plane::after {
 
   .dashboard-actions > * {
     flex: 1 1 160px;
+  }
+
+  .dashboard-top-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-top-icon-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .dashboard-top-icon-row .dashboard-action-icon-button {
+    width: 100%;
+    min-width: 0;
   }
 
   .dashboard-grid,
@@ -3794,10 +3826,6 @@ main.admin-control-plane::after {
   min-width: 52px;
   height: 52px;
   min-height: 52px;
-}
-
-.dashboard-credit-actions .dashboard-action-icon-button {
-  justify-self: end;
 }
 
 .catalog-minimal-page {
@@ -4630,17 +4658,20 @@ footer {
 }
 
 .dashboard-top-actions {
-  grid-template-columns: minmax(180px, 1fr) repeat(3, 52px);
+  grid-template-columns: minmax(180px, 1fr) max-content;
   align-items: center;
   min-width: min(100%, 430px);
 }
 
-.dashboard-top-actions .auth-button.primary {
+.dashboard-top-actions .dashboard-new-order-button {
   width: 100%;
 }
 
-.dashboard-top-actions .dashboard-action-icon-button {
-  width: 52px;
+.dashboard-top-actions .dashboard-top-icon-row {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  gap: 10px;
+  justify-content: end;
 }
 
 .dashboard-task-link,
@@ -4965,11 +4996,21 @@ main.admin-control-plane {
   }
 
   .dashboard-top-actions {
-    grid-template-columns: repeat(3, 52px);
-    justify-content: start;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
   }
 
-  .dashboard-top-actions .auth-button.primary {
-    grid-column: 1 / -1;
+  .dashboard-top-actions .dashboard-new-order-button {
+    grid-column: auto;
+  }
+
+  .dashboard-top-actions .dashboard-top-icon-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .dashboard-top-actions .dashboard-action-icon-button {
+    width: 100%;
+    min-width: 0;
   }
 }

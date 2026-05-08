@@ -1230,27 +1230,6 @@ export async function getOttoAuthAddressAvailability(
   return { ok: true as const, available: true, value: handle };
 }
 
-export async function setHumanUserHandle(params: {
-  humanUserId: number;
-  handle: string;
-}) {
-  await ensureHumanAccountSchema();
-  const availability = await getOttoAuthAddressAvailability(params.handle, {
-    excludeHumanUserId: params.humanUserId,
-  });
-  if (!availability.ok) throw new Error(availability.error);
-  if (!availability.available) throw new Error(`@${availability.value} is already taken.`);
-
-  const now = new Date().toISOString();
-  await getTursoClient().execute({
-    sql: "UPDATE human_users SET handle_lower = ?, handle_display = ?, updated_at = ? WHERE id = ?",
-    args: [availability.value, availability.value, now, params.humanUserId],
-  });
-  const user = await getHumanUserById(params.humanUserId);
-  if (!user) throw new Error("Human account not found.");
-  return user;
-}
-
 export async function resolveHumanPaymentRecipient(
   recipientInput: string,
 ): Promise<HumanPaymentRecipient | null> {
