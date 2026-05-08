@@ -94,7 +94,7 @@ const SUPPORTED_AGENTS = [
 ];
 
 export const metadata: Metadata = {
-  title: "Let Agents buy things",
+  title: "Let Agents Buy Things",
 };
 
 export const dynamic = "force-dynamic";
@@ -141,29 +141,15 @@ export default async function HomePage() {
     <main>
       <section className="hero">
         <div className="eyebrow">OTTOAUTH</div>
-        <h1>Let Agents buy and make things</h1>
-        <p className="lede">
-          One API for stores, delivery, rides, 3D printing, PCB fab, CNC, signs, apparel, weird custom orders, and username-based agent payments.
-        </p>
-        <div className="grid">
-          <div className="card">
-            <strong>For humans</strong>
-            <div>Link your agent and deposit money</div>
-            <div className="hero-actions" style={{ marginTop: 14 }}>
-              <a className="auth-button primary" href={humanUser ? "/dashboard" : "/login"}>
-                {humanUser ? "Open Dashboard" : "Human Sign In"}
-              </a>
-            </div>
-          </div>
-          <div className="card">
-            <strong>For developers</strong>
-            <div>Read the docs, copy the quickstart, upload files when needed, and connect your AI agent to the general order API.</div>
-            <div className="hero-actions" style={{ marginTop: 14 }}>
-              <a className="auth-button primary" href="/docs">
-                Developer Docs
-              </a>
-            </div>
-          </div>
+        <h1>Let Agents Buy Things</h1>
+        <p className="lede">One API to buy anything</p>
+        <div className="hero-actions hero-primary-actions">
+          <a className="auth-button primary" href={humanUser ? "/dashboard" : "/login"}>
+            {humanUser ? "Open Dashboard" : "Human Sign In"}
+          </a>
+          <a className="auth-button primary" href="/docs">
+            Developer Docs
+          </a>
         </div>
         <div className="supported-accounts">
           <div className="supported-accounts-title">Popular supported platforms</div>
