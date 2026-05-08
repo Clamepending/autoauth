@@ -5,10 +5,15 @@ button can be in a creative app.
 
 ```bash
 cd examples/tshirt-designer
-OTTOAUTH_BASE_URL=http://127.0.0.1:3000 npm start
+npm start
 ```
 
 Open `http://127.0.0.1:5178`.
+
+The demo defaults to `https://ottoauth.vercel.app`, so a localhost creative app
+can upload files and create real OttoAuth hosted checkout sessions against the
+production fulfillment queue. Set `OTTOAUTH_BASE_URL=http://127.0.0.1:3000`
+only when you are developing OttoAuth itself.
 
 The important integration path is intentionally small:
 

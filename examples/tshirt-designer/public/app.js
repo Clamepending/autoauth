@@ -51,7 +51,15 @@ const els = {
 };
 
 const savedBaseUrl = localStorage.getItem("ottoauth_tshirt_base_url");
-if (savedBaseUrl) els.ottoauthBaseUrl.value = savedBaseUrl;
+const legacyLocalDefaultUrls = new Set([
+  "http://127.0.0.1:3000",
+  "http://localhost:3000",
+]);
+if (savedBaseUrl && !legacyLocalDefaultUrls.has(savedBaseUrl.replace(/\/$/, ""))) {
+  els.ottoauthBaseUrl.value = savedBaseUrl;
+} else if (savedBaseUrl) {
+  localStorage.removeItem("ottoauth_tshirt_base_url");
+}
 
 function money(cents) {
   return `$${(cents / 100).toFixed(2)}`;

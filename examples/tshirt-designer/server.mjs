@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "public");
 const port = Number(process.env.PORT || 5178);
 const defaultOttoAuthBaseUrl =
-  process.env.OTTOAUTH_BASE_URL || "http://127.0.0.1:3000";
+  process.env.OTTOAUTH_BASE_URL || "https://ottoauth.vercel.app";
 const storedDesigns = new Map();
 
 function sendJson(response, status, payload) {
