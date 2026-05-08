@@ -114,8 +114,8 @@ async function main() {
     "platform catalog",
     "/api/services/order/platforms",
     {},
-    (_res, data) => data?.catalog?.platforms?.length === 100 && data?.providers?.length >= 100,
-    "Platform catalog should expose the 100-platform catalog",
+    (_res, data) => data?.catalog?.platforms?.length === 50 && data?.providers?.length >= 50,
+    "Platform catalog should expose the 50-platform catalog",
   );
 
   for (const [name, path] of [

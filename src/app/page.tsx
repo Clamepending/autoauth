@@ -138,7 +138,8 @@ function platformLogoSrc(platform: { id: string; url: string }) {
 export default async function HomePage() {
   const curlCommand = `curl -s ${getBaseUrl()}/llms.txt`;
   const humanUser = await getCurrentHumanUser();
-  const featuredPlatforms = getFeaturedPlatforms(60);
+  const featuredPlatforms = getFeaturedPlatforms(50);
+  const supportedPlatformCount = featuredPlatforms.length;
   const categoryCounts = getPlatformCategoryCounts();
   const uploadPlatformCount = getUploadPlatformCount();
   const socialPosts = [
@@ -193,8 +194,8 @@ export default async function HomePage() {
           <div className="supported-accounts-title">Commerce coverage</div>
           <div className="platform-stats">
             <div>
-              <strong>100</strong>
-              <span>platforms in the 80/20 catalog</span>
+              <strong>{supportedPlatformCount}</strong>
+              <span>popular platforms in the focused catalog</span>
             </div>
             <div>
               <strong>{uploadPlatformCount}</strong>
@@ -212,7 +213,7 @@ export default async function HomePage() {
           </div>
         </div>
         <div className="supported-accounts">
-          <div className="supported-accounts-title">Supported platforms</div>
+          <div className="supported-accounts-title">Popular supported platforms</div>
           <ul className="supported-platform-grid">
             {featuredPlatforms.map((platform) => {
               const logoSrc = platformLogoSrc(platform);
@@ -238,7 +239,7 @@ export default async function HomePage() {
           </ul>
           <div className="hero-actions" style={{ marginTop: 14 }}>
             <a className="auth-button" href="/api/services/order/platforms">
-              View full 100-platform catalog
+              View full 50-platform catalog
             </a>
           </div>
         </div>

@@ -136,7 +136,7 @@ JSON/base64 uploads also work through \`POST ${baseUrl}/api/services/order/files
 
 ## Platform Catalog
 
-\`GET ${baseUrl}/api/services/order/platforms\` returns the 100-platform catalog. It covers the 80/20 of web commerce plus get-this-made workflows: retail marketplaces, grocery/food/rides/travel, 3D printing, CNC, sheet metal, PCB/PCBA, electronics BOM buying, laser cutting, front panels, signs, stickers, apparel, and print-on-demand.
+\`GET ${baseUrl}/api/services/order/platforms\` returns the focused 50-platform catalog. It covers the most common web commerce plus get-this-made workflows: retail marketplaces, grocery/food/rides/travel, 3D printing, CNC, sheet metal, PCB/PCBA, electronics BOM buying, laser cutting, signs, stickers, apparel, and print-on-demand.
 
 ## Statuses
 

@@ -21,7 +21,7 @@ Build against the general order API:
 - Put store-specific intent in fields like store, merchant, store_url, item_name, quantity, order_details, shipping_address, estimated_total_cents, and max_charge_cents.
 - max_charge_cents is required for real orders. estimated_total_cents is optional and non-binding; display order.pricing to users and treat max_charge_cents as the hard fulfillment limit.
 - For CAD, PCB, BOM, artwork, or document uploads, POST files to ${baseUrl}/api/services/order/files first and pass the returned files[] into submit.
-- Discover the 100-platform catalog at ${baseUrl}/api/services/order/platforms.
+- Discover the focused 50-platform catalog at ${baseUrl}/api/services/order/platforms.
 - Do not use store-specific endpoints for Amazon, Snackpass, or other stores.
 - Save order.id, for example ord_123. task.id is kept only for compatibility.
 - Poll POST ${baseUrl}/api/services/order/tasks/<orderId> until completed, failed, canceled, disputed, blocked, or human_required.
@@ -106,7 +106,7 @@ ${getAgentIntegrationPrompt(baseUrl)}
 - Pass store-specific details as \`store\`, \`merchant\`, \`store_url\`, \`item_name\`, \`quantity\`, \`order_details\`, \`shipping_address\`, and \`max_charge_cents\`.
 - Real orders require \`max_charge_cents\`. OttoAuth returns \`order.pricing\` with estimated, quoted, or final price state. Estimates are not final charges.
 - Upload CAD, PCB, BOM, artwork, or document files through \`/api/services/order/files\`, then include the returned \`files[]\` references on the order.
-- Use \`/api/services/order/platforms\` to inspect the 100-platform catalog.
+- Use \`/api/services/order/platforms\` to inspect the focused 50-platform catalog.
 - Save \`order.id\`.
 - Poll task status every 15-60 seconds.
 - Use messages, clarification, cancellation, and dispute endpoints for follow-up.

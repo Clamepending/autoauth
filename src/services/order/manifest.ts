@@ -165,7 +165,7 @@ export function getManifest(): ServiceManifest {
         method: "GET",
         path: "/api/services/order/platforms",
         description:
-          "Return the 100-platform 80/20 coverage catalog used for provider recognition, file-upload support, homepage coverage, and operator routing.",
+          "Return the focused 50-platform coverage catalog used for provider recognition, file-upload support, homepage coverage, and operator routing.",
         params: {},
       },
       {
@@ -432,11 +432,11 @@ For 3D printing use \`store: "treatstock"\`, \`"craftcloud"\`, \`"xometry"\`, \`
 
 ## Platform catalog
 
-\`GET ${baseUrl}/api/services/order/platforms\` returns the 100-platform 80/20 catalog. OttoAuth recognizes these platforms today and routes unsupported native APIs to admindash human fulfillment:
+\`GET ${baseUrl}/api/services/order/platforms\` returns the focused 50-platform catalog. OttoAuth recognizes these platforms today and routes unsupported native APIs to admindash human fulfillment:
 
 - retail marketplaces and stores
 - food, grocery, delivery, rides, and travel
-- 3D printing, CNC, sheet metal, laser cutting, injection molding, and front panels
+- 3D printing, CNC, sheet metal, laser cutting, injection molding, and custom parts
 - PCB fabrication, PCBA, electronics components, BOM procurement, and industrial supply
 - print-on-demand, signs, stickers, business cards, and custom apparel
 

@@ -13,7 +13,7 @@ function assert(condition, message) {
 }
 
 assert(Array.isArray(platforms), "catalog.platforms must be an array");
-assert(platforms.length === 100, `expected exactly 100 platforms, found ${platforms.length}`);
+assert(platforms.length === 50, `expected exactly 50 platforms, found ${platforms.length}`);
 
 const ids = new Set();
 const categories = new Map();
@@ -77,8 +77,8 @@ for (const category of [
   assert(categories.has(category), `missing category: ${category}`);
 }
 
-assert(getMadeCount >= 45, `expected broad get-made coverage, found ${getMadeCount}`);
-assert(fileUploadCount >= 50, `expected strong file-upload coverage, found ${fileUploadCount}`);
+assert(getMadeCount >= 15, `expected broad get-made coverage, found ${getMadeCount}`);
+assert(fileUploadCount >= 20, `expected strong file-upload coverage, found ${fileUploadCount}`);
 
 console.log(JSON.stringify({
   ok: true,

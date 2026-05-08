@@ -34,13 +34,74 @@ export type PlatformCatalog = {
 
 export const PLATFORM_CATALOG = rawCatalog as PlatformCatalog;
 
+const FEATURED_PLATFORM_IDS = [
+  "amazon",
+  "walmart",
+  "target",
+  "ebay",
+  "etsy",
+  "shopify_store",
+  "aliexpress",
+  "temu",
+  "tiktok_shop",
+  "shein",
+  "best_buy",
+  "home_depot",
+  "lowes",
+  "costco",
+  "wayfair",
+  "chewy",
+  "sephora",
+  "newegg",
+  "instacart",
+  "doordash",
+  "uber_eats",
+  "grubhub",
+  "snackpass",
+  "gopuff",
+  "shipt",
+  "kroger",
+  "safeway",
+  "uber",
+  "lyft",
+  "airbnb",
+  "booking",
+  "xometry",
+  "protolabs",
+  "hubs",
+  "fictiv",
+  "sendcutsend",
+  "craftcloud",
+  "treatstock",
+  "sculpteo",
+  "jlcpcb",
+  "pcbway",
+  "oshpark",
+  "seeed_fusion",
+  "digikey",
+  "mouser",
+  "mcmaster_carr",
+  "printful",
+  "vistaprint",
+  "custom_ink",
+  "sticker_mule",
+];
+
+const FEATURED_PLATFORM_RANK = new Map(
+  FEATURED_PLATFORM_IDS.map((id, index) => [id, index]),
+);
+
 export function getPlatformCatalog() {
   return PLATFORM_CATALOG;
 }
 
 export function getFeaturedPlatforms(limit = 24) {
   return [...PLATFORM_CATALOG.platforms]
-    .sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name))
+    .sort((left, right) => {
+      const leftRank = FEATURED_PLATFORM_RANK.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = FEATURED_PLATFORM_RANK.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+      return leftRank - rightRank || left.priority - right.priority || left.name.localeCompare(right.name);
+    })
     .slice(0, limit);
 }
 
