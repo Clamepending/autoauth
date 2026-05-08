@@ -79,7 +79,12 @@ export default async function HomePage() {
   const featuredPlatforms = getFeaturedPlatforms(50).filter(
     (platform) => !HIDDEN_HOMEPAGE_PLATFORM_IDS.has(platform.id),
   );
-  const platformCarouselRows = [featuredPlatforms.slice(0, 6)];
+  const carouselPlatforms = featuredPlatforms.slice(0, 32);
+  const carouselSplitIndex = Math.ceil(carouselPlatforms.length / 2);
+  const platformCarouselRows = [
+    carouselPlatforms.slice(0, carouselSplitIndex),
+    carouselPlatforms.slice(carouselSplitIndex),
+  ];
   const socialPosts = [
     {
       id: "first-boba",
@@ -110,23 +115,31 @@ export default async function HomePage() {
           <div className="platform-carousel" aria-label="Popular supported platforms">
             {platformCarouselRows.map((row, rowIndex) => (
               <div key={rowIndex} className="platform-carousel-row">
-                {row.map((platform) => {
-                  const logoSrc = platformLogoSrc(platform);
-                  return (
-                    <div key={platform.id} className="supported-platform">
-                      <span className="supported-platform-logo" title={platform.name} aria-hidden>
-                        {logoSrc ? (
-                          <img src={logoSrc} alt="" width={32} height={32} loading="lazy" />
-                        ) : (
-                          SERVICE_ICONS.other
-                        )}
-                      </span>
-                      <span className="supported-platform-copy">
-                        <strong>{platform.name}</strong>
-                      </span>
-                    </div>
-                  );
-                })}
+                {[0, 1].map((copyIndex) => (
+                  <div
+                    key={copyIndex}
+                    className="platform-carousel-sequence"
+                    aria-hidden={copyIndex === 1 ? true : undefined}
+                  >
+                    {row.map((platform) => {
+                      const logoSrc = platformLogoSrc(platform);
+                      return (
+                        <div key={`${copyIndex}-${platform.id}`} className="supported-platform">
+                          <span className="supported-platform-logo" title={platform.name} aria-hidden>
+                            {logoSrc ? (
+                              <img src={logoSrc} alt="" width={32} height={32} loading="lazy" />
+                            ) : (
+                              SERVICE_ICONS.other
+                            )}
+                          </span>
+                          <span className="supported-platform-copy">
+                            <strong>{platform.name}</strong>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
