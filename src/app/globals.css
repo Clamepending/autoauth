@@ -632,6 +632,29 @@ footer {
   overflow-wrap: anywhere;
 }
 
+.dashboard-profile-name-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.dashboard-profile-balance {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .dashboard-header-avatar {
   width: 72px;
   height: 72px;
@@ -3511,6 +3534,16 @@ main.admin-control-plane::after {
     height: 58px;
     flex-basis: 58px;
     font-size: 18px;
+  }
+
+  .dashboard-profile-name-row {
+    gap: 8px;
+  }
+
+  .dashboard-profile-balance {
+    min-height: 28px;
+    padding: 5px 9px;
+    font-size: 12px;
   }
 
   .dashboard-actions {

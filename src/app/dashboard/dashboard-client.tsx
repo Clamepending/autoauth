@@ -94,6 +94,7 @@ export function DashboardClient(props: {
     successful_referrals: number;
     total_bonus_cents: number;
   };
+  balanceCents: number;
   linkedAgents: LinkedAgentWithSpend[];
   devices: ComputerUseDeviceRecord[];
   pairingCodes: HumanDevicePairingCodeRecord[];
@@ -350,7 +351,15 @@ export function DashboardClient(props: {
                   <span>{initialsForUser(props.user)}</span>
                 )}
               </span>
-              <h1>{dashboardName}</h1>
+              <div className="dashboard-profile-name-row">
+                <h1>{dashboardName}</h1>
+                <span
+                  className="dashboard-profile-balance"
+                  aria-label={`Current credit balance ${fmtUsd(props.balanceCents)}`}
+                >
+                  Credits {fmtUsd(props.balanceCents)}
+                </span>
+              </div>
             </Link>
             <p className="lede">
               Generate API keys for your agents, and manage their spending

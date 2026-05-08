@@ -4,6 +4,7 @@ import { getBaseUrl } from "@/lib/base-url";
 import { listComputerUseDevicesForHuman } from "@/lib/computeruse-store";
 import {
   getActiveHumanDevicePairingCodes,
+  getHumanCreditBalance,
   getHumanReferralStats,
   getLinkedAgentsForHuman,
   listCreditLedgerEntries,
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
     : [];
   const referralStats = await getHumanReferralStats(user.id);
   const agentSpendTotals = await listAgentSpendTotalsForHuman(user.id);
+  const balanceCents = await getHumanCreditBalance(user.id);
   const spendByAgentId = new Map(
     agentSpendTotals.map((entry) => [entry.agent_id, entry.total_spent_cents]),
   );
@@ -46,6 +48,7 @@ export default async function DashboardPage() {
         user={user}
         referralLink={`${baseUrl}/login?ref=${user.id}`}
         referralStats={referralStats}
+        balanceCents={balanceCents}
         linkedAgents={linkedAgentsWithSpend}
         devices={devices}
         pairingCodes={pairingCodes}
