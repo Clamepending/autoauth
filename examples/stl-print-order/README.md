@@ -11,10 +11,11 @@ npm start
 Open `http://127.0.0.1:5179`.
 
 The app reads an STL in the browser, estimates rough volume/bounds when possible,
-then asks its tiny local server to create one OttoAuth hosted checkout session.
-It does not hold an OttoAuth private key, start Connect, or manage local
-credentials. OttoAuth owns sign-in, account binding, checkout confirmation, file
-storage, and fulfillment routing.
+then stages one short-lived localhost handoff. Pressing checkout navigates
+immediately to OttoAuth, where `/checkout/import` loads the staged order,
+uploads the STL into OttoAuth file storage, creates the hosted checkout, and
+continues through sign-in/confirmation. The local app does not hold an OttoAuth
+private key, start Connect, or manage local credentials.
 
 The app defaults to `https://ottoauth.vercel.app`. Set
 `OTTOAUTH_BASE_URL=http://127.0.0.1:3000` only when developing OttoAuth itself.

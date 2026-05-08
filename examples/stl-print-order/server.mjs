@@ -18,6 +18,15 @@ const validationErrorMarkers = [
   "was not loaded",
   "up to 25 MB",
 ];
+const pendingCheckouts = new Map();
+const pendingTtlMs = 10 * 60 * 1000;
+const cleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [id, pending] of pendingCheckouts) {
+    if (pending.expiresAt <= now) pendingCheckouts.delete(id);
+  }
+}, 60 * 1000);
+cleanupTimer.unref?.();
 
 function sendJson(response, status, payload) {
   response.writeHead(status, {
@@ -41,6 +50,37 @@ function centsFromUsd(value) {
 function publicBaseUrl(request) {
   const host = request.headers.host || `127.0.0.1:${port}`;
   return `http://${host}`;
+}
+
+function ottoauthOrigin() {
+  try {
+    return new URL(defaultOttoAuthBaseUrl).origin;
+  } catch {
+    return "https://ottoauth.vercel.app";
+  }
+}
+
+function localOttoAuthDevOrigins() {
+  return new Set([
+    ottoauthOrigin(),
+    "http://127.0.0.1:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3110",
+    "http://localhost:3110",
+  ]);
+}
+
+function corsHeaders(request) {
+  const origin = request.headers.origin || "";
+  const allowedOrigins = localOttoAuthDevOrigins();
+  const allowOrigin = allowedOrigins.has(origin) ? origin : ottoauthOrigin();
+  return {
+    "access-control-allow-origin": allowOrigin,
+    "access-control-allow-methods": "GET,OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "cache-control": "no-store",
+    vary: "Origin",
+  };
 }
 
 async function readJson(request) {
@@ -190,13 +230,11 @@ Only complete fulfillment if the final total is under the spend cap.`,
   };
 }
 
-async function handleBuy(request, response) {
-  const input = await readJson(request);
+function buildCheckoutBody(request, input) {
   const stlFile = stlFileFromInput(input);
-  const ottoauthBaseUrl = defaultOttoAuthBaseUrl.replace(/\/$/, "");
   const demoBaseUrl = publicBaseUrl(request);
   const orderPayload = buildOrderPayload(input, stlFile);
-  const checkoutBody = {
+  return {
     auth_mode: "human_session",
     app_id: appId,
     app_name: appName,
@@ -209,31 +247,45 @@ async function handleBuy(request, response) {
       file_name: stlFile.name,
     },
   };
+}
 
-  const remote = await fetch(`${ottoauthBaseUrl}/v1/checkout/sessions`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(checkoutBody),
-    signal: AbortSignal.timeout(20000),
+async function handleBuy(request, response) {
+  const input = await readJson(request);
+  const ottoauthBaseUrl = defaultOttoAuthBaseUrl.replace(/\/$/, "");
+  const id = randomUUID();
+  const checkoutBody = buildCheckoutBody(request, input);
+  pendingCheckouts.set(id, {
+    checkoutBody,
+    expiresAt: Date.now() + pendingTtlMs,
   });
-  const text = await remote.text();
-  let payload = null;
-  try {
-    payload = text ? JSON.parse(text) : null;
-  } catch {
-    throw new Error(
-      `OttoAuth returned non-JSON status ${remote.status}: ${text.slice(0, 160)}`,
-    );
-  }
-  if (!remote.ok) {
-    throw new Error(payload?.error || `OttoAuth checkout failed with status ${remote.status}.`);
-  }
+  const payloadUrl = `${publicBaseUrl(request)}/api/pending/${encodeURIComponent(id)}`;
+  const handoffUrl = new URL("/checkout/import", ottoauthBaseUrl);
+  handoffUrl.searchParams.set("payload_url", payloadUrl);
 
   sendJson(response, 201, {
     ok: true,
-    checkoutUrl: payload?.url || payload?.session?.url || null,
-    session: payload?.session || payload,
+    handoffUrl: handoffUrl.href,
+    payloadUrl,
+    expiresAt: new Date(Date.now() + pendingTtlMs).toISOString(),
   });
+}
+
+async function handlePendingCheckout(request, response, id) {
+  const pending = pendingCheckouts.get(id);
+  if (!pending || pending.expiresAt <= Date.now()) {
+    pendingCheckouts.delete(id);
+    response.writeHead(404, {
+      ...corsHeaders(request),
+      "content-type": "application/json; charset=utf-8",
+    });
+    response.end(JSON.stringify({ ok: false, error: "Checkout handoff expired." }));
+    return;
+  }
+  response.writeHead(200, {
+    ...corsHeaders(request),
+    "content-type": "application/json; charset=utf-8",
+  });
+  response.end(JSON.stringify({ ok: true, checkout: pending.checkoutBody }));
 }
 
 async function serveStatic(request, response) {
@@ -262,6 +314,16 @@ const server = http.createServer(async (request, response) => {
   try {
     if (request.method === "POST" && request.url === "/api/buy") {
       await handleBuy(request, response);
+      return;
+    }
+    if (request.method === "OPTIONS" && request.url.startsWith("/api/pending/")) {
+      response.writeHead(204, corsHeaders(request));
+      response.end();
+      return;
+    }
+    if (request.method === "GET" && request.url.startsWith("/api/pending/")) {
+      const id = decodeURIComponent(request.url.slice("/api/pending/".length).split("?")[0]);
+      await handlePendingCheckout(request, response, id);
       return;
     }
     if (request.method === "GET") {

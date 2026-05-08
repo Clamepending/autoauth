@@ -313,12 +313,12 @@ async function postJson(path, body) {
 async function buyWithOttoAuth() {
   els.checkoutButton.disabled = true;
   try {
-    showResult("ok", "Creating checkout...");
+    showResult("ok", "Opening OttoAuth...");
     const { response, payload } = await postJson("/api/buy", requestBody());
-    if (!response.ok) throw new Error(payload?.error || "Could not create checkout.");
-    const checkoutUrl = payload.checkoutUrl || payload.session?.url;
-    if (!checkoutUrl) throw new Error("OttoAuth did not return a checkout URL.");
-    window.location.href = checkoutUrl;
+    if (!response.ok) throw new Error(payload?.error || "Could not prepare checkout.");
+    const handoffUrl = payload.handoffUrl || payload.checkoutUrl;
+    if (!handoffUrl) throw new Error("OttoAuth did not return a handoff URL.");
+    window.location.href = handoffUrl;
   } catch (error) {
     showResult("error", error instanceof Error ? error.message : "Buy failed.");
   } finally {
