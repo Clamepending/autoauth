@@ -22,21 +22,16 @@ export default async function DashboardPage() {
   }
 
   const showUserFulfillmentControls = isUserFulfillmentEnabled();
-  const [
-    ledger,
-    linkedAgents,
-    devices,
-    pairingCodes,
-    referralStats,
-    agentSpendTotals,
-  ] = await Promise.all([
-    listCreditLedgerEntries(user.id, 20),
-    getLinkedAgentsForHuman(user.id),
-    showUserFulfillmentControls ? listComputerUseDevicesForHuman(user.id) : Promise.resolve([]),
-    showUserFulfillmentControls ? getActiveHumanDevicePairingCodes(user.id) : Promise.resolve([]),
-    getHumanReferralStats(user.id),
-    listAgentSpendTotalsForHuman(user.id),
-  ]);
+  const ledger = await listCreditLedgerEntries(user.id, 20);
+  const linkedAgents = await getLinkedAgentsForHuman(user.id);
+  const devices = showUserFulfillmentControls
+    ? await listComputerUseDevicesForHuman(user.id)
+    : [];
+  const pairingCodes = showUserFulfillmentControls
+    ? await getActiveHumanDevicePairingCodes(user.id)
+    : [];
+  const referralStats = await getHumanReferralStats(user.id);
+  const agentSpendTotals = await listAgentSpendTotalsForHuman(user.id);
   const spendByAgentId = new Map(
     agentSpendTotals.map((entry) => [entry.agent_id, entry.total_spent_cents]),
   );

@@ -235,7 +235,7 @@ export function SendMoneyClient(props: {
           </div>
           <div className="dashboard-actions">
             <Link className="auth-button" href="/orders/new">
-              New order
+              Browse catalog
             </Link>
             <Link className="auth-button" href="/dashboard">
               Dashboard

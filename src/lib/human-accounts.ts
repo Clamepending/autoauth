@@ -1594,7 +1594,21 @@ export async function createPendingHumanCreditClaim(params: {
   }
 }
 
+type ExpiredHumanCreditClaimsResult = {
+  expired: HumanCreditClaimRecord[];
+  totalRefundedCents: number;
+};
+
+let expireExpiredHumanCreditClaimsPromise: Promise<ExpiredHumanCreditClaimsResult> | null = null;
+
 export async function expireExpiredHumanCreditClaims() {
+  expireExpiredHumanCreditClaimsPromise ??= expireExpiredHumanCreditClaimsNow().finally(() => {
+    expireExpiredHumanCreditClaimsPromise = null;
+  });
+  return expireExpiredHumanCreditClaimsPromise;
+}
+
+async function expireExpiredHumanCreditClaimsNow(): Promise<ExpiredHumanCreditClaimsResult> {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
   const transaction = await client.transaction("write");
