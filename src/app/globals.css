@@ -204,6 +204,9 @@ h1 {
 
 .supported-accounts {
   padding-top: 8px;
+  width: min(1106px, calc(100vw - 32px));
+  max-width: 100%;
+  min-width: 0;
 }
 
 .supported-agents {
@@ -306,23 +309,19 @@ h1 {
   display: grid;
   gap: 12px;
   margin: 0;
-  overflow: hidden;
+  overflow: visible;
   padding: 2px 0;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .platform-carousel-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 176px));
   gap: 10px;
-  width: max-content;
-  animation: platform-carousel-scroll 46s linear infinite;
-  will-change: transform;
-}
-
-.platform-carousel-row-reverse {
-  animation-direction: reverse;
-  animation-duration: 54s;
+  justify-content: center;
+  width: 100%;
 }
 
 .supported-platform {
@@ -336,6 +335,7 @@ h1 {
   background: #fff;
   padding: 10px;
   box-shadow: 3px 3px 0 rgba(11, 11, 11, 0.08);
+  width: 100%;
 }
 
 .supported-platform-logo {
@@ -372,26 +372,15 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-@keyframes platform-carousel-scroll {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-
-  to {
-    transform: translate3d(-50%, 0, 0);
+@media (max-width: 760px) {
+  .platform-carousel-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (max-width: 420px) {
   .platform-carousel-row {
-    animation: none;
-    flex-wrap: wrap;
-    width: auto;
-  }
-
-  .platform-carousel {
-    -webkit-mask-image: none;
-    mask-image: none;
+    grid-template-columns: 1fr;
   }
 }
 

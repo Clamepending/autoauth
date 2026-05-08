@@ -79,11 +79,7 @@ export default async function HomePage() {
   const featuredPlatforms = getFeaturedPlatforms(50).filter(
     (platform) => !HIDDEN_HOMEPAGE_PLATFORM_IDS.has(platform.id),
   );
-  const carouselSplitIndex = Math.ceil(featuredPlatforms.length / 2);
-  const platformCarouselRows = [
-    featuredPlatforms.slice(0, carouselSplitIndex),
-    featuredPlatforms.slice(carouselSplitIndex),
-  ];
+  const platformCarouselRows = [featuredPlatforms.slice(0, 6)];
   const socialPosts = [
     {
       id: "first-boba",
@@ -113,19 +109,11 @@ export default async function HomePage() {
           <div className="supported-accounts-title">Popular supported platforms</div>
           <div className="platform-carousel" aria-label="Popular supported platforms">
             {platformCarouselRows.map((row, rowIndex) => (
-              <div
-                key={rowIndex}
-                className={`platform-carousel-row${rowIndex % 2 === 1 ? " platform-carousel-row-reverse" : ""}`}
-              >
-                {[...row, ...row].map((platform, platformIndex) => {
+              <div key={rowIndex} className="platform-carousel-row">
+                {row.map((platform) => {
                   const logoSrc = platformLogoSrc(platform);
-                  const isDuplicate = platformIndex >= row.length;
                   return (
-                    <div
-                      key={`${platform.id}-${platformIndex}`}
-                      className="supported-platform"
-                      aria-hidden={isDuplicate}
-                    >
+                    <div key={platform.id} className="supported-platform">
                       <span className="supported-platform-logo" title={platform.name} aria-hidden>
                         {logoSrc ? (
                           <img src={logoSrc} alt="" width={32} height={32} loading="lazy" />
