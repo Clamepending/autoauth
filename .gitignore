@@ -1,6 +1,7 @@
 node_modules
 .next
 out
+output
 .DS_Store
 .env
 .env.local
@@ -9,6 +10,7 @@ local.db-*
 .vercel
 .env*.local
 .demo-agent-creds.json
+examples/tshirt-designer/.ottoauth-install*.json
 
 # Abhay's AI dev files
 implementation_details.md

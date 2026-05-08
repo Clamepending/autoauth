@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { authenticateOttoAuthAgentRequest } from "@/lib/ottoauth-api-auth";
 import {
-  checkoutSessionUrl,
-  createCheckoutSession,
-  formatCheckoutSessionForApi,
-} from "@/lib/ottoauth-checkout-sessions";
+  connectUrl,
+  createSdkConnectSession,
+  formatConnectSessionForApi,
+} from "@/lib/ottoauth-connect";
 import { sdkOptionsResponse, sdkRequestOrigin, withSdkCors } from "@/lib/ottoauth-sdk";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +14,7 @@ export async function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const payload = (await request.json().catch(() => null)) as
-    | Record<string, unknown>
-    | null;
+  const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!payload) {
     return withSdkCors(
       NextResponse.json({ error: "Invalid JSON body." }, { status: 400 }),
@@ -25,26 +22,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const auth = await authenticateOttoAuthAgentRequest(request, payload, {
-    scope: "checkout.sessions:create",
-  });
-  if (!auth.ok) return withSdkCors(auth.response, request);
-
   try {
     const baseUrl = sdkRequestOrigin(request);
-    const session = await createCheckoutSession({
-      request,
-      payload,
-      auth,
-      baseUrl,
-    });
+    const session = await createSdkConnectSession({ payload, baseUrl });
     return withSdkCors(
       NextResponse.json(
         {
           ok: true,
           id: session.id,
-          url: checkoutSessionUrl(session, baseUrl),
-          session: formatCheckoutSessionForApi(session, baseUrl),
+          connect_url: connectUrl(session, baseUrl),
+          session: formatConnectSessionForApi(session, baseUrl),
         },
         { status: 201 },
       ),
@@ -55,9 +42,7 @@ export async function POST(request: Request) {
       NextResponse.json(
         {
           error:
-            error instanceof Error
-              ? error.message
-              : "Could not create checkout session.",
+            error instanceof Error ? error.message : "Could not create connect session.",
         },
         { status: 400 },
       ),

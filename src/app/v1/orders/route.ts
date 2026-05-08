@@ -17,7 +17,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const auth = await authenticateOrderAgentFromRequest(request, {});
+  const auth = await authenticateOrderAgentFromRequest(request, {}, { scope: "orders:read" });
   if (!auth.ok) return auth.response;
   const orders = await listOrdersForAgent(auth.auth.usernameLower, 100);
   return NextResponse.json({
@@ -50,7 +50,9 @@ export async function POST(request: Request) {
     }
   }
 
-  const auth = await authenticateOrderAgentFromRequest(request, body.payload);
+  const auth = await authenticateOrderAgentFromRequest(request, body.payload, {
+    scope: "orders:create",
+  });
   if (!auth.ok) return auth.response;
 
   const created = await createOrderForAgentRequest({

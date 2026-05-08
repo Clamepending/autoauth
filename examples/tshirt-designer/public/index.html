@@ -163,12 +163,12 @@
               <button class="secondary-button" id="previewButton" type="button">Preview</button>
             </div>
             <label>
-              Base URL
-              <input id="ottoauthBaseUrl" value="https://ottoauth.vercel.app" />
+              Base URL override
+              <input id="ottoauthBaseUrl" placeholder="default: https://ottoauth.vercel.app" />
             </label>
             <label>
-              Agent private key
-              <input id="privateKey" type="password" placeholder="sk-oa-..." autocomplete="off" />
+              Agent private key override
+              <input id="privateKey" type="password" placeholder="optional sk-oa-..." autocomplete="off" />
             </label>
             <pre id="payloadPreview" class="payload-preview"></pre>
             <div id="result" class="result"></div>

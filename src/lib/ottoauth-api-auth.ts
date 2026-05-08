@@ -2,12 +2,20 @@ import { NextResponse } from "next/server";
 
 import { getAgentByPrivateKey, type AgentRecord } from "@/lib/db";
 import { authenticateAgent } from "@/services/_shared/auth";
+import {
+  getActiveSdkInstallForBearer,
+  sdkInstallHasScope,
+  sdkInstallScopeResponse,
+  type SdkAppInstallTokenRecord,
+  type SdkInstallScope,
+} from "@/lib/ottoauth-connect";
 
 export type OttoAuthAgentAuthSuccess = {
   ok: true;
   agent: AgentRecord;
   usernameLower: string;
-  source: "bearer" | "body";
+  source: "bearer" | "body" | "install";
+  install?: SdkAppInstallTokenRecord | null;
 };
 
 export type OttoAuthAgentAuthFailure = {
@@ -39,6 +47,7 @@ function normalizeLegacyCredentialPayload(payload: Record<string, unknown>) {
 export async function authenticateOttoAuthAgentRequest(
   request: Request,
   payload?: Record<string, unknown> | null,
+  options?: { scope?: SdkInstallScope },
 ): Promise<OttoAuthAgentAuthResult> {
   const token = bearerToken(request);
   if (token) {
@@ -53,11 +62,22 @@ export async function authenticateOttoAuthAgentRequest(
           ),
         };
       }
+      const install = await getActiveSdkInstallForBearer({
+        agentId: agent.id,
+        token,
+      });
+      if (options?.scope && install && !sdkInstallHasScope(install, options.scope)) {
+        return {
+          ok: false,
+          response: sdkInstallScopeResponse(options.scope),
+        };
+      }
       return {
         ok: true,
         agent,
         usernameLower: agent.username_lower,
-        source: "bearer",
+        source: install ? "install" : "bearer",
+        install,
       };
     } catch {
       return {

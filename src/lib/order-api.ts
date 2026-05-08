@@ -10,6 +10,13 @@ import {
 } from "@/lib/human-accounts";
 import { evaluateAgentMandateForOrder } from "@/lib/agent-mandates";
 import {
+  getActiveSdkInstallForBearer,
+  sdkInstallHasScope,
+  sdkInstallScopeResponse,
+  type SdkAppInstallTokenRecord,
+  type SdkInstallScope,
+} from "@/lib/ottoauth-connect";
+import {
   createOrchestratedOrder,
   getOrderByPublicIdOrId,
   parseOrderForApi,
@@ -27,6 +34,7 @@ import {
 export type AgentOrderAuth = {
   agent: AgentRecord;
   usernameLower: string;
+  install?: SdkAppInstallTokenRecord | null;
 };
 
 export async function readJsonObject(request: Request) {
@@ -62,6 +70,7 @@ export function responseFromOrderError(error: unknown, fallbackStatus = 409) {
 export async function authenticateOrderAgentFromRequest(
   request: Request,
   payload: Record<string, unknown>,
+  options?: { scope?: SdkInstallScope },
 ): Promise<{ ok: true; auth: AgentOrderAuth } | { ok: false; response: NextResponse }> {
   const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   if (bearer) {
@@ -72,7 +81,14 @@ export async function authenticateOrderAgentFromRequest(
         response: NextResponse.json({ error: "Invalid bearer token." }, { status: 401 }),
       };
     }
-    return { ok: true, auth: { agent, usernameLower: agent.username_lower } };
+    const install = await getActiveSdkInstallForBearer({
+      agentId: agent.id,
+      token: bearer,
+    });
+    if (options?.scope && install && !sdkInstallHasScope(install, options.scope)) {
+      return { ok: false, response: sdkInstallScopeResponse(options.scope) };
+    }
+    return { ok: true, auth: { agent, usernameLower: agent.username_lower, install } };
   }
 
   const auth = await authenticateAgent(payload);

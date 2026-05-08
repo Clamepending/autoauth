@@ -536,6 +536,50 @@ footer {
   cursor: default;
 }
 
+.connect-card {
+  width: min(100%, 620px);
+}
+
+.connect-summary {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.connect-summary div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.connect-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connect-summary strong {
+  overflow-wrap: anywhere;
+}
+
+.connect-scope-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+.connect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .dashboard-action-icon-button {
   width: 52px;
   min-width: 52px;
@@ -4454,6 +4498,16 @@ main.admin-control-plane::after {
   white-space: nowrap;
 }
 
+.checkout-primary-card .dashboard-section-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.checkout-primary-card .dashboard-section-header > div {
+  min-width: 0;
+}
+
 .checkout-section {
   display: grid;
   gap: 10px;
@@ -4615,7 +4669,12 @@ main.admin-control-plane::after {
     position: static;
   }
 
+  .checkout-primary-card .dashboard-section-header {
+    grid-template-columns: 1fr;
+  }
+
   .checkout-price {
+    justify-self: start;
     white-space: normal;
   }
 }

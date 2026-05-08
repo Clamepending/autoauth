@@ -15,6 +15,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
+type AgentCredentialResult =
+  | { ok: false; response: NextResponse }
+  | { ok: true; user: HumanUserRecord | null };
+
 function parseMetadata(value: FormDataEntryValue | null) {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
@@ -97,12 +101,14 @@ async function saveJsonFiles(params: {
 async function userFromAgentCredentials(
   request: Request,
   payload: Record<string, unknown>,
-) {
-  const auth = await authenticateOttoAuthAgentRequest(request, payload);
-  if (!auth.ok) return null;
+): Promise<AgentCredentialResult> {
+  const auth = await authenticateOttoAuthAgentRequest(request, payload, {
+    scope: "files:write",
+  });
+  if (!auth.ok) return { ok: false, response: auth.response };
   const humanLink = await getHumanLinkForAgentUsername(auth.usernameLower);
-  if (!humanLink) return null;
-  return getHumanUserById(humanLink.human_user_id);
+  if (!humanLink) return { ok: true, user: null };
+  return { ok: true, user: await getHumanUserById(humanLink.human_user_id) };
 }
 
 async function userFromLegacyAgentCredentials(payload: Record<string, unknown>) {
@@ -144,7 +150,11 @@ export async function POST(request: Request) {
     if (!payload) {
       return sdkJson(request, { error: "Invalid file upload body." }, { status: 400 });
     }
-    user = await userFromAgentCredentials(request, payload);
+    const credentialResult = await userFromAgentCredentials(request, payload);
+    if (!credentialResult.ok) {
+      return withSdkCors(credentialResult.response, request);
+    }
+    user = credentialResult.user;
     if (!user) {
       return withSdkCors(unauthenticatedResponse(), request);
     }
@@ -218,7 +228,11 @@ export async function POST(request: Request) {
       return sdkJson(request, { error: "Invalid file upload body." }, { status: 400 });
     }
     if (!user) {
-      user = await userFromAgentCredentials(request, payload);
+      const credentialResult = await userFromAgentCredentials(request, payload);
+      if (!credentialResult.ok) {
+        return withSdkCors(credentialResult.response, request);
+      }
+      user = credentialResult.user;
     }
     if (!user) {
       return withSdkCors(unauthenticatedResponse(), request);

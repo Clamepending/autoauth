@@ -36,7 +36,9 @@ export async function POST(request: Request) {
     }
   }
 
-  const auth = await authenticateOrderAgentFromRequest(request, payload);
+  const auth = await authenticateOrderAgentFromRequest(request, payload, {
+    scope: "orders:create",
+  });
   if (!auth.ok) return auth.response;
 
   const created = await createOrderForAgentRequest({
