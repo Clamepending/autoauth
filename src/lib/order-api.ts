@@ -19,6 +19,9 @@ import {
   defaultX402TopUpCents,
   requireX402Funding,
 } from "@/lib/x402-ottoauth";
+import {
+  resolveNonBrowserPriceQuote,
+} from "@/lib/non-browser-price-quotes";
 
 export type AgentOrderAuth = {
   agent: AgentRecord;
@@ -130,6 +133,48 @@ function requestedCap(payload: Record<string, unknown>) {
   return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
 }
 
+async function resolveQuoteForOrderPayload(payload: Record<string, unknown>) {
+  return resolveNonBrowserPriceQuote({
+    payload,
+    rawTask: optionalString(
+      payload.task ?? payload.task_prompt ?? payload.taskPrompt ?? payload.request ?? payload.prompt,
+      5000,
+    ),
+    taskPrompt: optionalString(
+      payload.task ?? payload.task_prompt ?? payload.taskPrompt ?? payload.request ?? payload.prompt,
+      5000,
+    ),
+    websiteUrl: optionalString(
+      payload.url ??
+        payload.product_url ??
+        payload.productUrl ??
+        payload.store_url ??
+        payload.storeUrl ??
+        payload.website_url ??
+        payload.websiteUrl,
+      2000,
+    ),
+    merchantName: optionalString(
+      payload.merchant ??
+        payload.merchant_name ??
+        payload.merchantName ??
+        payload.store ??
+        payload.platform ??
+        payload.service,
+      200,
+    ),
+    platformHint: optionalString(
+      payload.platform_hint ??
+        payload.platformHint ??
+        payload.platform ??
+        payload.service ??
+        payload.store,
+      120,
+    ),
+    requestJson: payload,
+  });
+}
+
 export async function createOrderForAgentRequest(params: {
   request: Request;
   payload: Record<string, unknown>;
@@ -141,6 +186,7 @@ export async function createOrderForAgentRequest(params: {
   const { humanUser, hasLinkedHuman } = resolvedHuman;
   const creditBalance = await getHumanCreditBalance(humanUser.id);
   const cap = requestedCap(params.payload);
+  const priceQuote = await resolveQuoteForOrderPayload(params.payload);
   const defaultTopUpCents = defaultX402TopUpCents();
   const fundingRequiredCents = hasLinkedHuman
     ? creditBalance <= 0
@@ -166,6 +212,9 @@ export async function createOrderForAgentRequest(params: {
         linked_human: hasLinkedHuman,
         requested_max_charge_cents: cap,
         order_source: "order_orchestration",
+        price_quote_source: priceQuote.source,
+        price_quote_status: priceQuote.status,
+        price_quote_total_cents: priceQuote.total_cents,
       },
     });
     if (!funding.ok) return { ok: false as const, response: funding.response };
@@ -204,6 +253,7 @@ export async function createOrderForAgentRequest(params: {
     submissionSource: "agent",
     payload: params.payload,
     maxChargeCents: effectiveMaxCharge,
+    priceQuote,
     callbackUrl: normalizeCallbackUrl(params.payload, params.auth.agent),
     externalId: normalizeExternalId(params.payload),
     idempotencyKey: normalizeIdempotencyKey(params.request, params.payload),
@@ -216,6 +266,7 @@ export async function createOrderForAgentRequest(params: {
     linkedHuman: hasLinkedHuman,
     availableAfterFunding,
     fundedCents: fundingRequiredCents,
+    priceQuote,
     ...created,
   };
 }
@@ -278,6 +329,8 @@ export function orderApiBody(order: OttoAuthOrderRecord | null) {
   const title = typeof normalized?.title === "string" ? normalized.title : order.public_id;
   return {
     order: apiOrder,
+    quote: apiOrder.quote,
+    price_quote: apiOrder.quote,
     task: {
       id: order.id,
       public_id: order.public_id,
@@ -285,6 +338,7 @@ export function orderApiBody(order: OttoAuthOrderRecord | null) {
       task_title: title,
       fulfillment_mode: order.fulfillment_mode,
       provider_id: order.provider_id,
+      price_quote: apiOrder.quote,
     },
   };
 }

@@ -2,6 +2,16 @@
 
 Next.js + Turso service for human-linked AI agent fulfillment, human self-serve browser tasks, and extension/browser fulfillers.
 
+## General order API
+
+New integrations should use the canonical order service:
+
+- `POST /api/services/order/submit` or `POST /v1/orders` to create an order
+- `POST /v1/quotes` to get the best non-browser price quote without creating an order
+- `GET /v1/orders/<orderId>` to poll status
+
+`/v1/quotes` and order creation use manual price fields, deterministic direct Amazon product-page scraping, configured supplier APIs such as Mouser/eBay, configured local pricing models such as `OTTOAUTH_JLCPCB_PRICE_MODEL_JSON`, then `retroactive_after_fulfillment` when no non-browser source can price the order.
+
 ## Current flow
 
 1. An agent creates an OttoAuth account and receives:
@@ -36,6 +46,9 @@ Optional auth env vars:
 - `GOOGLE_CLIENT_SECRET`
 - `OTTOAUTH_ADMIN_EMAILS=you@example.com,ops@example.com` to allow production access to `/admindash` and `/api/admin/*`
 - `OTTOAUTH_ENABLE_DEV_HUMAN_LOGIN=1` to enable the local dev human login fallback even in production-like environments
+- `OTTOAUTH_MOUSER_SEARCH_API_KEY=...` to enable Mouser Search API price/stock quote lookup when a part number is present
+- `OTTOAUTH_EBAY_ACCESS_TOKEN=...` to enable eBay Browse API listing quotes when an item id is present
+- `OTTOAUTH_JLCPCB_PRICE_MODEL_JSON={"pcb":{"base_cents":200,"per_board_cents":50,"shipping_cents":800}}` to use a local JLC estimate model when API access is unavailable
 
 ## Deploy on Vercel
 
@@ -65,6 +78,7 @@ After deployment, open `https://your-app.vercel.app/skill.md` to confirm the ins
 - `/dashboard` shows credits, linked agents, ordering settings, and recent browser tasks
 - `/orders/new` lets a human create a browser task directly from the website
 - `/orders/<taskId>` shows the live order page with low-rate execution screenshots and run events
+- `POST /v1/quotes` returns the non-browser price quote or retroactive-billing fallback for an order payload
 
 New human accounts start with `$20` of starter credits.
 

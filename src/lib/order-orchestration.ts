@@ -4,6 +4,7 @@ import { addCreditLedgerEntry, getHumanCreditBalance } from "@/lib/human-account
 import { PLATFORM_CATALOG, type PlatformCatalogEntry } from "@/lib/platform-catalog";
 import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
+import type { NonBrowserPriceQuote } from "@/lib/non-browser-price-quotes";
 
 export type OrderKind =
   | "retail_purchase"
@@ -1170,6 +1171,7 @@ export async function createOrchestratedOrder(params: {
   submissionSource: "agent" | "human" | "admin";
   payload: Record<string, unknown>;
   maxChargeCents?: number | null;
+  priceQuote?: NonBrowserPriceQuote | null;
   callbackUrl?: string | null;
   externalId?: string | null;
   idempotencyKey?: string | null;
@@ -1200,6 +1202,7 @@ export async function createOrchestratedOrder(params: {
   });
   const status = initialStatusFor(provider, fulfillmentMode);
   const now = new Date().toISOString();
+  const priceQuote = params.priceQuote ?? null;
   const requestJson = {
     ...normalized.raw,
     normalized: {
@@ -1214,6 +1217,7 @@ export async function createOrchestratedOrder(params: {
       shipping_address_present: Boolean(normalized.shippingAddress),
     },
     provider_capabilities: provider.capabilities,
+    price_quote: priceQuote,
   };
 
   await ensureOrderOrchestrationSchema();
@@ -1221,10 +1225,10 @@ export async function createOrchestratedOrder(params: {
     sql: `INSERT INTO ottoauth_orders
           (public_id, agent_id, agent_username_lower, human_user_id, submission_source,
            external_id, idempotency_key, status, fulfillment_mode, provider_id, provider_label,
-           kind, request_json, normalized_items_json, human_packet_json, payment_status,
-           max_charge_cents, authorized_cents, captured_cents, currency, callback_url,
+           kind, request_json, normalized_items_json, quote_json, human_packet_json, payment_status,
+           max_charge_cents, quoted_total_cents, authorized_cents, captured_cents, currency, callback_url,
            created_at, updated_at)
-          VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, 0, 0, ?, ?, ?, ?)`,
+          VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, 0, 0, ?, ?, ?, ?)`,
     args: [
       params.agentId,
       params.agentUsernameLower.trim().toLowerCase(),
@@ -1239,8 +1243,10 @@ export async function createOrchestratedOrder(params: {
       normalized.kind,
       JSON.stringify(requestJson),
       normalized.items.length ? JSON.stringify(normalized.items) : null,
+      priceQuote ? JSON.stringify(priceQuote) : null,
       JSON.stringify(humanPacket),
       maxChargeCents ?? null,
+      priceQuote?.total_cents ?? null,
       normalizeCurrency(params.payload.currency),
       params.callbackUrl?.trim() || optionalString(params.payload.callback_url ?? params.payload.callbackUrl, 2000),
       now,
@@ -1265,6 +1271,14 @@ export async function createOrchestratedOrder(params: {
       provider_id: provider.id,
       native_available: provider.nativeAvailable,
       submission_source: params.submissionSource,
+      price_quote: priceQuote
+        ? {
+            source: priceQuote.source,
+            status: priceQuote.status,
+            billing_mode: priceQuote.billing_mode,
+            total_cents: priceQuote.total_cents,
+          }
+        : null,
     },
   });
   await appendOrderEvent({

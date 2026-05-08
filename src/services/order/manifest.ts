@@ -17,7 +17,7 @@ export function getManifest(): ServiceManifest {
         method: "POST",
         path: "/api/services/order/submit",
         description:
-          "Create a canonical OttoAuth order. OttoAuth uses a native provider API when enabled, otherwise it routes the order to the admindash human fulfillment queue.",
+          "Create a canonical OttoAuth order. OttoAuth stores a non-browser quote when available, uses a native provider API when enabled, otherwise routes the order to the admindash human fulfillment queue.",
         params: {
           username: { type: "string", required: true, description: "Agent username." },
           private_key: { type: "string", required: true, description: "Agent private key." },
@@ -96,10 +96,48 @@ export function getManifest(): ServiceManifest {
             required: false,
             description: "Maximum spend in cents. Human operators cannot close a completed order above this cap.",
           },
+          quote: {
+            type: "object",
+            required: false,
+            description:
+              "Optional manual/operator price quote. Supports total_cents, goods_cents, shipping_cents, tax_cents, currency, confidence, source, and source_label.",
+          },
           dry_run: {
             type: "boolean",
             required: false,
             description: "When true, validate and preview routing without authentication, credit checks, DB rows, or fulfillment.",
+          },
+        },
+      },
+      {
+        name: "quote_order",
+        method: "POST",
+        path: "/v1/quotes",
+        description:
+          "Return the best non-browser price quote for an order request without creating an order. Uses manual price fields, deterministic direct Amazon product-page scraping, configured supplier APIs, configured JLC pricing models, then retroactive billing fallback.",
+        params: {
+          Authorization: { type: "string", required: true, description: "Bearer private key." },
+          task_prompt: {
+            type: "string",
+            required: false,
+            description: "Freeform work order used to detect supplier context and pricing strategy.",
+          },
+          store: {
+            type: "string",
+            required: false,
+            description: "Store or platform, such as amazon, mouser, ebay, jlcpcb, or manual.",
+          },
+          store_url: {
+            type: "string",
+            required: false,
+            description:
+              "Product or merchant URL. Direct Amazon product links are scraped server-side without browser automation.",
+          },
+          quote: {
+            type: "object",
+            required: false,
+            description:
+              "Optional manual/operator quote. Supports total_cents, goods_cents, shipping_cents, tax_cents, currency, confidence, source, and source_label.",
           },
         },
       },
@@ -238,6 +276,8 @@ Native API adapters are intentionally explicit. OttoAuth should not pretend that
 
 Every order response includes \`order.provider.capabilities\` so clients can see whether OttoAuth believes quote, place_order, cancel, status_tracking, live_tracking, messaging, clarification, dispute, file_upload, proof_of_completion, and refund are supported for that provider.
 
+Every order creation also attempts **non-browser price discovery** and stores the result in \`order.quote\` / \`price_quote\`. The resolver tries explicit price fields, direct Amazon product-page scraping, configured supplier APIs such as Mouser and eBay, configured local pricing models such as \`OTTOAUTH_JLCPCB_PRICE_MODEL_JSON\`, then \`retroactive_after_fulfillment\` when no reliable non-browser price is available.
+
 ## Deprecated routes
 
 Do not call \`/api/services/computeruse/*\`, \`/api/computeruse/tasks*\`, \`/api/computeruse/runs*\`, \`/api/computeruse/register-device\`, \`/api/pay/amazon/create-session\`, or \`/api/pay/snackpass/create-session\`. These old public browser-task/payment APIs return \`410 Deprecated API\` with \`replacement_path: "/api/services/order/submit"\`.
@@ -316,6 +356,23 @@ Minimum required body:
 - enough structured fields, \`items[]\`, \`files[]\`, or \`task_prompt\` to describe the order
 
 The response contains both \`order.id\` and a compatibility \`task.id\`. New clients should store \`order.id\`, for example \`ord_123\`.
+
+The response also contains \`price_quote\`. If \`price_quote.billing_mode\` is \`retroactive_after_fulfillment\`, show the user that OttoAuth could not price the order upfront and final observed charges will be reconciled after fulfillment under the spend cap.
+
+### Quote without creating an order
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/v1/quotes \\
+  -H 'authorization: Bearer sk-oa-...' \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "store":"amazon",
+    "url":"https://www.amazon.com/dp/EXAMPLE",
+    "task":"Quote this direct Amazon product link."
+  }'
+\`\`\`
+
+This endpoint never opens a browser and never creates an order. Use it when a frontend wants to show a price, estimate, or retroactive-billing state before the user submits.
 
 ## Get-this-made example
 
@@ -448,7 +505,7 @@ Manual completion enforces \`max_charge_cents\` before closing and debits the re
 
 ## Client rule
 
-Do not branch your integration by store. Submit all stores through the same order API, then use the returned provider capabilities and status fields to adapt UX. The point of OttoAuth is that Amazon, Treatstock, PCB manufacturing, grocery delivery, rides, restaurant delivery, and unknown stores all share one lifecycle even when their actual fulfillment path differs.
+Do not branch your integration by store. Submit all stores through the same order API, then use the returned provider capabilities, quote, billing mode, and status fields to adapt UX. The point of OttoAuth is that Amazon, Treatstock, PCB manufacturing, grocery delivery, rides, restaurant delivery, and unknown stores all share one lifecycle even when their actual fulfillment path differs.
 `,
   };
 }

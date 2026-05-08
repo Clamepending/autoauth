@@ -45,10 +45,11 @@ Read these in order:
 3. Store \`username\` and \`private_key\` securely.
 4. Confirm the human has credits, or handle OttoAuth's x402 \`402 Payment Required\` top-up response.
 5. Validate order shapes with \`dry_run: true\` before real submission. Dry runs need no credentials and create no rows.
-6. Submit orders through \`POST ${baseUrl}/api/services/order/submit\` or \`POST ${baseUrl}/v1/orders\`.
-7. Store \`order.id\` from the response, for example \`ord_123\`. The compatibility \`task.id\` is numeric.
-8. Poll \`POST ${baseUrl}/api/services/order/tasks/<orderId>\` or \`GET ${baseUrl}/v1/orders/<orderId>\`.
-9. Use message, clarification, cancel, and dispute endpoints as needed.
+6. Optionally call \`POST ${baseUrl}/v1/quotes\` to show a non-browser price, estimate, or retroactive-billing state before creating the order.
+7. Submit orders through \`POST ${baseUrl}/api/services/order/submit\` or \`POST ${baseUrl}/v1/orders\`.
+8. Store \`order.id\` from the response, for example \`ord_123\`. The compatibility \`task.id\` is numeric.
+9. Poll \`POST ${baseUrl}/api/services/order/tasks/<orderId>\` or \`GET ${baseUrl}/v1/orders/<orderId>\`.
+10. Use message, clarification, cancel, and dispute endpoints as needed.
 
 ## Submit
 
@@ -85,6 +86,21 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
 \`\`\`
 
 Structured fields matter. Prefer \`store\`, \`merchant\`, \`store_url\`, \`kind\`, \`order_type\`, \`items[]\`, \`files[]\`, \`pickup_location\`, \`shipping_address\`, \`order_details\`, and \`max_charge_cents\` over a vague prompt.
+
+## Non-Browser Quotes
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/v1/quotes \\
+  -H 'authorization: Bearer sk-oa-...' \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "store":"amazon",
+    "url":"https://www.amazon.com/dp/EXAMPLE",
+    "task":"Quote this direct Amazon product link."
+  }'
+\`\`\`
+
+Quotes never open a browser and never create an order. OttoAuth tries explicit/manual price fields, direct Amazon product-page scraping, configured supplier APIs such as Mouser/eBay, configured local pricing models such as \`OTTOAUTH_JLCPCB_PRICE_MODEL_JSON\`, then \`retroactive_after_fulfillment\` when no non-browser price source is available. Order creation stores the same result in \`order.quote\` and \`price_quote\`.
 
 ## Orders With Files
 

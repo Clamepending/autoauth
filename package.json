@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "verify:order-api-contract": "node scripts/verify-order-api-contract.mjs",
+    "verify:price-quotes": "node scripts/verify-non-browser-price-quotes.mjs",
     "package:extension": "./scripts/package-extension.sh",
     "mcp:ottoauth": "node scripts/ottoauth-mcp-server.mjs"
   },
