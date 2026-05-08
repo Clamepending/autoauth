@@ -1,0 +1,224 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import type { FormEvent } from "react";
+import { useState } from "react";
+
+type Props = {
+  orderId: string;
+  defaultMerchant: string;
+  final: boolean;
+};
+
+function field(form: FormData, name: string) {
+  const value = form.get(name);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function dollars(form: FormData, name: string) {
+  const value = field(form, name);
+  return value ? value : "0";
+}
+
+export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props) {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function claim(form: FormData) {
+    setSubmitting(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/fulfillment/orders/${orderId}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_email: field(form, "admin_email") }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error || "Could not claim order.");
+        return;
+      }
+      setMessage("Order claimed.");
+      router.refresh();
+    } catch {
+      setError("Network error while claiming order.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (final) return;
+    const form = new FormData(event.currentTarget);
+    setSubmitting(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/fulfillment/orders/${orderId}/manual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          admin_email: field(form, "admin_email"),
+          status: field(form, "status"),
+          merchant: field(form, "merchant"),
+          summary: field(form, "summary"),
+          error: field(form, "error"),
+          currency: field(form, "currency") || "usd",
+          goods_dollars: dollars(form, "goods_dollars"),
+          shipping_dollars: dollars(form, "shipping_dollars"),
+          tax_dollars: dollars(form, "tax_dollars"),
+          other_dollars: dollars(form, "other_dollars"),
+          receipt_url: field(form, "receipt_url"),
+          receipt_text: field(form, "receipt_text"),
+          order_number: field(form, "order_number"),
+          confirmation_code: field(form, "confirmation_code"),
+          pickup_code: field(form, "pickup_code"),
+          tracking_number: field(form, "tracking_number"),
+          tracking_url: field(form, "tracking_url"),
+          provider_status: field(form, "provider_status"),
+          delivery_eta: field(form, "delivery_eta"),
+          note: field(form, "note"),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error || "Could not save manual fulfillment.");
+        return;
+      }
+      setMessage("Manual fulfillment saved.");
+      router.refresh();
+    } catch {
+      setError("Network error while saving fulfillment.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form className="admin-control-stack" onSubmit={submit}>
+      <label className="admin-fact">
+        <span>Admin email</span>
+        <input name="admin_email" type="email" placeholder="operator@ottoauth.com" />
+      </label>
+
+      <div className="admin-fact-grid compact">
+        <label className="admin-fact">
+          <span>Status</span>
+          <select name="status" defaultValue="completed">
+            <option value="completed">completed</option>
+            <option value="failed">failed</option>
+          </select>
+        </label>
+        <label className="admin-fact">
+          <span>Merchant</span>
+          <input name="merchant" type="text" defaultValue={defaultMerchant} />
+        </label>
+      </div>
+
+      <label className="admin-fact">
+        <span>Summary</span>
+        <textarea
+          name="summary"
+          rows={4}
+          placeholder="What was ordered, where, and what the requester should know."
+        />
+      </label>
+
+      <div className="admin-fact-grid compact">
+        <label className="admin-fact">
+          <span>Order number</span>
+          <input name="order_number" type="text" />
+        </label>
+        <label className="admin-fact">
+          <span>Confirmation code</span>
+          <input name="confirmation_code" type="text" />
+        </label>
+        <label className="admin-fact">
+          <span>Pickup code</span>
+          <input name="pickup_code" type="text" />
+        </label>
+        <label className="admin-fact">
+          <span>Provider status</span>
+          <input name="provider_status" type="text" />
+        </label>
+      </div>
+
+      <div className="admin-fact-grid compact">
+        <label className="admin-fact">
+          <span>Tracking number</span>
+          <input name="tracking_number" type="text" />
+        </label>
+        <label className="admin-fact">
+          <span>Tracking URL</span>
+          <input name="tracking_url" type="url" />
+        </label>
+        <label className="admin-fact">
+          <span>Delivery ETA</span>
+          <input name="delivery_eta" type="text" />
+        </label>
+        <label className="admin-fact">
+          <span>Receipt URL</span>
+          <input name="receipt_url" type="url" />
+        </label>
+      </div>
+
+      <div className="admin-fact-grid compact">
+        <label className="admin-fact">
+          <span>Goods dollars</span>
+          <input name="goods_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
+        </label>
+        <label className="admin-fact">
+          <span>Shipping dollars</span>
+          <input name="shipping_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
+        </label>
+        <label className="admin-fact">
+          <span>Tax dollars</span>
+          <input name="tax_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
+        </label>
+        <label className="admin-fact">
+          <span>Other dollars</span>
+          <input name="other_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
+        </label>
+      </div>
+
+      <label className="admin-fact">
+        <span>Receipt text</span>
+        <textarea name="receipt_text" rows={5} placeholder="Paste receipt details when no receipt URL exists." />
+      </label>
+      <label className="admin-fact">
+        <span>Failure reason</span>
+        <textarea name="error" rows={3} placeholder="Required only when marking failed." />
+      </label>
+      <label className="admin-fact">
+        <span>Internal note</span>
+        <textarea name="note" rows={3} placeholder="Operator note, not necessarily requester-facing." />
+      </label>
+      <input name="currency" type="hidden" value="usd" />
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          className="admin-button"
+          type="button"
+          disabled={submitting || final}
+          onClick={(event) => {
+            const form = event.currentTarget.form;
+            if (form) void claim(new FormData(form));
+          }}
+        >
+          Claim
+        </button>
+        <button className="admin-button primary" type="submit" disabled={submitting || final}>
+          {submitting ? "Saving..." : "Save manual result"}
+        </button>
+      </div>
+
+      {error ? <p className="danger-text">{error}</p> : null}
+      {message ? <p className="admin-subtle">{message}</p> : null}
+      {final ? <p className="admin-empty">This order is final.</p> : null}
+    </form>
+  );
+}

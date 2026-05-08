@@ -1,20 +1,14 @@
-import type { ServiceManifest } from "@/services/_shared/types";
 import { getBaseUrl } from "@/lib/base-url";
-import {
-  getAgentClarificationTimeoutLabel,
-  getAgentClarificationTimeoutSeconds,
-} from "@/lib/computeruse-agent-clarification-config";
+import type { ServiceManifest } from "@/services/_shared/types";
 
 export function getManifest(): ServiceManifest {
   const baseUrl = getBaseUrl();
-  const clarificationTimeoutLabel = getAgentClarificationTimeoutLabel();
-  const clarificationTimeoutSeconds = getAgentClarificationTimeoutSeconds();
 
   return {
     id: "order",
     name: "General Order",
     description:
-      "Submit, track, cancel, and clarify any human-linked commerce order by specifying the store or platform in one general order API",
+      "Submit, track, message, clarify, cancel, and dispute commerce orders through one provider-capability router with human admin fallback",
     category: "commerce",
     status: "active",
     endpoints: [
@@ -23,89 +17,84 @@ export function getManifest(): ServiceManifest {
         method: "POST",
         path: "/api/services/order/submit",
         description:
-          "Queue an Amazon, Snackpass, retail, food, grocery, return, cancellation, or support order on OttoAuth's internal fulfillment queue.",
+          "Create a canonical OttoAuth order. OttoAuth uses a native provider API when enabled, otherwise it routes the order to the admindash human fulfillment queue.",
         params: {
-          username: { type: "string", required: true, description: "Agent username" },
-          private_key: { type: "string", required: true, description: "Agent private key" },
+          username: { type: "string", required: true, description: "Agent username." },
+          private_key: { type: "string", required: true, description: "Agent private key." },
           store: {
             type: "string",
             required: false,
-            description:
-              "Store or platform to use, such as amazon, snackpass, target, instacart, doordash, or a merchant name.",
+            description: "Store or platform, such as amazon, treatstock, jlcpcb, instacart, uber, ubereats, snackpass, or manual.",
           },
           platform: {
             type: "string",
             required: false,
-            description: "Alias for store, accepted for agent compatibility.",
+            description: "Alias for store.",
           },
           merchant: {
             type: "string",
             required: false,
-            description:
-              "Specific merchant, restaurant, retailer, or store name when the platform hosts many merchants.",
+            description: "Specific merchant, restaurant, retailer, manufacturer, or store name.",
           },
           store_url: {
             type: "string",
             required: false,
-            description:
-              "Preferred store, product, menu, order, receipt, return, or tracking URL. Alias: website_url.",
+            description: "Product, menu, quote, order, receipt, tracking, return, or merchant URL.",
           },
-          url_policy: {
+          kind: {
             type: "string",
             required: false,
-            description:
-              "Optional URL policy: discover, preferred, or required. Defaults to preferred when store_url/website_url is supplied and discover otherwise.",
+            description: "Optional order kind: retail_purchase, grocery_delivery, restaurant_delivery, ride, manufacturing_3d_print, manufacturing_pcb, or custom_human_task.",
           },
           task_prompt: {
             type: "string",
             required: false,
-            description:
-              "Freeform work order. Required only when the structured fields do not fully describe the order.",
+            description: "Freeform work order. Required only when structured fields do not fully describe the order.",
           },
-          task_title: {
-            type: "string",
+          items: {
+            type: "array",
             required: false,
-            description: "Optional short label for the order task.",
+            description: "Structured item rows with name, quantity, details, and url.",
+          },
+          files: {
+            type: "array",
+            required: false,
+            description: "Structured file references for CAD, PCB, or quote-first manufacturing orders.",
           },
           order_type: {
             type: "string",
             required: false,
-            description:
-              "Fulfillment or support type, such as shipping, delivery, pickup, return, cancellation, refund, exchange, or status_check.",
+            description: "shipping, delivery, pickup, quote, order, return, cancellation, refund, exchange, support, status_check, or dispute.",
           },
           pickup_location: {
             type: "string",
             required: false,
-            description:
-              "Pickup, search, destination, or local availability location. Use this instead of relying on the browser device's physical location.",
-          },
-          item_name: {
-            type: "string",
-            required: false,
-            description: "Product, menu item, service, or order target.",
-          },
-          quantity: {
-            type: "string",
-            required: false,
-            description: "Quantity or count when relevant.",
-          },
-          order_details: {
-            type: "string",
-            required: false,
-            description:
-              "Variants, modifiers, substitutions, account/order numbers, delivery notes, return reasons, or other instructions.",
+            description: "Pickup, destination, or search location.",
           },
           shipping_address: {
             type: "string",
             required: false,
-            description:
-              "Optional shipping or delivery address to use exactly as written if the order needs one.",
+            description: "Shipping or delivery address to use exactly as written.",
+          },
+          item_name: {
+            type: "string",
+            required: false,
+            description: "Single item shorthand when items[] is not used.",
+          },
+          quantity: {
+            type: "string",
+            required: false,
+            description: "Single item quantity shorthand.",
+          },
+          order_details: {
+            type: "string",
+            required: false,
+            description: "Variants, modifiers, substitutions, quote requirements, account/order numbers, or other instructions.",
           },
           max_charge_cents: {
             type: "number",
             required: false,
-            description:
-              "Optional explicit max spend in cents. If omitted, OttoAuth uses the human's current credit balance as the cap.",
+            description: "Maximum spend in cents. Human operators cannot close a completed order above this cap.",
           },
         },
       },
@@ -114,15 +103,21 @@ export function getManifest(): ServiceManifest {
         method: "POST",
         path: "/api/services/order/tasks/:taskId",
         description:
-          "Check queued, running, clarification, completed, or failed status plus billing, pickup, tracking, summary, and run ids.",
+          "Return normalized order state, provider capabilities, payment fields, messages, and event timeline.",
         params: {
-          taskId: {
-            type: "number",
-            required: true,
-            description: "The task ID returned by submit_order.",
-          },
-          username: { type: "string", required: true, description: "Agent username" },
-          private_key: { type: "string", required: true, description: "Agent private key" },
+          taskId: { type: "string", required: true, description: "Order id returned by submit_order, such as ord_123." },
+          username: { type: "string", required: true, description: "Agent username." },
+          private_key: { type: "string", required: true, description: "Agent private key." },
+        },
+      },
+      {
+        name: "history",
+        method: "POST",
+        path: "/api/services/order/history",
+        description: "List recent canonical orders submitted by this agent.",
+        params: {
+          username: { type: "string", required: true, description: "Agent username." },
+          private_key: { type: "string", required: true, description: "Agent private key." },
         },
       },
       {
@@ -130,20 +125,26 @@ export function getManifest(): ServiceManifest {
         method: "POST",
         path: "/api/services/order/tasks/:taskId/cancel",
         description:
-          "Cancel an in-flight order task submitted by this agent. OttoAuth marks the task failed and returns the updated task object.",
+          "Cancel an order that has not completed. Native providers are handled by an adapter when available; otherwise the human queue sees the cancellation state.",
         params: {
-          taskId: {
-            type: "number",
-            required: true,
-            description: "The task ID returned by submit_order.",
-          },
-          username: { type: "string", required: true, description: "Agent username" },
-          private_key: { type: "string", required: true, description: "Agent private key" },
-          reason: {
-            type: "string",
-            required: false,
-            description: "Optional cancellation reason to store on the task.",
-          },
+          taskId: { type: "string", required: true, description: "Order id returned by submit_order." },
+          username: { type: "string", required: true, description: "Agent username." },
+          private_key: { type: "string", required: true, description: "Agent private key." },
+          reason: { type: "string", required: false, description: "Cancellation reason." },
+        },
+      },
+      {
+        name: "send_order_message",
+        method: "POST",
+        path: "/api/services/order/tasks/:taskId/messages",
+        description:
+          "Record an agent message for requester, operator, vendor, shopper, driver, or provider follow-up. If no native messaging API exists, the message is flagged for human delivery.",
+        params: {
+          taskId: { type: "string", required: true, description: "Order id returned by submit_order." },
+          username: { type: "string", required: true, description: "Agent username." },
+          private_key: { type: "string", required: true, description: "Agent private key." },
+          channel: { type: "string", required: false, description: "provider_vendor, requester, human_operator, driver, shopper, or support." },
+          message: { type: "string", required: true, description: "Message body." },
         },
       },
       {
@@ -151,112 +152,66 @@ export function getManifest(): ServiceManifest {
         method: "POST",
         path: "/api/services/order/tasks/:taskId/clarification",
         description:
-          "Respond when OttoAuth asks the submitting agent for a missing order detail, then re-queue the task on the linked device.",
+          "Answer an open operator/provider clarification so the order can resume from blocked to human_required or ready_to_fulfill.",
         params: {
-          taskId: {
-            type: "number",
-            required: true,
-            description: "The task ID that is awaiting clarification.",
-          },
-          username: { type: "string", required: true, description: "Agent username" },
-          private_key: { type: "string", required: true, description: "Agent private key" },
-          clarification_response: {
-            type: "string",
-            required: true,
-            description: "The agent's answer for OttoAuth to use when resuming the task.",
-          },
+          taskId: { type: "string", required: true, description: "Order id that is awaiting clarification." },
+          username: { type: "string", required: true, description: "Agent username." },
+          private_key: { type: "string", required: true, description: "Agent private key." },
+          clarification_id: { type: "number", required: false, description: "Specific clarification id; defaults to the newest open clarification." },
+          clarification_response: { type: "string", required: true, description: "Answer to the clarification question." },
         },
       },
       {
-        name: "history",
+        name: "open_dispute",
         method: "POST",
-        path: "/api/services/order/history",
-        description: "List recent order tasks submitted by this agent.",
-        params: {
-          username: { type: "string", required: true, description: "Agent username" },
-          private_key: { type: "string", required: true, description: "Agent private key" },
-        },
-      },
-      {
-        name: "run_events",
-        method: "POST",
-        path: "/api/services/order/runs/:runId/events",
+        path: "/api/services/order/tasks/:taskId/disputes",
         description:
-          "Retrieve chronological execution events for debugging, order progress, clarification handoffs, and support follow-up.",
+          "Open a dispute/refund/support case against a completed or problematic order. Native dispute APIs can be added per provider; otherwise admindash exposes it to an operator.",
         params: {
-          runId: {
-            type: "string",
-            required: true,
-            description: "The run_id returned by submit_order or get_order_status.",
-          },
-          username: { type: "string", required: true, description: "Agent username" },
-          private_key: { type: "string", required: true, description: "Agent private key" },
-          limit: {
-            type: "number",
-            required: false,
-            description: "Maximum number of recent events to return. Defaults to 50.",
-          },
+          taskId: { type: "string", required: true, description: "Order id." },
+          username: { type: "string", required: true, description: "Agent username." },
+          private_key: { type: "string", required: true, description: "Agent private key." },
+          reason: { type: "string", required: true, description: "Dispute reason." },
+          requested_resolution: { type: "string", required: false, description: "Refund, replacement, cancellation, status correction, or other desired resolution." },
+          evidence: { type: "object", required: false, description: "Optional structured evidence payload." },
+        },
+      },
+      {
+        name: "v1_orders",
+        method: "POST",
+        path: "/v1/orders",
+        description:
+          "Resource-oriented v1 alias for submit_order. Also supports GET with Authorization: Bearer <private_key> to list recent orders.",
+        params: {
+          Authorization: { type: "string", required: false, description: "Bearer private key. Body username/private_key still works for POST." },
         },
       },
     ],
     docsMarkdown: `# OttoAuth General Order API
 
-OttoAuth exposes one hosted agent service: \`order\`.
+OttoAuth's public commerce API is no longer a browser-task API. It is a canonical order API with a provider-capability router.
 
-Use it for Amazon, Snackpass, restaurants, grocery, retailers, product purchases, pickup, delivery, order-status follow-up, cancellations, returns, refunds, exchanges, and support tasks. There are no public store-specific service endpoints for Amazon or Snackpass. Put the store or platform in the request body instead.
+The contract is:
 
-OttoAuth turns each order into structured request hints, retrieves the matching fulfillment playbook(s), and injects only those site-specific tactics into the browser task. Built-in playbooks currently cover Snackpass, Amazon, Instacart, Grubhub, Uber / Uber Eats, McMaster-Carr, eBay, Airbnb, Google Flights, and Booking.com.
+1. The agent submits one normalized order request.
+2. OttoAuth identifies the provider and order kind.
+3. If a native or quote-first provider API is enabled, OttoAuth routes to that adapter.
+4. If OttoAuth does not have that provider API yet, the order is displayed in admindash for a human operator.
+5. The agent keeps using the same status, message, clarification, cancellation, and dispute endpoints either way.
 
-## Agent-readable startup contract
+## Current provider posture
 
-1. Read \`${baseUrl}/llms.txt\`.
-2. Read \`${baseUrl}/skill.md\`.
-3. GET \`${baseUrl}/api/services\`.
-4. GET \`${baseUrl}/api/services/order\` for machine-readable tools.
-5. Ask the human for dashboard-generated \`username\` and \`privateKey\`.
-6. Confirm the human has credits, or that your agent can handle OttoAuth's x402 \`402 Payment Required\` response.
-7. Submit through \`POST ${baseUrl}/api/services/order/submit\`.
-8. Save \`task.id\` and \`run_id\`, share \`${baseUrl}/orders/<taskId>\` if useful, poll status, inspect run events, and answer clarification before the deadline.
+Native API adapters are intentionally explicit. OttoAuth should not pretend that every store has a real public API.
 
-## Submit any order
+- Amazon: human fulfillment fallback today; status/cancel/dispute/refund fields are tracked in OttoAuth.
+- Treatstock: human fallback until the quote-first adapter is wired.
+- JLCPCB: human fallback until the quote-first PCB/manufacturing adapter is wired.
+- Mouser: human fallback until the quote/order adapter is wired.
+- Instacart, Uber, Uber Eats, Snackpass, and unknown stores: human fallback today with first-class status, message, clarification, and dispute records.
 
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/order/submit \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"my_agent",
-    "private_key":"sk-oa-...",
-    "store":"snackpass",
-    "merchant":"Little Plearn",
-    "order_type":"pickup",
-    "item_name":"Pad see ew",
-    "order_details":"mild spice, no peanuts",
-    "max_charge_cents": 2000
-  }'
-\`\`\`
+Every order response includes \`order.provider.capabilities\` so clients can see whether OttoAuth believes quote, place_order, cancel, status_tracking, live_tracking, messaging, clarification, dispute, file_upload, proof_of_completion, and refund are supported for that provider.
 
-Minimum required body:
-
-- \`username\`
-- \`private_key\`
-- enough structured order fields or \`task_prompt\` to describe the work
-
-Core optional fields:
-
-- \`store\` or \`platform\`: Amazon, Snackpass, a retailer, a food platform, a grocery platform, or the merchant itself
-- \`merchant\`: specific store, restaurant, or retailer name
-- \`store_url\` or \`website_url\`: product, menu, order, receipt, return, tracking, or merchant URL
-- \`url_policy\`: \`discover\`, \`preferred\`, or \`required\`
-- \`order_type\`: shipping, delivery, pickup, return, cancellation, refund, exchange, support, status_check
-- \`pickup_location\`: pickup, destination, search, or local availability location
-- \`item_name\`, \`quantity\`, \`order_details\`
-- \`shipping_address\`
-- \`max_charge_cents\`
-- \`task_prompt\` for freeform detail
-
-The browser device's city, IP geolocation, or physical desktop location is never a substitute for the requester-provided delivery, pickup, destination, or search location. Include \`pickup_location\` or \`shipping_address\` whenever local availability matters.
-
-## Amazon example
+## Submit an order
 
 \`\`\`bash
 curl -s -X POST ${baseUrl}/api/services/order/submit \\
@@ -269,140 +224,123 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
     "item_name":"two packs of AA batteries",
     "order_type":"shipping",
     "shipping_address":"Jane Doe\\n123 Main St Apt 4B\\nSan Francisco, CA 94110",
-    "max_charge_cents": 2500,
-    "order_details":"Use the default saved payment method. Stop before purchase if the total exceeds the spend cap."
+    "max_charge_cents":2500,
+    "order_details":"Use the default saved checkout path. Stop if the total exceeds the cap."
   }'
 \`\`\`
 
-## Snackpass example
+Minimum required body:
+
+- \`username\`
+- \`private_key\`
+- enough structured fields, \`items[]\`, \`files[]\`, or \`task_prompt\` to describe the order
+
+The response contains both \`order.id\` and a compatibility \`task.id\`. New clients should store \`order.id\`, for example \`ord_123\`.
+
+## Resource-oriented v1 alias
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/order/submit \\
+curl -s -X POST ${baseUrl}/v1/orders \\
+  -H 'authorization: Bearer sk-oa-...' \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "store":"treatstock",
+    "kind":"manufacturing_3d_print",
+    "files":[{"name":"bracket.stl","url":"https://example.com/bracket.stl"}],
+    "order_details":"black nylon, quantity 4, quote before ordering",
+    "max_charge_cents":12000
+  }'
+\`\`\`
+
+Use \`GET ${baseUrl}/v1/orders/<orderId>\` with \`Authorization: Bearer <private_key>\` for status when you do not want to send credentials in the body.
+
+## Status
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123 \\
+  -H 'content-type: application/json' \\
+  -d '{"username":"my_agent","private_key":"sk-oa-..."}'
+\`\`\`
+
+Core statuses:
+
+- \`quote_requested\`: a quote-first API adapter or operator needs pricing before purchase.
+- \`awaiting_approval\`: a quote or exception needs agent/requester approval.
+- \`human_required\`: no native adapter is available; admindash operator action is required.
+- \`human_claimed\`: an operator has claimed the order.
+- \`blocked\`: OttoAuth needs clarification.
+- \`completed\`, \`failed\`, \`canceled\`, \`disputed\`: terminal or exception states.
+
+## Messaging
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123/messages \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
     "private_key":"sk-oa-...",
-    "store":"snackpass",
-    "merchant":"Little Plearn",
-    "order_type":"pickup",
-    "pickup_location":"Berkeley, CA",
-    "item_name":"Pad see ew",
-    "quantity":"1",
-    "order_details":"mild spice, no peanuts",
-    "max_charge_cents": 2000
+    "channel":"provider_vendor",
+    "message":"Please ask the shopper to replace unavailable oat milk with almond milk."
   }'
 \`\`\`
 
-For Snackpass, include the merchant name. OttoAuth then tells the browser fulfiller to find the store-specific Snackpass ordering page and to avoid the generic Snackpass marketing homepage.
+If the provider has native messaging enabled, the adapter can deliver it. Otherwise the message is recorded with \`status: "needs_human_delivery"\` for admindash.
 
-## Follow up on order status
-
-\`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/order/tasks/123 \\
-  -H 'content-type: application/json' \\
-  -d '{
-    "username":"my_agent",
-    "private_key":"sk-oa-..."
-  }'
-\`\`\`
-
-Poll every 15-60 seconds while status is \`queued\`, \`running\`, or \`awaiting_agent_clarification\`. Terminal statuses are \`completed\` and \`failed\`.
-
-Status responses can include:
-
-- pickup details and pickup summary
-- tracking details and tracking summary
-- clarification request, response, and deadline
-- billing and payout status
-- final debit amount
-- selected fulfillment playbooks, when OttoAuth matched supported site tactics
-- failure classification for failed tasks, including category, stage, retryability, and suggested action
-- token usage
-- summary, receipt details, and error
-- \`run_id\` for event follow-up
-
-## Cancel an in-flight order
+## Clarifications
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/order/tasks/123/cancel \\
+curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123/clarification \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
     "private_key":"sk-oa-...",
-    "reason":"The human cancelled this request."
+    "clarification_response":"Use black PLA if nylon is unavailable, but keep the same tolerance."
   }'
 \`\`\`
 
-Cancellation is best-effort after work has reached a browser device, but OttoAuth immediately marks the hosted task failed.
+Operators use clarifications when provider forms, quotes, substitutions, delivery constraints, or manufacturing files are ambiguous. Answering the clarification returns the order from \`blocked\` to the appropriate fulfillment queue.
 
-## Run events
+## Cancel
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/order/runs/run_abc123/events \\
+curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123/cancel \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
     "private_key":"sk-oa-...",
-    "limit": 100
+    "reason":"Requester no longer needs this."
   }'
 \`\`\`
 
-Use run events when task status is not enough. They expose the chronological execution trail for debugging, order progress, messages, and fulfillment handoffs.
-
-## Clarification
-
-If the fulfiller gets blocked on an agent-submitted order, OttoAuth can send a webhook to an agent-owned account's stored \`callback_url\`. Dashboard-generated keys do not require the human to configure a callback URL. The agent has ${clarificationTimeoutLabel} to answer by returning JSON from the webhook or by POSTing to the clarification endpoint.
-
-\`\`\`json
-{
-  "event": "ottoauth.computeruse.clarification_requested",
-  "task_id": 123,
-  "run_id": "run_...",
-  "status": "awaiting_agent_clarification",
-  "clarification": {
-    "question": "Which size should I choose?",
-    "deadline_at": "2026-04-11T20:10:00.000Z",
-    "timeout_seconds": ${clarificationTimeoutSeconds},
-    "respond_url": "${baseUrl}/api/services/order/tasks/123/clarification"
-  }
-}
-\`\`\`
+## Disputes
 
 \`\`\`bash
-curl -s -X POST ${baseUrl}/api/services/order/tasks/123/clarification \\
+curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123/disputes \\
   -H 'content-type: application/json' \\
   -d '{
     "username":"my_agent",
     "private_key":"sk-oa-...",
-    "clarification_response":"Choose the medium size."
+    "reason":"Wrong item delivered",
+    "requested_resolution":"refund",
+    "evidence":{"photo_url":"https://example.com/photo.jpg"}
   }'
 \`\`\`
 
-If no clarification arrives before the deadline, OttoAuth cancels the task.
+## Admin fulfillment
 
-## Browser task reliability
+Orders without an enabled provider API appear in \`${baseUrl}/admindash\` under Human fulfillment queue. Each row links to \`${baseUrl}/admindash/fulfillment/<orderId>\`, where an operator can:
 
-Structured fields are converted into a compact work order for the browser fulfiller:
+- claim the order
+- inspect normalized request fields, files, items, cap, checklist, risk notes, messages, and events
+- place the order manually in the provider's normal UI or admin portal
+- paste receipt, order number, pickup code, tracking, ETA, provider status, and final charge breakdown
+- mark the order completed or failed
 
-\`\`\`text
-Platform: Snackpass
-Store or merchant name: Little Plearn
-Fulfillment method: pickup
-Item name: Pad see ew
-Quantity: 1
-Order details, modifiers, and preferences: mild spice, no peanuts
-\`\`\`
+Manual completion enforces \`max_charge_cents\` before closing and debits the requester credit ledger only once.
 
-Include platform, merchant, fulfillment method, item, quantity, variants, modifiers, substitutions, address, and spend cap whenever those details matter.
+## Client rule
 
-## Notes
-
-- The human generates API keys in the dashboard and sends the agent \`username\` plus \`privateKey\`.
-- OttoAuth routes hosted orders to internal fulfillment workers; users do not claim fulfillment devices.
-- The human must keep enough credits available for the requested spend cap, or the agent must satisfy OttoAuth's x402 \`402 Payment Required\` challenge when funding is required.
-- Store-specific work goes through \`store\`, \`merchant\`, \`store_url\`, and the general order fields on \`/api/services/order/submit\`.
-- Lower-level \`/api/computeruse/*\` routes are worker/device infrastructure, not the stable hosted agent API.
-- Humans can create tasks directly from \`${baseUrl}/orders/new\` and watch live fulfillment on \`${baseUrl}/orders/<taskId>\`.
+Do not branch your integration by store. Submit all stores through the same order API, then use the returned provider capabilities and status fields to adapt UX. The point of OttoAuth is that Amazon, Treatstock, PCB manufacturing, grocery delivery, rides, restaurant delivery, and unknown stores all share one lifecycle even when their actual fulfillment path differs.
 `,
   };
 }

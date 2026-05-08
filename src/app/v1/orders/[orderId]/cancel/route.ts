@@ -8,29 +8,30 @@ import {
 } from "@/lib/order-api";
 import { cancelOrder, listOrderEvents } from "@/lib/order-orchestration";
 
-type Context = { params: Promise<{ taskId: string }> };
+type Context = { params: Promise<{ orderId: string }> };
 
-function text(value: unknown, fallback: string) {
+function reasonFrom(payload: Record<string, unknown>) {
+  const value = payload.reason;
   return typeof value === "string" && value.trim()
     ? value.trim().slice(0, 1000)
-    : fallback;
+    : "Order canceled by the submitting agent.";
 }
 
 export async function POST(request: Request, context: Context) {
   const body = await readJsonObject(request);
   if (!body.ok) return body.response;
-  const { taskId } = await context.params;
+  const { orderId } = await context.params;
   const access = await requireAgentOrderAccess({
     request,
     payload: body.payload,
-    orderId: taskId,
+    orderId,
   });
   if (!access.ok) return access.response;
 
   try {
     const order = await cancelOrder({
       orderId: access.order.id,
-      reason: text(body.payload.reason, "Order canceled by the submitting agent."),
+      reason: reasonFrom(body.payload),
       actor: access.auth.usernameLower,
     });
     return NextResponse.json({

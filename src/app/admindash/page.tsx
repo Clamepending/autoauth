@@ -10,6 +10,10 @@ import {
   type AdminOrderRow,
   type AdminSignupRow,
 } from "@/lib/admin-analytics";
+import {
+  listOrdersForAdmin,
+  type OttoAuthOrderRecord,
+} from "@/lib/order-orchestration";
 
 export const dynamic = "force-dynamic";
 
@@ -85,9 +89,9 @@ function humanizeKey(value: string | null | undefined) {
 
 function statusTone(status: string) {
   if (status === "completed") return "success";
-  if (status === "failed") return "danger";
-  if (status === "awaiting_agent_clarification") return "warning";
-  if (status === "running") return "info";
+  if (status === "failed" || status === "canceled" || status === "disputed") return "danger";
+  if (status === "awaiting_agent_clarification" || status === "human_required" || status === "blocked" || status === "awaiting_approval") return "warning";
+  if (status === "running" || status === "human_claimed" || status === "api_ordering" || status === "quote_requested") return "info";
   return "neutral";
 }
 
@@ -209,6 +213,99 @@ function DistributionList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function parseRecord(value: string | null) {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function orchestrationTitle(order: OttoAuthOrderRecord) {
+  const packet = parseRecord(order.human_packet_json);
+  if (typeof packet?.title === "string" && packet.title.trim()) return packet.title;
+  const request = parseRecord(order.request_json);
+  const normalized =
+    request?.normalized && typeof request.normalized === "object" && !Array.isArray(request.normalized)
+      ? (request.normalized as Record<string, unknown>)
+      : null;
+  if (typeof normalized?.title === "string" && normalized.title.trim()) return normalized.title;
+  return order.public_id;
+}
+
+function orchestrationGoal(order: OttoAuthOrderRecord) {
+  const packet = parseRecord(order.human_packet_json);
+  if (typeof packet?.fulfillment_goal === "string") return packet.fulfillment_goal;
+  return "";
+}
+
+function OrchestrationOrderTable({ orders }: { orders: OttoAuthOrderRecord[] }) {
+  if (orders.length === 0) {
+    return <p className="admin-empty">No orchestrated orders yet.</p>;
+  }
+
+  return (
+    <div className="admin-table-wrap">
+      <table className="admin-table compact">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Status</th>
+            <th>Provider</th>
+            <th>Task</th>
+            <th>Spend</th>
+            <th>Owner</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((order) => (
+            <tr key={order.public_id}>
+              <td>
+                <a className="admin-link-strong" href={`/admindash/fulfillment/${order.public_id}`}>
+                  {order.public_id}
+                </a>
+                <div className="admin-subtle">{order.submission_source}</div>
+              </td>
+              <td>
+                <span className={`admin-status ${statusTone(order.status)}`}>
+                  {order.status.replace(/_/g, " ")}
+                </span>
+              </td>
+              <td>
+                <strong>{order.provider_label}</strong>
+                <div className="admin-subtle">{order.fulfillment_mode.replace(/_/g, " ")}</div>
+              </td>
+              <td className="admin-task-cell">
+                <strong>{compact(orchestrationTitle(order), 80)}</strong>
+                <div>{compact(orchestrationGoal(order), 150)}</div>
+              </td>
+              <td>
+                <strong>{fmtMoney(order.captured_cents)}</strong>
+                <div className="admin-subtle">
+                  cap {order.max_charge_cents == null ? "none" : fmtMoney(order.max_charge_cents)}
+                </div>
+              </td>
+              <td>
+                <strong>{order.claimed_by_admin_email || "unclaimed"}</strong>
+                <div className="admin-subtle">{order.agent_username_lower || "no agent"}</div>
+              </td>
+              <td>
+                <strong>{fmtDate(order.updated_at)}</strong>
+                <div className="admin-subtle">created {fmtDate(order.created_at)}</div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -489,7 +586,10 @@ function AgentTable({ agents }: { agents: AdminAgentRow[] }) {
 }
 
 export default async function AdminDashPage() {
-  const data = await getAdminControlPlaneData();
+  const [data, orchestrationOrders] = await Promise.all([
+    getAdminControlPlaneData(),
+    listOrdersForAdmin(80),
+  ]);
   const { summary } = data;
   const problemPressure =
     summary.failed_24h +
@@ -635,6 +735,16 @@ export default async function AdminDashPage() {
               <DistributionList rows={data.source_counts} total={summary.orders_total} label="source" />
             </div>
           </article>
+        </section>
+
+        <section className="admin-panel">
+          <div className="admin-panel-header">
+            <div>
+              <h2>Human fulfillment queue</h2>
+              <p>Canonical order records routed through provider APIs when available, otherwise assigned to an operator.</p>
+            </div>
+          </div>
+          <OrchestrationOrderTable orders={orchestrationOrders} />
         </section>
 
         <section className="admin-panel">

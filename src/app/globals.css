@@ -2889,6 +2889,37 @@ main.admin-control-plane::after {
   font-size: 12px;
 }
 
+.admin-fact input,
+.admin-fact select,
+.admin-fact textarea {
+  width: 100%;
+  border: 1px solid var(--admin-line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 9px 10px;
+}
+
+.admin-fact textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.admin-checklist {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.admin-checklist li {
+  color: var(--admin-ink);
+  line-height: 1.5;
+}
+
 .admin-control-stack,
 .admin-result-stack {
   display: grid;

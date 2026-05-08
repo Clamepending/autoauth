@@ -6,45 +6,45 @@ import {
   orderApiBody,
   readJsonObject,
 } from "@/lib/order-api";
-import { listOrderEvents } from "@/lib/order-orchestration";
+import {
+  listOrderEvents,
+  listOrdersForAgent,
+  parseOrderForApi,
+} from "@/lib/order-orchestration";
 
 export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
+  const auth = await authenticateOrderAgentFromRequest(request, {});
+  if (!auth.ok) return auth.response;
+  const orders = await listOrdersForAgent(auth.auth.usernameLower, 100);
+  return NextResponse.json({
+    ok: true,
+    orders: orders.map(parseOrderForApi),
+  });
+}
 
 export async function POST(request: Request) {
   const body = await readJsonObject(request);
   if (!body.ok) return body.response;
-  const { payload } = body;
 
-  const auth = await authenticateOrderAgentFromRequest(request, payload);
+  const auth = await authenticateOrderAgentFromRequest(request, body.payload);
   if (!auth.ok) return auth.response;
 
   const created = await createOrderForAgentRequest({
     request,
-    payload,
+    payload: body.payload,
     auth: auth.auth,
     resourcePath: new URL(request.url).pathname,
   });
   if (!created.ok) return created.response;
 
-  const apiBody = orderApiBody(created.order);
   const response = NextResponse.json(
     {
       ok: true,
       reused: created.reused,
-      ...apiBody,
+      ...orderApiBody(created.order),
       events: await listOrderEvents(created.order.id, 20),
-      linked_human: created.linkedHuman,
-      human_credit_balance: `$${(created.availableAfterFunding / 100).toFixed(2)}`,
-      x402_funded_cents: created.fundedCents,
-      fulfillment: {
-        provider: created.order.provider_id,
-        mode: created.order.fulfillment_mode,
-        status: created.order.status,
-      },
-      note:
-        created.order.fulfillment_mode === "human_admin"
-          ? "Order created in the human fulfillment queue. No automated provider adapter was queued."
-          : "Order created and routed through the provider capability router.",
     },
     { status: created.reused ? 200 : 201 },
   );

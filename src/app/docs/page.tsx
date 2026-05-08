@@ -7,7 +7,7 @@ import { getAllManifests } from "@/services/registry";
 export const metadata: Metadata = {
   title: "Developer Docs | OttoAuth",
   description:
-    "Agent-readable OttoAuth docs for service discovery, browser tasks, checkout flows, and order follow-up.",
+    "Agent-readable OttoAuth docs for service discovery, order orchestration, provider fallback, and order follow-up.",
 };
 
 export const dynamic = "force-dynamic";
@@ -91,14 +91,14 @@ curl -s ${baseUrl}/api/services/order`;
     "task_prompt": "Only complete checkout if the total is under the spend cap."
   }'`;
 
-  const statusExample = `curl -s -X POST ${baseUrl}/api/services/order/tasks/123 \\
+  const statusExample = `curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123 \\
   -H 'content-type: application/json' \\
   -d '{
     "username": "my_agent",
     "private_key": "OTTOAUTH_PRIVATE_KEY"
   }'`;
 
-  const eventsExample = `curl -s -X POST ${baseUrl}/api/services/order/runs/run_abc123/events \\
+  const eventsExample = `curl -s -X POST ${baseUrl}/api/services/order/runs/ord_123/events \\
   -H 'content-type: application/json' \\
   -d '{
     "username": "my_agent",
@@ -106,7 +106,7 @@ curl -s ${baseUrl}/api/services/order`;
     "limit": 100
   }'`;
 
-  const cancelExample = `curl -s -X POST ${baseUrl}/api/services/order/tasks/123/cancel \\
+  const cancelExample = `curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123/cancel \\
   -H 'content-type: application/json' \\
   -d '{
     "username": "my_agent",
@@ -136,11 +136,11 @@ if (!response.ok) {
 }
 
 const task = await response.json();
-console.log(task.id, task.status);`;
+console.log(task.order.id, task.order.status);`;
 
-  const pollingExample = `async function waitForTask(taskId: number) {
+  const pollingExample = `async function waitForOrder(orderId: string) {
   while (true) {
-    const response = await fetch(\`${baseUrl}/api/services/order/tasks/\${taskId}\`, {
+    const response = await fetch(\`${baseUrl}/api/services/order/tasks/\${orderId}\`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -153,12 +153,12 @@ console.log(task.id, task.status);`;
       throw new Error(await response.text());
     }
 
-    const { task } = await response.json();
-    if (task.status === "awaiting_agent_clarification") {
-      return { action: "answer_clarification", task };
+    const { order } = await response.json();
+    if (order.status === "blocked") {
+      return { action: "answer_clarification", order };
     }
-    if (task.status === "completed" || task.status === "failed") {
-      return { action: "finished", task };
+    if (["completed", "failed", "canceled", "disputed"].includes(order.status)) {
+      return { action: "finished", order };
     }
 
     await new Promise((resolve) => setTimeout(resolve, 15000));
@@ -189,10 +189,10 @@ response.raise_for_status()
 print(response.json())`;
 
   const clarificationExample = `{
-  "event": "ottoauth.computeruse.clarification_requested",
-  "taskId": 123,
+  "event": "ottoauth.order.clarification_requested",
+  "order_id": "ord_123",
   "question": "The requested item is unavailable. What should I choose instead?",
-  "deadlineSeconds": 300
+  "respond_url": "${baseUrl}/api/services/order/tasks/ord_123/clarification"
 }`;
 
   return (
@@ -255,7 +255,7 @@ print(response.json())`;
           <section id="introduction" className="docs-section">
             <p className="lede">
               OttoAuth lets agents receive dashboard-generated credentials,
-              discover callable services, and submit browser or checkout tasks
+              discover callable services, and submit commerce orders
               without taking direct custody of the human's site credentials or
               payment details.
             </p>
@@ -319,8 +319,8 @@ print(response.json())`;
               <article>
                 <h3>Task discipline</h3>
                 <p>
-                  Submit structured work orders, save IDs, poll status, inspect
-                  run events when needed, and answer clarification before expiry.
+                  Submit structured orders, save the order ID, poll status, send
+                  messages, open disputes, and answer clarifications when blocked.
                 </p>
               </article>
             </div>
@@ -334,10 +334,11 @@ print(response.json())`;
             </div>
             <p>
               OttoAuth covers the full developer workflow with a service-first
-              API and a browser fulfiller behind it. Amazon, Snackpass, and
-              other store-specific work all go through the same general order
-              endpoint with <code>store</code>, <code>merchant</code>, and
-              related fields.
+              API and provider-capability router behind it. Native APIs are used
+              only when enabled; otherwise admindash exposes the order to a
+              human operator. Amazon, Snackpass, and other store-specific work
+              all go through the same general order endpoint with{" "}
+              <code>store</code>, <code>merchant</code>, and related fields.
             </p>
             <div className="docs-callouts">
               <article>
@@ -351,9 +352,10 @@ print(response.json())`;
               <article>
                 <h3>Create orders</h3>
                 <p>
-                  Use <code>submit_order</code> for universal browser checkout.
-                  Set <code>store</code> to values like Amazon or Snackpass
-                  instead of calling store-specific endpoints.
+                  Use <code>submit_order</code> for purchases, delivery, rides,
+                  manufacturing, cancellations, returns, disputes, and support.
+                  Set <code>store</code> to values like Amazon, Treatstock, JLCPCB,
+                  Instacart, or Uber instead of calling store-specific endpoints.
                 </p>
               </article>
               <article>
@@ -365,10 +367,10 @@ print(response.json())`;
                 </p>
               </article>
               <article>
-                <h3>Managed retailer accounts</h3>
+                <h3>Human fallback</h3>
                 <p>
-                  OttoAuth uses human-claimed browser profiles instead of storing
-                  retailer passwords. Humans control the signed-in browser device.
+                  Unknown or unsupported stores land in admindash with normalized
+                  fields, files, checklist, messages, spend cap, and completion form.
                 </p>
               </article>
               <article>
@@ -383,7 +385,7 @@ print(response.json())`;
                 <h3>Order history and events</h3>
                 <p>
                   Use <code>/history</code> to list recent tasks and{" "}
-                  <code>/runs/:runId/events</code> for execution history.
+                  <code>/runs/:orderId/events</code> for the order event timeline.
                 </p>
               </article>
               <article>
@@ -395,18 +397,17 @@ print(response.json())`;
                 </p>
               </article>
               <article>
-                <h3>Webhooks and clarification</h3>
+                <h3>Messages and clarification</h3>
                 <p>
-                  Configure a callback URL on generated credentials so OttoAuth
-                  can ask the agent for clarification when a fulfiller is blocked.
+                  Use messages for vendor, driver, shopper, requester, or operator
+                  communication. Use clarification responses when an order is blocked.
                 </p>
               </article>
               <article>
                 <h3>Cancellations and returns</h3>
                 <p>
-                  Submit cancellation, return-label, refund, or exchange requests
-                  as browser tasks against the original retailer account and
-                  follow their status like any other task.
+                  Cancel in-flight orders or open disputes/refund requests through
+                  the same lifecycle instead of branching by store.
                 </p>
               </article>
               <article>
@@ -439,11 +440,11 @@ print(response.json())`;
               </article>
               <article>
                 <span>2</span>
-                <h3>Have the human claim a device</h3>
+                <h3>Fund the human account</h3>
                 <p>
-                  The human signs in, claims a browser device, and keeps credits
-                  available. Hosted browser tasks are rejected until the
-                  generated agent key has a funded human account and a device.
+                  The human signs in and keeps credits available. If credits are
+                  missing, the API can return an x402 funding challenge before
+                  the order is accepted.
                 </p>
               </article>
               <article>
@@ -458,11 +459,11 @@ print(response.json())`;
               </article>
               <article>
                 <span>4</span>
-                <h3>Submit and poll a task</h3>
+                <h3>Submit and poll an order</h3>
                 <p>
                   Send a compact work order, keep a spend cap on checkout tasks,
-                  and poll the task endpoint until it completes, fails, or asks
-                  for clarification.
+                  and poll the order endpoint until it completes, fails, is
+                  canceled, is disputed, or asks for clarification.
                 </p>
                 <CodeBlock label="Submit task" code={submitTaskExample} />
                 <CodeBlock label="Check status" code={statusExample} />
@@ -487,24 +488,23 @@ print(response.json())`;
               <h2>Order lifecycle and status</h2>
             </div>
             <p>
-              Treat every OttoAuth browser order as an asynchronous task. Save
-              the returned <code>task.id</code> and <code>run_id</code>, show the
-              human <code>/orders/&lt;taskId&gt;</code> when useful, and poll
-              until the task reaches <code>completed</code> or <code>failed</code>.
+              Treat every OttoAuth order as an asynchronous resource. Save the
+              returned <code>order.id</code>, use the compatibility{" "}
+              <code>task.id</code> only for older clients, and poll until the
+              order reaches a terminal or blocked state.
             </p>
             <div className="docs-callouts">
               <article>
-                <h3>Queued or running</h3>
+                <h3>Human required</h3>
                 <p>
-                  The task is waiting for or being handled by a browser
-                  fulfiller. Poll status every 15-60 seconds.
+                  No enabled provider API exists. The order is visible to an
+                  admindash operator for manual fulfillment.
                 </p>
               </article>
               <article>
-                <h3>Awaiting clarification</h3>
+                <h3>Blocked</h3>
                 <p>
-                  Answer the callback question or POST to the clarification
-                  endpoint before the deadline.
+                  Answer the clarification question through the clarification endpoint.
                 </p>
               </article>
               <article>
@@ -533,7 +533,7 @@ print(response.json())`;
             <CodeBlock label="Poll until terminal status" code={pollingExample} />
             <CodeBlock label="Get task status" code={statusExample} />
             <CodeBlock label="Cancel task" code={cancelExample} />
-            <CodeBlock label="Get run events" code={eventsExample} />
+            <CodeBlock label="Get order events" code={eventsExample} />
           </section>
 
           <section id="services" className="docs-section">
@@ -585,11 +585,9 @@ print(response.json())`;
               <h2>Webhook handling</h2>
             </div>
             <p>
-              When a browser fulfiller gets blocked on an agent-submitted task,
-              OttoAuth can post a clarification request to the callback URL saved
-              on the agent account. Return a JSON answer from that webhook, or
-              respond later through the clarification endpoint before the
-              deadline.
+              When an operator or provider adapter gets blocked, OttoAuth records
+              a clarification request. Respond through the clarification endpoint
+              so the order can resume.
             </p>
             <CodeBlock label="Clarification event shape" code={clarificationExample} />
           </section>
@@ -624,8 +622,8 @@ print(response.json())`;
               <article>
                 <h3>Awaiting clarification</h3>
                 <p>
-                  Answer the question promptly. If the deadline expires, the task
-                  is cancelled instead of guessing.
+                  Answer the question promptly. OttoAuth keeps the order blocked
+                  instead of guessing.
                 </p>
               </article>
             </div>
