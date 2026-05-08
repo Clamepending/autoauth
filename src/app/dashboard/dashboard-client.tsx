@@ -316,26 +316,6 @@ export function DashboardClient(props: {
   return (
     <main className="dashboard-page">
       <section className="dashboard-shell">
-        <section className="referral-banner">
-          <div className="referral-banner-copy">
-            <div className="supported-accounts-title">Referrals</div>
-            <strong className="referral-banner-title">Give $5, get $5</strong>
-            <span className="dashboard-muted referral-banner-stat">
-              {props.referralStats.successful_referrals} · {fmtUsd(props.referralStats.total_bonus_cents)} earned
-            </span>
-            <code className="referral-banner-link">{props.referralLink}</code>
-          </div>
-          <div className="referral-banner-actions">
-            <button
-              type="button"
-              className="auth-button referral-copy-button"
-              onClick={handleCopyReferralLink}
-            >
-              {copiedReferralLink ? "Copied!" : "Copy"}
-            </button>
-          </div>
-        </section>
-
         <div className="dashboard-header">
           <div>
             <div className="eyebrow">Human Dashboard</div>
@@ -662,6 +642,26 @@ export function DashboardClient(props: {
           </div>
         </details>
         ) : null}
+
+        <section className="referral-banner">
+          <div className="referral-banner-copy">
+            <div className="supported-accounts-title">Referrals</div>
+            <strong className="referral-banner-title">Give $5, get $5</strong>
+            <span className="dashboard-muted referral-banner-stat">
+              {props.referralStats.successful_referrals} · {fmtUsd(props.referralStats.total_bonus_cents)} earned
+            </span>
+            <code className="referral-banner-link">{props.referralLink}</code>
+          </div>
+          <div className="referral-banner-actions">
+            <button
+              type="button"
+              className="auth-button referral-copy-button"
+              onClick={handleCopyReferralLink}
+            >
+              {copiedReferralLink ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        </section>
       </section>
     </main>
   );
