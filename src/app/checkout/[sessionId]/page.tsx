@@ -63,6 +63,7 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
   const statusLabel = displayStatus(session.status);
   const quoteStatus = displayStatus(quote.status);
   const quoteConfidence = displayStatus(quote.confidence);
+  const isConfirmed = session.status === "confirmed" && Boolean(session.order_task_id);
 
   return (
     <main className="checkout-page">
@@ -70,7 +71,7 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
         <div className="checkout-header">
           <div>
             <p className="eyebrow">OttoAuth Checkout</p>
-            <h1>Confirm Order</h1>
+            <h1>{isConfirmed ? "Order Confirmed" : "Confirm Order"}</h1>
           </div>
           {session.status !== "open" ? (
             <p className={`checkout-status-text checkout-status-${session.status}`}>
@@ -80,6 +81,11 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
         </div>
 
         {errorMessage ? <div className="auth-error">{errorMessage}</div> : null}
+        {isConfirmed ? (
+          <div className="auth-success">
+            OttoAuth received this order and queued it for human fulfillment.
+          </div>
+        ) : null}
 
         <div className="checkout-grid">
           <section className="dashboard-card checkout-primary-card">
@@ -159,7 +165,7 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
               )}
             </div>
 
-            {session.status === "confirmed" && session.order_task_id ? (
+            {isConfirmed ? (
               <Link
                 className="auth-button primary"
                 href={`/admindash/fulfillment/${session.order_public_id ?? session.order_task_id}`}
@@ -206,7 +212,7 @@ export default async function CheckoutSessionPage({ params, searchParams }: Prop
                   type="submit"
                   disabled={confirmDisabled}
                 >
-                  Confirm under cap
+                  Confirm
                 </button>
               </form>
             )}

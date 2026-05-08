@@ -50,7 +50,7 @@ export default async function ConnectSessionPage({ params }: Props) {
         <div className="eyebrow">OttoAuth Connect</div>
         <h1>Connect {session.app_name}</h1>
         <p className="lede">
-          Allow this local app install to upload files and create OttoAuth checkout sessions under your account.
+          Allow this app to upload files and open OttoAuth checkout under your account.
         </p>
 
         <div className="connect-summary">
@@ -63,8 +63,8 @@ export default async function ConnectSessionPage({ params }: Props) {
             <strong>{redirectHost(session.redirect_url)}</strong>
           </div>
           <div>
-            <span>Install</span>
-            <strong>{session.install_id}</strong>
+            <span>Device</span>
+            <strong>This browser</strong>
           </div>
         </div>
 
@@ -81,7 +81,7 @@ export default async function ConnectSessionPage({ params }: Props) {
           <div className="connect-actions">
             <form method="post" action={`/connect/${encodeURIComponent(session.id)}/approve`}>
               <button className="auth-button primary" type="submit">
-                Connect and continue
+                Connect
               </button>
             </form>
             <form method="post" action={`/connect/${encodeURIComponent(session.id)}/cancel`}>

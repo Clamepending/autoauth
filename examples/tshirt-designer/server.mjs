@@ -258,7 +258,7 @@ async function handleOttoAuthCallback(request, response) {
       connected_at: new Date().toISOString(),
       pending: null,
     });
-    finish("success", { install_id: payload.install_id || installId });
+    finish("success");
   } catch (error) {
     await writeInstallState({ ...install, pending: null });
     finish("error", {

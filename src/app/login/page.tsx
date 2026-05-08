@@ -55,6 +55,7 @@ export default async function LoginPage({
   const googleLoginParams = new URLSearchParams({ returnTo });
   if (referralCode) googleLoginParams.set("ref", String(referralCode));
   const googleLoginHref = `/api/auth/google/login?${googleLoginParams.toString()}`;
+  const isConnectLogin = returnTo.startsWith("/connect/");
 
   return (
     <main className="auth-page">
@@ -62,7 +63,9 @@ export default async function LoginPage({
         <div className="eyebrow">Human Login</div>
         <h1>Sign in to OttoAuth</h1>
         <p className="lede">
-          Generate agent API keys, manage credits, and configure fulfillment devices that can handle orders on your behalf.
+          {isConnectLogin
+            ? "Sign in to approve this app and continue to checkout."
+            : "Manage credits, connected apps, and fulfillment devices that can handle orders on your behalf."}
         </p>
 
         {referralCode && (
@@ -98,11 +101,6 @@ export default async function LoginPage({
             />
           </div>
         )}
-
-        <div className="card">
-          <strong>What happens after login</strong>
-          Generate OttoAuth credentials in your dashboard, send them to your agent, then configure a fulfillment device when you are ready.
-        </div>
 
         <p className="auth-footer">
           <Link href="/">Back to OttoAuth home</Link>

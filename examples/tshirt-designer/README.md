@@ -21,8 +21,10 @@ developer key. The browser goes to OttoAuth, the user logs in or creates an
 account, approves the local app install, and OttoAuth redirects back to
 `/api/ottoauth/callback`. The demo stores the returned install token in
 `.ottoauth-install.json` and reuses it for later uploads, quote previews, and
-hosted checkout session creation. Set `OTTOAUTH_INSTALL_STORE=/path/to/file` if
-you want the local install token somewhere else.
+hosted checkout session creation. After a successful Connect callback, the demo
+continues directly into the hosted checkout page. Set
+`OTTOAUTH_INSTALL_STORE=/path/to/file` if you want the local install token
+somewhere else.
 
 The important integration path is intentionally small:
 

@@ -48,6 +48,7 @@ const els = {
   randomizeButton: document.querySelector("#randomizeButton"),
   previewButton: document.querySelector("#previewButton"),
   buyButton: document.querySelector("#buyButton"),
+  statusBanner: document.querySelector("#statusBanner"),
 };
 
 const savedBaseUrl = localStorage.getItem("ottoauth_tshirt_base_url");
@@ -166,6 +167,17 @@ function showResult(kind, payload) {
     typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
 }
 
+function showBanner(kind, title, message) {
+  els.statusBanner.hidden = false;
+  els.statusBanner.className = `status-banner ${kind === "error" ? "error" : ""}`;
+  els.statusBanner.replaceChildren();
+  const titleEl = document.createElement("strong");
+  titleEl.textContent = title;
+  const messageEl = document.createElement("span");
+  messageEl.textContent = message;
+  els.statusBanner.append(titleEl, messageEl);
+}
+
 async function postJson(path, body) {
   const response = await fetch(path, {
     method: "POST",
@@ -274,24 +286,36 @@ function showReturnStatus() {
   const params = new URLSearchParams(window.location.search);
   const connectStatus = params.get("ottoauth_connect");
   if (connectStatus) {
-    const payload = {
-      connect: connectStatus,
-      install_id: params.get("install_id"),
-      next: connectStatus === "success" ? "Press Checkout again to create the order." : null,
-      error: params.get("error"),
-    };
-    showResult(connectStatus === "success" ? "ok" : "error", payload);
     window.history.replaceState({}, "", window.location.pathname);
+    if (connectStatus === "success") {
+      showBanner("ok", "Connected to OttoAuth", "Opening the hosted checkout page now.");
+      showResult("ok", { connect: "success", next: "opening_checkout" });
+      window.setTimeout(() => {
+        buyWithOttoAuth();
+      }, 50);
+    } else {
+      const error = params.get("error") || "OttoAuth Connect was canceled.";
+      showBanner("error", "Connection canceled", error);
+      showResult("error", { connect: connectStatus, error });
+    }
     return;
   }
   const status = params.get("ottoauth_checkout");
   if (!status) return;
-  const payload = {
-    checkout: status,
-    session_id: params.get("session_id"),
-    order_id: params.get("order_id"),
-    task_id: params.get("task_id"),
-  };
+  const payload = { checkout: status };
+  const orderId = params.get("order_id");
+  const taskId = params.get("task_id");
+  if (orderId) payload.order_id = orderId;
+  if (taskId) payload.task_id = taskId;
+  if (status === "success") {
+    showBanner(
+      "ok",
+      "Order confirmed",
+      "OttoAuth received the order, artwork, and spend cap for human fulfillment.",
+    );
+  } else {
+    showBanner("error", "Checkout canceled", "No order was submitted.");
+  }
   showResult(status === "success" ? "ok" : "error", payload);
   window.history.replaceState({}, "", window.location.pathname);
 }

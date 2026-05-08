@@ -77,6 +77,34 @@ h2 {
   gap: 8px;
 }
 
+.status-banner {
+  border: 1px solid #6c9a6f;
+  border-radius: 8px;
+  background: #eef8ec;
+  color: #17202a;
+  padding: 14px 16px;
+}
+
+.status-banner.error {
+  border-color: #d4745a;
+  background: #fff0eb;
+}
+
+.status-banner strong,
+.status-banner span {
+  display: block;
+}
+
+.status-banner strong {
+  font-size: 1rem;
+}
+
+.status-banner span {
+  margin-top: 4px;
+  color: #4b554c;
+  line-height: 1.45;
+}
+
 .primary-button,
 .secondary-button,
 .buy-button,
