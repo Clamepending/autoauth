@@ -3375,6 +3375,371 @@ main.admin-control-plane::after {
   min-height: 100%;
 }
 
+.admin-fulfillment-shell {
+  max-width: 1380px;
+  gap: 14px;
+}
+
+.admin-fulfillment-page .admin-page-header,
+.admin-fulfillment-page .admin-panel {
+  padding: 16px;
+}
+
+.admin-fulfillment-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.admin-fulfillment-title-block {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-fulfillment-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.admin-fulfillment-title-row h1 {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 40px);
+  line-height: 1.08;
+}
+
+.admin-fulfillment-page .admin-page-header p,
+.admin-fulfillment-page .admin-panel-header p {
+  margin: 0;
+  max-width: 900px;
+}
+
+.admin-fulfillment-page .admin-panel-header p {
+  display: none;
+}
+
+.admin-fulfillment-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 410px);
+  gap: 14px;
+  align-items: start;
+}
+
+.admin-operator-main,
+.admin-operator-aside {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-operator-aside {
+  position: sticky;
+  top: 14px;
+}
+
+.admin-operator-metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-operator-metric {
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 8px 9px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-operator-metric span,
+.admin-brief-field span,
+.admin-goal-card span {
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-operator-metric strong {
+  color: var(--admin-ink);
+  font-size: 15px;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.admin-operator-metric.success strong {
+  color: var(--admin-green);
+}
+
+.admin-operator-metric.warning strong {
+  color: var(--admin-amber);
+}
+
+.admin-operator-metric.danger strong {
+  color: var(--admin-red);
+}
+
+.admin-operator-metric.info strong {
+  color: var(--admin-blue);
+}
+
+.admin-tight-header {
+  margin-bottom: 10px;
+}
+
+.admin-goal-card {
+  border: 1px solid color-mix(in srgb, var(--admin-blue) 24%, var(--admin-line));
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.admin-goal-card p {
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.admin-brief-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.admin-brief-grid.single {
+  grid-template-columns: 1fr;
+  margin-top: 0;
+}
+
+.admin-brief-field {
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 9px 10px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-brief-field strong,
+.admin-brief-field a {
+  color: var(--admin-ink);
+  font-size: 13px;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+}
+
+.admin-brief-field a {
+  color: var(--admin-blue);
+  text-decoration: none;
+}
+
+.admin-brief-field .mono,
+.admin-brief-field a.mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.admin-fulfillment-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-fulfillment-table-wrap {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.admin-fulfillment-table th,
+.admin-fulfillment-table td {
+  padding: 9px 10px;
+  vertical-align: top;
+}
+
+.admin-fulfillment-table td strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.admin-fulfillment-table td small {
+  display: block;
+  color: var(--admin-muted);
+  line-height: 1.35;
+}
+
+.admin-fast-checklist {
+  gap: 7px;
+  padding-left: 20px;
+}
+
+.admin-fast-checklist li {
+  line-height: 1.38;
+}
+
+.admin-compact-list,
+.admin-risk-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-compact-list div {
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 9px 10px;
+  display: grid;
+  gap: 3px;
+}
+
+.admin-compact-list strong {
+  font-size: 13px;
+}
+
+.admin-compact-list span,
+.admin-risk-list li {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.admin-risk-list {
+  margin-top: 10px;
+  padding-left: 18px;
+}
+
+.admin-compact-requests {
+  gap: 8px;
+}
+
+.admin-compact-requests article {
+  padding: 10px;
+}
+
+.admin-compact-requests p {
+  line-height: 1.38;
+}
+
+.admin-debug-details {
+  display: block;
+}
+
+.admin-debug-details > summary,
+.admin-compact-details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--admin-ink);
+  font-weight: 700;
+}
+
+.admin-debug-details > summary::-webkit-details-marker,
+.admin-compact-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-debug-details > summary::after,
+.admin-compact-details > summary::after {
+  content: "+";
+  color: var(--admin-muted);
+}
+
+.admin-debug-details[open] > summary::after,
+.admin-compact-details[open] > summary::after {
+  content: "-";
+}
+
+.admin-debug-details > summary strong {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-debug-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.admin-debug-grid h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.admin-compact-timeline {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.admin-compact-timeline article {
+  padding: 10px;
+}
+
+.admin-manual-panel {
+  align-self: start;
+}
+
+.admin-manual-form {
+  gap: 10px;
+}
+
+.admin-manual-form .admin-control-stack {
+  gap: 9px;
+}
+
+.admin-manual-form .admin-fact {
+  padding: 8px 9px;
+  gap: 4px;
+}
+
+.admin-manual-form .admin-fact input,
+.admin-manual-form .admin-fact select,
+.admin-manual-form .admin-fact textarea {
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.admin-manual-form .admin-fact textarea {
+  min-height: 72px;
+}
+
+.admin-compact-details {
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+  padding: 9px 10px;
+}
+
+.admin-compact-details > form,
+.admin-compact-details > div {
+  margin-top: 10px;
+}
+
+.admin-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 8px;
+}
+
+.admin-action-row .admin-button {
+  width: 100%;
+}
+
 .admin-fact-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3588,9 +3953,23 @@ main.admin-control-plane::after {
   .admin-ops-grid,
   .admin-two-column,
   .admin-detail-grid,
+  .admin-fulfillment-layout,
+  .admin-fulfillment-two,
   .admin-snapshot-grid,
   .admin-failure-chart-layout {
     grid-template-columns: 1fr;
+  }
+
+  .admin-operator-aside {
+    position: static;
+  }
+
+  .admin-operator-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-brief-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .admin-fact-grid {
@@ -3606,6 +3985,17 @@ main.admin-control-plane::after {
   .admin-page-header,
   .admin-panel-header {
     flex-direction: column;
+  }
+
+  .admin-fulfillment-header,
+  .admin-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-fulfillment-header .admin-header-actions,
+  .admin-operator-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .admin-header-actions,
@@ -3634,6 +4024,13 @@ main.admin-control-plane::after {
 
   .admin-money-plot {
     min-width: 34px;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-brief-grid,
+  .admin-operator-metrics {
+    grid-template-columns: 1fr;
   }
 }
 

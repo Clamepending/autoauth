@@ -159,155 +159,166 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
   }
 
   return (
-    <div className="admin-control-stack">
+    <div className="admin-control-stack admin-manual-form">
       <form className="admin-control-stack" onSubmit={submit}>
-      <div className="admin-fact-grid compact">
-        <label className="admin-fact">
-          <span>Status</span>
-          <select name="status" defaultValue="completed">
-            <option value="completed">completed</option>
-            <option value="failed">failed</option>
-          </select>
-        </label>
-        <label className="admin-fact">
-          <span>Merchant</span>
-          <input name="merchant" type="text" defaultValue={defaultMerchant} />
-        </label>
-      </div>
-
-      <label className="admin-fact">
-        <span>Summary</span>
-        <textarea
-          name="summary"
-          rows={4}
-          placeholder="What was ordered, where, and what the requester should know."
-        />
-      </label>
-
-      <div className="admin-fact-grid compact">
-        <label className="admin-fact">
-          <span>Order number</span>
-          <input name="order_number" type="text" />
-        </label>
-        <label className="admin-fact">
-          <span>Confirmation code</span>
-          <input name="confirmation_code" type="text" />
-        </label>
-        <label className="admin-fact">
-          <span>Pickup code</span>
-          <input name="pickup_code" type="text" />
-        </label>
-        <label className="admin-fact">
-          <span>Provider status</span>
-          <input name="provider_status" type="text" />
-        </label>
-      </div>
-
-      <div className="admin-fact-grid compact">
-        <label className="admin-fact">
-          <span>Tracking number</span>
-          <input name="tracking_number" type="text" />
-        </label>
-        <label className="admin-fact">
-          <span>Tracking URL</span>
-          <input name="tracking_url" type="url" />
-        </label>
-        <label className="admin-fact">
-          <span>Delivery ETA</span>
-          <input name="delivery_eta" type="text" />
-        </label>
-        <label className="admin-fact">
-          <span>Receipt URL</span>
-          <input name="receipt_url" type="url" />
-        </label>
-      </div>
-
-      <div className="admin-fact-grid compact">
-        <label className="admin-fact">
-          <span>Goods dollars</span>
-          <input name="goods_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
-        </label>
-        <label className="admin-fact">
-          <span>Shipping dollars</span>
-          <input name="shipping_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
-        </label>
-        <label className="admin-fact">
-          <span>Tax dollars</span>
-          <input name="tax_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
-        </label>
-        <label className="admin-fact">
-          <span>Other dollars</span>
-          <input name="other_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
-        </label>
-      </div>
-
-      <label className="admin-fact">
-        <span>Receipt text</span>
-        <textarea name="receipt_text" rows={5} placeholder="Paste receipt details when no receipt URL exists." />
-      </label>
-      <label className="admin-fact">
-        <span>Failure reason</span>
-        <textarea name="error" rows={3} placeholder="Required only when marking failed." />
-      </label>
-      <label className="admin-fact">
-        <span>Internal note</span>
-        <textarea name="note" rows={3} placeholder="Operator note, not necessarily requester-facing." />
-      </label>
-      <input name="currency" type="hidden" value="usd" />
-
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button
-          className="admin-button"
-          type="button"
-          disabled={submitting || final}
-          onClick={() => {
-            void claim();
-          }}
-        >
-          Claim
-        </button>
-        <button className="admin-button primary" type="submit" disabled={submitting || final}>
-          {submitting ? "Saving..." : "Save manual result"}
-        </button>
-      </div>
-
-      {error ? <p className="danger-text">{error}</p> : null}
-      {message ? <p className="admin-subtle">{message}</p> : null}
-      {final ? <p className="admin-empty">This order is final.</p> : null}
-      </form>
-
-      <form className="admin-control-stack" onSubmit={sendMessage}>
         <div className="admin-fact-grid compact">
           <label className="admin-fact">
-            <span>Message channel</span>
-            <select name="message_channel" defaultValue="requester">
-              <option value="requester">requester</option>
-              <option value="human_operator">operator note</option>
-              <option value="provider_vendor">vendor/provider</option>
-              <option value="driver">driver</option>
-              <option value="shopper">shopper</option>
-              <option value="support">support</option>
+            <span>Status</span>
+            <select name="status" defaultValue="completed">
+              <option value="completed">completed</option>
+              <option value="failed">failed</option>
             </select>
           </label>
+          <label className="admin-fact">
+            <span>Merchant</span>
+            <input name="merchant" type="text" defaultValue={defaultMerchant} />
+          </label>
         </div>
+
         <label className="admin-fact">
-          <span>Record or deliver message</span>
-          <textarea name="message_body" rows={3} placeholder="What needs to be sent or recorded for this order." />
+          <span>Summary</span>
+          <textarea
+            name="summary"
+            rows={3}
+            placeholder="What was ordered, where, and what the requester should know."
+          />
         </label>
-        <button className="admin-button" type="submit" disabled={submitting || final}>
-          Record message
-        </button>
+
+        <div className="admin-fact-grid compact">
+          <label className="admin-fact">
+            <span>Goods dollars</span>
+            <input name="goods_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
+          </label>
+          <label className="admin-fact">
+            <span>Shipping dollars</span>
+            <input name="shipping_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
+          </label>
+          <label className="admin-fact">
+            <span>Tax dollars</span>
+            <input name="tax_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
+          </label>
+          <label className="admin-fact">
+            <span>Other dollars</span>
+            <input name="other_dollars" type="number" min="0" step="0.01" inputMode="decimal" />
+          </label>
+        </div>
+
+        <details className="admin-compact-details">
+          <summary>Order numbers, tracking, receipt, and notes</summary>
+          <div className="admin-control-stack">
+            <div className="admin-fact-grid compact">
+              <label className="admin-fact">
+                <span>Order number</span>
+                <input name="order_number" type="text" />
+              </label>
+              <label className="admin-fact">
+                <span>Confirmation code</span>
+                <input name="confirmation_code" type="text" />
+              </label>
+              <label className="admin-fact">
+                <span>Pickup code</span>
+                <input name="pickup_code" type="text" />
+              </label>
+              <label className="admin-fact">
+                <span>Provider status</span>
+                <input name="provider_status" type="text" />
+              </label>
+            </div>
+
+            <div className="admin-fact-grid compact">
+              <label className="admin-fact">
+                <span>Tracking number</span>
+                <input name="tracking_number" type="text" />
+              </label>
+              <label className="admin-fact">
+                <span>Tracking URL</span>
+                <input name="tracking_url" type="url" />
+              </label>
+              <label className="admin-fact">
+                <span>Delivery ETA</span>
+                <input name="delivery_eta" type="text" />
+              </label>
+              <label className="admin-fact">
+                <span>Receipt URL</span>
+                <input name="receipt_url" type="url" />
+              </label>
+            </div>
+
+            <label className="admin-fact">
+              <span>Receipt text</span>
+              <textarea name="receipt_text" rows={4} placeholder="Paste receipt details when no receipt URL exists." />
+            </label>
+            <label className="admin-fact">
+              <span>Failure reason</span>
+              <textarea name="error" rows={3} placeholder="Required only when marking failed." />
+            </label>
+            <label className="admin-fact">
+              <span>Internal note</span>
+              <textarea name="note" rows={3} placeholder="Operator note, not necessarily requester-facing." />
+            </label>
+          </div>
+        </details>
+        <input name="currency" type="hidden" value="usd" />
+
+        <div className="admin-action-row">
+          <button
+            className="admin-button"
+            type="button"
+            disabled={submitting || final}
+            onClick={() => {
+              void claim();
+            }}
+          >
+            Claim
+          </button>
+          <button className="admin-button primary" type="submit" disabled={submitting || final}>
+            {submitting ? "Saving..." : "Save result"}
+          </button>
+        </div>
+
+        {error ? <p className="danger-text">{error}</p> : null}
+        {message ? <p className="admin-subtle">{message}</p> : null}
+        {final ? <p className="admin-empty">This order is final.</p> : null}
       </form>
 
-      <form className="admin-control-stack" onSubmit={askClarification}>
-        <label className="admin-fact">
-          <span>Ask clarification</span>
-          <textarea name="clarification_question" rows={3} placeholder="What exact answer is needed before fulfillment can continue." />
-        </label>
-        <button className="admin-button" type="submit" disabled={submitting || final}>
-          Block and ask
-        </button>
-      </form>
+      <details className="admin-compact-details">
+        <summary>Record a message</summary>
+        <form className="admin-control-stack" onSubmit={sendMessage}>
+          <div className="admin-fact-grid compact">
+            <label className="admin-fact">
+              <span>Message channel</span>
+              <select name="message_channel" defaultValue="requester">
+                <option value="requester">requester</option>
+                <option value="human_operator">operator note</option>
+                <option value="provider_vendor">vendor/provider</option>
+                <option value="driver">driver</option>
+                <option value="shopper">shopper</option>
+                <option value="support">support</option>
+              </select>
+            </label>
+          </div>
+          <label className="admin-fact">
+            <span>Record or deliver message</span>
+            <textarea name="message_body" rows={3} placeholder="What needs to be sent or recorded for this order." />
+          </label>
+          <button className="admin-button" type="submit" disabled={submitting || final}>
+            Record message
+          </button>
+        </form>
+      </details>
+
+      <details className="admin-compact-details">
+        <summary>Block and ask clarification</summary>
+        <form className="admin-control-stack" onSubmit={askClarification}>
+          <label className="admin-fact">
+            <span>Ask clarification</span>
+            <textarea name="clarification_question" rows={3} placeholder="What exact answer is needed before fulfillment can continue." />
+          </label>
+          <button className="admin-button" type="submit" disabled={submitting || final}>
+            Block and ask
+          </button>
+        </form>
+      </details>
     </div>
   );
 }
