@@ -515,6 +515,20 @@ footer {
   cursor: default;
 }
 
+.dashboard-action-icon-button {
+  width: 52px;
+  min-width: 52px;
+  height: 52px;
+  min-height: 52px;
+  padding: 0;
+}
+
+.dashboard-action-icon-button svg {
+  display: block;
+  width: 23px;
+  height: 23px;
+}
+
 .auth-input {
   width: 100%;
   border: 1px solid var(--line);
@@ -672,14 +686,14 @@ footer {
 }
 
 .dashboard-credit-actions {
-  grid-template-columns: repeat(2, minmax(132px, auto));
+  grid-template-columns: auto;
   justify-content: end;
   align-items: center;
 }
 
 .dashboard-credit-actions .auth-button {
-  width: auto;
-  min-width: 132px;
+  width: 52px;
+  min-width: 52px;
 }
 
 .dashboard-profile-link {
@@ -3641,4 +3655,17 @@ main.admin-control-plane::after {
   .live-view-frame {
     max-height: 50vh;
   }
+}
+
+.dashboard-actions > .dashboard-action-icon-button,
+.dashboard-credit-actions .dashboard-action-icon-button {
+  flex: 0 0 52px;
+  width: 52px;
+  min-width: 52px;
+  height: 52px;
+  min-height: 52px;
+}
+
+.dashboard-credit-actions .dashboard-action-icon-button {
+  justify-self: end;
 }

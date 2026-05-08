@@ -29,6 +29,48 @@ function TrashIcon() {
   );
 }
 
+function SendMoneyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
+      <path d="M21 3 10 14" />
+      <path d="m21 3-7 18-4-7-7-4 18-7Z" />
+    </svg>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function RefillIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
+      <path d="M21 12a9 9 0 0 1-15.4 6.4" />
+      <path d="M3 12A9 9 0 0 1 18.4 5.6" />
+      <path d="M18 2v4h4" />
+      <path d="M6 22v-4H2" />
+      <path d="M12 8v8" />
+      <path d="M8 12h8" />
+    </svg>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+
 type LinkedAgentWithSpend = HumanAgentLinkWithAgentRecord & {
   total_spent_cents?: number;
 };
@@ -326,14 +368,14 @@ export function DashboardClient(props: {
             <Link className="auth-button primary" href="/orders/new">
               New order
             </Link>
-            <Link className="auth-button" href="/send">
-              Send money
+            <Link className="auth-button dashboard-action-icon-button" href="/send" aria-label="Send money" title="Send money">
+              <SendMoneyIcon />
             </Link>
-            <Link className="auth-button" href="/orders">
-              Orders
+            <Link className="auth-button dashboard-action-icon-button" href="/orders" aria-label="Orders" title="Orders">
+              <HistoryIcon />
             </Link>
-            <button className="auth-button dashboard-quiet-action" onClick={handleLogout}>
-              Sign out
+            <button className="auth-button dashboard-action-icon-button dashboard-quiet-action" onClick={handleLogout} aria-label="Sign out" title="Sign out">
+              <SignOutIcon />
             </button>
           </div>
         </div>
@@ -345,11 +387,8 @@ export function DashboardClient(props: {
             <div className="supported-accounts-title">Credits</div>
             <div className="dashboard-balance">{fmtUsd(props.balanceCents)}</div>
             <div className="dashboard-credit-actions">
-              <Link className="auth-button primary" href="/credits/refill">
-                Refill credits
-              </Link>
-              <Link className="auth-button" href="/send">
-                Send money
+              <Link className="auth-button primary dashboard-action-icon-button" href="/credits/refill" aria-label="Refill credits" title="Refill credits">
+                <RefillIcon />
               </Link>
             </div>
             <form className="stack-form dashboard-address-form" onSubmit={handleSaveUsername}>
