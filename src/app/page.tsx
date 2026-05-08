@@ -86,18 +86,8 @@ const IMAGE_ICONS: Record<string, { src: string; alt: string }> = {
   instacart: { src: "/instacartlogo.jpg", alt: "Instacart" },
   snackpass: { src: "/snackpasslogo.png", alt: "Snackpass" },
   uber: { src: "/uber.svg", alt: "Uber" },
-  ubereats: { src: "/ubereatslogo.png", alt: "Uber Eats" },
+  uber_eats: { src: "/ubereatslogo.png", alt: "Uber Eats" },
 };
-
-const SUPPORTED_ACCOUNTS = [
-  { id: "amazon", name: "Amazon" },
-  { id: "grubhub", name: "Grubhub" },
-  { id: "instacart", name: "Instacart" },
-  { id: "uber", name: "Uber" },
-  { id: "snackpass", name: "Snackpass" },
-  { id: "ebay", name: "eBay" },
-  { id: "ubereats", name: "Uber Eats" },
-];
 
 const SUPPORTED_AGENTS = [
   { id: "codex", name: "Codex" },
@@ -115,15 +105,40 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 function categoryLabel(category: string) {
+  const labels: Record<string, string> = {
+    retail_marketplace: "Retail marketplace",
+    local_delivery_travel: "Local delivery + travel",
+    get_made_manufacturing: "Get-this-made",
+    pcb_electronics: "PCB + electronics",
+    print_custom_goods: "Print + custom goods",
+  };
+  if (labels[category]) return labels[category];
   return category
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function platformHost(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function platformLogoSrc(platform: { id: string; url: string }) {
+  const local = IMAGE_ICONS[platform.id];
+  if (local) return local.src;
+  const host = platformHost(platform.url);
+  return host
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`
+    : null;
+}
+
 export default async function HomePage() {
   const curlCommand = `curl -s ${getBaseUrl()}/llms.txt`;
   const humanUser = await getCurrentHumanUser();
-  const featuredPlatforms = getFeaturedPlatforms(36);
+  const featuredPlatforms = getFeaturedPlatforms(60);
   const categoryCounts = getPlatformCategoryCounts();
   const uploadPlatformCount = getUploadPlatformCount();
   const socialPosts = [
@@ -197,38 +212,33 @@ export default async function HomePage() {
           </div>
         </div>
         <div className="supported-accounts">
-          <div className="supported-accounts-title">Supported accounts</div>
-          <ul className="supported-accounts-list">
-            {SUPPORTED_ACCOUNTS.map((account) => {
-              const img = IMAGE_ICONS[account.id];
+          <div className="supported-accounts-title">Supported platforms</div>
+          <ul className="supported-platform-grid">
+            {featuredPlatforms.map((platform) => {
+              const logoSrc = platformLogoSrc(platform);
               return (
-                <li key={account.id} className="supported-account">
-                  <span className={`logo${img ? " logo-img" : ""}`} title={account.name} aria-hidden>
-                    {img ? (
-                      <img src={img.src} alt="" width={28} height={28} />
+                <li key={platform.id} className="supported-platform">
+                  <span className="supported-platform-logo" title={platform.name} aria-hidden>
+                    {logoSrc ? (
+                      <img src={logoSrc} alt="" width={32} height={32} loading="lazy" />
                     ) : (
                       SERVICE_ICONS.other
                     )}
                   </span>
-                  <span className="supported-account-desc">{account.name}</span>
+                  <span className="supported-platform-copy">
+                    <strong>{platform.name}</strong>
+                    <small>
+                      {categoryLabel(platform.category)}
+                      {platform.fileTypes.length ? " · files" : ""}
+                    </small>
+                  </span>
                 </li>
               );
             })}
           </ul>
-        </div>
-        <div className="supported-accounts">
-          <div className="supported-accounts-title">Get-this-made platforms and major stores</div>
-          <ul className="platform-chip-list">
-            {featuredPlatforms.map((platform) => (
-              <li key={platform.id}>
-                <span>{platform.name}</span>
-                {platform.fileTypes.length ? <small>files</small> : null}
-              </li>
-            ))}
-          </ul>
           <div className="hero-actions" style={{ marginTop: 14 }}>
             <a className="auth-button" href="/api/services/order/platforms">
-              View platform catalog
+              View full 100-platform catalog
             </a>
           </div>
         </div>

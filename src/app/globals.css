@@ -387,6 +387,67 @@ h1 {
   line-height: 1.4;
 }
 
+.supported-platform-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
+  gap: 10px;
+}
+
+.supported-platform {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 58px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 10px;
+}
+
+.supported-platform-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  color: var(--ink);
+  background: #f7f7f4;
+  border: 1px solid var(--line);
+}
+
+.supported-platform-logo img,
+.supported-platform-logo svg {
+  display: block;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.supported-platform-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.supported-platform-copy strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.supported-platform-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
 .supported-agents-list {
   list-style: none;
   margin: 0;
