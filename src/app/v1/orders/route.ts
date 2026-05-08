@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       reused: created.reused,
       ...apiBody,
       pricing: apiBody?.order?.pricing ?? null,
+      mandate: created.mandate,
       events: await listOrderEvents(created.order.id, 20),
     },
     { status: created.reused ? 200 : 201 },

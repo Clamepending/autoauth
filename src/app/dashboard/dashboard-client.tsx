@@ -448,7 +448,15 @@ export function DashboardClient(props: {
                 props.linkedAgents.map((agent) => (
                   <div key={agent.id} className="dashboard-row">
                     <div>
-                      <strong>{agent.username_display}</strong>
+                      <Link
+                        className="dashboard-agent-link"
+                        href={`/dashboard/agents/${agent.id}`}
+                      >
+                        <strong>{agent.username_display}</strong>
+                        <span className="dashboard-agent-link-meta">
+                          Manage mandate
+                        </span>
+                      </Link>
                       <div className="dashboard-muted mono">@{agent.username_lower}</div>
                       <Link
                         className="dashboard-muted mono"

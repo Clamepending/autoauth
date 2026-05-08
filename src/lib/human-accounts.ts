@@ -699,6 +699,44 @@ async function ensureHumanAccountSchemaMigration() {
   );
 
   await client.execute(
+    `CREATE TABLE IF NOT EXISTS human_agent_mandate_policies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      human_agent_link_id INTEGER NOT NULL UNIQUE,
+      mode TEXT NOT NULL DEFAULT 'unrestricted',
+      max_per_order_cents INTEGER,
+      max_daily_cents INTEGER,
+      max_weekly_cents INTEGER,
+      max_monthly_cents INTEGER,
+      require_approval_over_cents INTEGER,
+      allowed_domains_json TEXT NOT NULL DEFAULT '[]',
+      blocked_domains_json TEXT NOT NULL DEFAULT '[]',
+      blocked_categories_json TEXT NOT NULL DEFAULT '[]',
+      approval_rules_json TEXT NOT NULL DEFAULT '[]',
+      natural_language_mandate TEXT,
+      active_revision INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_human_agent_mandate_policies_link ON human_agent_mandate_policies(human_agent_link_id)",
+  );
+  await client.execute(
+    `CREATE TABLE IF NOT EXISTS human_agent_mandate_revisions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      human_agent_link_id INTEGER NOT NULL,
+      revision INTEGER NOT NULL,
+      policy_snapshot_json TEXT NOT NULL,
+      created_by_human_user_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await client.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_human_agent_mandate_revisions_link_revision
+      ON human_agent_mandate_revisions(human_agent_link_id, revision)`,
+  );
+
+  await client.execute(
     `CREATE TABLE IF NOT EXISTS human_device_pairing_codes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       human_user_id INTEGER NOT NULL,

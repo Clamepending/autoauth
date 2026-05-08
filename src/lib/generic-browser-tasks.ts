@@ -1472,23 +1472,57 @@ export async function completeGenericBrowserTaskFromExtension(params: {
   }
 
   const billing = extractBillingFields(params.result ?? null);
+  const inference = calculateInferenceCostCents(params.usages ?? []);
+  const rawChargeTotalCents =
+    billing.goodsCents +
+    billing.shippingCents +
+    billing.taxCents +
+    billing.otherCents +
+    inference.cents;
+  const capExceeded =
+    params.status === "completed" &&
+    existing.max_charge_cents != null &&
+    rawChargeTotalCents > existing.max_charge_cents;
+  const finalStatus = capExceeded ? "failed" : params.status;
+  const finalError = capExceeded
+    ? `Final total ${rawChargeTotalCents} cents exceeds the spend cap (${existing.max_charge_cents} cents).`
+    : params.error?.trim() || null;
   const finalSummary = buildFallbackTaskSummary({
-    status: params.status,
+    status: finalStatus,
     result: params.result,
-    error: params.error,
+    error: finalError,
     existingTaskTitle: existing.task_title,
   });
   const failureClassification =
-    params.status === "failed"
+    finalStatus === "failed"
       ? classifyFulfillmentFailure({
           taskPrompt: existing.task_prompt,
           websiteUrl: existing.website_url,
           result: params.result,
-          error: params.error,
+          error: finalError,
         })
       : null;
   const storedResult =
-    failureClassification && params.result
+    capExceeded && params.result
+      ? {
+          ...params.result,
+          mandate_failure: {
+            code: "spend_cap_exceeded",
+            max_charge_cents: existing.max_charge_cents,
+            observed_total_cents: rawChargeTotalCents,
+          },
+          failure_classification: failureClassification,
+        }
+      : capExceeded
+        ? {
+            mandate_failure: {
+              code: "spend_cap_exceeded",
+              max_charge_cents: existing.max_charge_cents,
+              observed_total_cents: rawChargeTotalCents,
+            },
+            failure_classification: failureClassification,
+          }
+        : failureClassification && params.result
       ? {
           ...params.result,
           failure_classification: failureClassification,
@@ -1496,8 +1530,7 @@ export async function completeGenericBrowserTaskFromExtension(params: {
       : failureClassification
         ? { failure_classification: failureClassification }
         : params.result;
-  const inference = calculateInferenceCostCents(params.usages ?? []);
-  const shouldCharge = params.status === "completed";
+  const shouldCharge = finalStatus === "completed";
 
   const goodsCents = shouldCharge ? billing.goodsCents : 0;
   const shippingCents = shouldCharge ? billing.shippingCents : 0;
@@ -1593,7 +1626,7 @@ export async function completeGenericBrowserTaskFromExtension(params: {
               result_json = ?, usage_json = ?, summary = ?, error = ?, charged_at = ?, completed_at = ?, updated_at = ?
           WHERE id = ?`,
     args: [
-      params.status,
+      finalStatus,
       billingStatus,
       payoutCents,
       payoutStatus,
@@ -1611,7 +1644,7 @@ export async function completeGenericBrowserTaskFromExtension(params: {
       storedResult ? JSON.stringify(storedResult) : null,
       params.usages && params.usages.length > 0 ? JSON.stringify(params.usages) : null,
       finalSummary,
-      params.error?.trim() || null,
+      finalError,
       shouldCharge ? now : null,
       now,
       now,

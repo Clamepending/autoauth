@@ -8,6 +8,7 @@ import {
   getHumanLinkForAgentUsername,
   getHumanUserById,
 } from "@/lib/human-accounts";
+import { evaluateAgentMandateForOrder } from "@/lib/agent-mandates";
 import {
   createOrchestratedOrder,
   getOrderByPublicIdOrId,
@@ -205,6 +206,31 @@ export async function createOrderForAgentRequest(params: {
     };
   }
   const priceQuote = await resolveQuoteForOrderPayload(params.payload);
+  const mandateEvaluation =
+    hasLinkedHuman && resolvedHuman.humanLink
+      ? await evaluateAgentMandateForOrder({
+          humanAgentLinkId: resolvedHuman.humanLink.id,
+          humanUserId: humanUser.id,
+          agentUsernameLower: params.auth.usernameLower,
+          payload: params.payload,
+          effectiveMaxChargeCents: cap,
+          priceQuote,
+        })
+      : null;
+  if (mandateEvaluation && !mandateEvaluation.allowed) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          error: mandateEvaluation.reason,
+          code: mandateEvaluation.code,
+          mandate: mandateEvaluation.metadata,
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
   const defaultTopUpCents = defaultX402TopUpCents();
   const fundingRequiredCents = hasLinkedHuman
     ? creditBalance <= 0
@@ -233,6 +259,7 @@ export async function createOrderForAgentRequest(params: {
         price_quote_source: priceQuote.source,
         price_quote_status: priceQuote.status,
         price_quote_total_cents: priceQuote.total_cents,
+        agent_mandate: mandateEvaluation?.metadata ?? null,
       },
     });
     if (!funding.ok) return { ok: false as const, response: funding.response };
@@ -275,6 +302,9 @@ export async function createOrderForAgentRequest(params: {
     callbackUrl: normalizeCallbackUrl(params.payload, params.auth.agent),
     externalId: normalizeExternalId(params.payload),
     idempotencyKey: normalizeIdempotencyKey(params.request, params.payload),
+    agentMandatePolicyId: mandateEvaluation?.metadata.policy_id ?? null,
+    agentMandateRevision: mandateEvaluation?.metadata.revision ?? null,
+    agentMandateMetadata: mandateEvaluation?.metadata ?? null,
   });
 
   return {
@@ -284,6 +314,7 @@ export async function createOrderForAgentRequest(params: {
     linkedHuman: hasLinkedHuman,
     availableAfterFunding,
     fundedCents: fundingRequiredCents,
+    mandate: mandateEvaluation?.metadata ?? null,
     priceQuote,
     ...created,
   };
@@ -304,7 +335,7 @@ export async function resolveHumanForOrderAgent(usernameLower: string) {
 
   const humanUser = linkedHuman ?? (await ensureOttoAuthInternalHumanUser());
   const hasLinkedHuman = Boolean(linkedHuman);
-  return { ok: true as const, humanUser, hasLinkedHuman };
+  return { ok: true as const, humanUser, hasLinkedHuman, humanLink };
 }
 
 export async function requireAgentOrderAccess(params: {

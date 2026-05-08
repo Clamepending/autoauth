@@ -11,6 +11,7 @@ import {
 } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
 import { listAgentSpendTotalsForHuman } from "@/lib/generic-browser-tasks";
+import { listOrderSpendTotalsForHuman } from "@/lib/order-orchestration";
 import { isUserFulfillmentEnabled } from "@/lib/user-fulfillment-config";
 
 export const dynamic = "force-dynamic";
@@ -32,11 +33,20 @@ export default async function DashboardPage() {
     ? await getActiveHumanDevicePairingCodes(user.id)
     : [];
   const referralStats = await getHumanReferralStats(user.id);
-  const agentSpendTotals = await listAgentSpendTotalsForHuman(user.id);
+  const [agentSpendTotals, orderSpendTotals] = await Promise.all([
+    listAgentSpendTotalsForHuman(user.id),
+    listOrderSpendTotalsForHuman(user.id),
+  ]);
   const balanceCents = await getHumanCreditBalance(user.id);
   const spendByAgentId = new Map(
     agentSpendTotals.map((entry) => [entry.agent_id, entry.total_spent_cents]),
   );
+  for (const entry of orderSpendTotals) {
+    spendByAgentId.set(
+      entry.agent_id,
+      (spendByAgentId.get(entry.agent_id) ?? 0) + entry.total_spent_cents,
+    );
+  }
   const linkedAgentsWithSpend = linkedAgents.map((agent) => ({
     ...agent,
     total_spent_cents: spendByAgentId.get(agent.agent_id) ?? 0,

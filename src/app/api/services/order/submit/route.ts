@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       reused: created.reused,
       ...apiBody,
       pricing: apiBody?.order?.pricing ?? null,
+      mandate: created.mandate,
       events: await listOrderEvents(created.order.id, 20),
       linked_human: created.linkedHuman,
       human_credit_balance: `$${(created.availableAfterFunding / 100).toFixed(2)}`,

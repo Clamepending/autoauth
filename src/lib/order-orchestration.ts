@@ -131,6 +131,8 @@ export type OttoAuthOrderRecord = {
   authorized_cents: number;
   captured_cents: number;
   currency: string;
+  agent_mandate_policy_id: number | null;
+  agent_mandate_revision: number | null;
   callback_url: string | null;
   admin_notes: string | null;
   claimed_by_admin_email: string | null;
@@ -1011,6 +1013,14 @@ function mapOrderRow(row: Record<string, unknown>): OttoAuthOrderRecord {
     authorized_cents: Number(row.authorized_cents ?? 0),
     captured_cents: Number(row.captured_cents ?? 0),
     currency: String(row.currency || "usd"),
+    agent_mandate_policy_id:
+      row.agent_mandate_policy_id == null || row.agent_mandate_policy_id === ""
+        ? null
+        : Number(row.agent_mandate_policy_id),
+    agent_mandate_revision:
+      row.agent_mandate_revision == null || row.agent_mandate_revision === ""
+        ? null
+        : Number(row.agent_mandate_revision),
     callback_url: row.callback_url == null ? null : String(row.callback_url),
     admin_notes: row.admin_notes == null ? null : String(row.admin_notes),
     claimed_by_admin_email:
@@ -1082,6 +1092,8 @@ async function ensureOrderOrchestrationSchemaMigration() {
       authorized_cents INTEGER NOT NULL DEFAULT 0,
       captured_cents INTEGER NOT NULL DEFAULT 0,
       currency TEXT NOT NULL DEFAULT 'usd',
+      agent_mandate_policy_id INTEGER,
+      agent_mandate_revision INTEGER,
       callback_url TEXT,
       admin_notes TEXT,
       claimed_by_admin_email TEXT,
@@ -1091,6 +1103,17 @@ async function ensureOrderOrchestrationSchemaMigration() {
       updated_at TEXT NOT NULL
     )`,
   );
+  const orderTableInfo = await client.execute({
+    sql: "PRAGMA table_info(ottoauth_orders)",
+    args: [],
+  });
+  const orderColumns = (orderTableInfo.rows ?? []) as unknown as { name: string }[];
+  if (!orderColumns.some((column) => column.name === "agent_mandate_policy_id")) {
+    await client.execute("ALTER TABLE ottoauth_orders ADD COLUMN agent_mandate_policy_id INTEGER");
+  }
+  if (!orderColumns.some((column) => column.name === "agent_mandate_revision")) {
+    await client.execute("ALTER TABLE ottoauth_orders ADD COLUMN agent_mandate_revision INTEGER");
+  }
   await client.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_ottoauth_orders_agent_idempotency
       ON ottoauth_orders(agent_username_lower, idempotency_key)
@@ -1235,6 +1258,9 @@ export async function createOrchestratedOrder(params: {
   callbackUrl?: string | null;
   externalId?: string | null;
   idempotencyKey?: string | null;
+  agentMandatePolicyId?: number | null;
+  agentMandateRevision?: number | null;
+  agentMandateMetadata?: Record<string, unknown> | null;
 }) {
   const normalized = normalizeOrderRequest(params.payload);
   const provider = selectProvider(params.payload);
@@ -1285,6 +1311,7 @@ export async function createOrchestratedOrder(params: {
       shipping_address_present: Boolean(normalized.shippingAddress),
     },
     provider_capabilities: provider.capabilities,
+    agent_mandate: params.agentMandateMetadata ?? null,
     price_quote: priceQuote,
     pricing,
   };
@@ -1295,9 +1322,10 @@ export async function createOrchestratedOrder(params: {
           (public_id, agent_id, agent_username_lower, human_user_id, submission_source,
            external_id, idempotency_key, status, fulfillment_mode, provider_id, provider_label,
            kind, request_json, normalized_items_json, quote_json, human_packet_json, payment_status,
-           max_charge_cents, quoted_total_cents, authorized_cents, captured_cents, currency, callback_url,
+           max_charge_cents, quoted_total_cents, authorized_cents, captured_cents, currency,
+           agent_mandate_policy_id, agent_mandate_revision, callback_url,
            created_at, updated_at)
-          VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, 0, 0, ?, ?, ?, ?)`,
+          VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, 0, 0, ?, ?, ?, ?, ?, ?)`,
     args: [
       params.agentId,
       params.agentUsernameLower.trim().toLowerCase(),
@@ -1317,6 +1345,8 @@ export async function createOrchestratedOrder(params: {
       maxChargeCents ?? null,
       priceQuote?.total_cents ?? null,
       normalizeCurrency(params.payload.currency),
+      params.agentMandatePolicyId ?? null,
+      params.agentMandateRevision ?? null,
       params.callbackUrl?.trim() || optionalString(params.payload.callback_url ?? params.payload.callbackUrl, 2000),
       now,
       now,
@@ -1440,6 +1470,23 @@ export async function listOrdersForHuman(humanUserId: number, limit = 100) {
     args: [humanUserId, Math.max(1, Math.min(limit, 300))],
   });
   return ((result.rows ?? []) as Record<string, unknown>[]).map(mapOrderRow);
+}
+
+export async function listOrderSpendTotalsForHuman(humanUserId: number) {
+  await ensureOrderOrchestrationSchema();
+  const result = await getTursoClient().execute({
+    sql: `SELECT agent_id, COALESCE(SUM(captured_cents), 0) AS total_spent_cents
+          FROM ottoauth_orders
+          WHERE human_user_id = ?
+            AND payment_status = 'captured'
+            AND captured_cents > 0
+          GROUP BY agent_id`,
+    args: [humanUserId],
+  });
+  return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
+    agent_id: Number(row.agent_id),
+    total_spent_cents: Number(row.total_spent_cents ?? 0),
+  }));
 }
 
 export async function listOrdersForAdmin(limit = 200) {
@@ -2083,6 +2130,14 @@ export function parseOrderForApi(order: OttoAuthOrderRecord) {
       authorized_cents: order.authorized_cents,
       captured_cents: order.captured_cents,
       currency: order.currency,
+    },
+    agent_mandate: {
+      policy_id: order.agent_mandate_policy_id,
+      revision: order.agent_mandate_revision,
+      evaluation:
+        request.agent_mandate && typeof request.agent_mandate === "object"
+          ? request.agent_mandate
+          : null,
     },
     external_id: order.external_id,
     idempotency_key: order.idempotency_key,

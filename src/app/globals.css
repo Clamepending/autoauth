@@ -846,6 +846,38 @@ footer {
   margin-top: 4px;
 }
 
+.dashboard-agent-link {
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  text-decoration: none;
+  flex-wrap: wrap;
+}
+
+.dashboard-agent-link:hover,
+.dashboard-agent-link:focus-visible {
+  text-decoration: underline;
+}
+
+.dashboard-agent-link-meta {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--muted);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .dashboard-prewrap {
   white-space: pre-wrap;
 }
@@ -1082,6 +1114,168 @@ footer {
 .dashboard-empty {
   color: var(--muted);
   font-size: 14px;
+}
+
+.agent-mandate-shell {
+  gap: 22px;
+}
+
+.agent-mandate-topbar,
+.agent-mandate-hero,
+.agent-mandate-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.agent-mandate-hero h1 {
+  margin: 8px 0 4px;
+  font-size: clamp(42px, 8vw, 94px);
+  line-height: 0.92;
+  overflow-wrap: anywhere;
+}
+
+.agent-mandate-summary {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  flex-wrap: wrap;
+}
+
+.agent-mandate-summary.small {
+  color: var(--muted);
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.agent-mandate-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agent-mandate-stats > div {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.agent-mandate-stats strong {
+  font-size: 18px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.agent-mandate-form {
+  gap: 18px;
+}
+
+.agent-mandate-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.agent-mandate-mode-button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 48px;
+  padding: 10px 12px;
+}
+
+.agent-mandate-mode-button.selected {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.agent-mandate-mode-button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.agent-mandate-field-grid,
+.agent-mandate-text-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.agent-mandate-field-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.agent-mandate-text-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.agent-mandate-field-grid label,
+.agent-mandate-text-grid label,
+.agent-mandate-natural {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.agent-mandate-field-grid label > span,
+.agent-mandate-text-grid label > span,
+.agent-mandate-natural > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.agent-mandate-form textarea.auth-input {
+  min-height: 118px;
+  resize: vertical;
+}
+
+.agent-mandate-check-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.agent-mandate-check {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.68);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.agent-mandate-check input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.agent-mandate-orders {
+  gap: 16px;
 }
 
 .dashboard-task {
@@ -3561,6 +3755,27 @@ main.admin-control-plane::after {
   .dashboard-grid.metrics-grid,
   .dashboard-grid.wide,
   .mobile-priority-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-mandate-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .agent-mandate-summary.small {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .agent-mandate-stats,
+  .agent-mandate-field-grid,
+  .agent-mandate-text-grid,
+  .agent-mandate-check-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-mandate-mode-grid {
     grid-template-columns: 1fr;
   }
 
