@@ -24,7 +24,7 @@ export function getManifest(): ServiceManifest {
           store: {
             type: "string",
             required: false,
-            description: "Store or platform, such as amazon, treatstock, jlcpcb, instacart, uber, ubereats, snackpass, or manual.",
+            description: "Store or platform, such as amazon, treatstock, xometry, jlcpcb, instacart, uber, ubereats, or snackpass. Omit when the app wants OttoAuth to choose the route.",
           },
           platform: {
             type: "string",
@@ -44,7 +44,7 @@ export function getManifest(): ServiceManifest {
           kind: {
             type: "string",
             required: false,
-            description: "Optional order kind: retail_purchase, grocery_delivery, restaurant_delivery, ride, manufacturing_3d_print, manufacturing_pcb, or custom_human_task.",
+            description: "Optional order kind: retail_purchase, grocery_delivery, restaurant_delivery, ride, manufacturing_3d_print, or manufacturing_pcb.",
           },
           task_prompt: {
             type: "string",
@@ -94,7 +94,12 @@ export function getManifest(): ServiceManifest {
           max_charge_cents: {
             type: "number",
             required: false,
-            description: "Maximum spend in cents. Human operators cannot close a completed order above this cap.",
+            description: "Required for real orders; optional for dry_run previews. Maximum spend in cents. Human operators and native adapters cannot complete above this cap without approval.",
+          },
+          estimated_total_cents: {
+            type: "number",
+            required: false,
+            description: "Optional non-binding estimate from the integrating app. OttoAuth returns it in order.pricing and still enforces max_charge_cents as the hard limit.",
           },
           quote: {
             type: "object",
@@ -353,6 +358,7 @@ Minimum required body:
 
 - \`username\`
 - \`private_key\`
+- \`max_charge_cents\` for real orders
 - enough structured fields, \`items[]\`, \`files[]\`, or \`task_prompt\` to describe the order
 
 The response contains both \`order.id\` and a compatibility \`task.id\`. New clients should store \`order.id\`, for example \`ord_123\`.
@@ -374,6 +380,37 @@ curl -s -X POST ${baseUrl}/v1/quotes \\
 
 This endpoint never opens a browser and never creates an order. Use it when a frontend wants to show a price, estimate, or retroactive-billing state before the user submits.
 
+## Pricing
+
+OttoAuth returns a non-binding pricing object on dry runs, real order creation, and status reads. Integrations should display the estimate when available and always show the hard spend limit.
+
+\`\`\`json
+{
+  "pricing": {
+    "state": "estimated",
+    "display_total_cents": 6200,
+    "estimated_total_cents": 6200,
+    "estimate_low_cents": 4100,
+    "estimate_high_cents": 11400,
+    "quoted_total_cents": null,
+    "captured_cents": 0,
+    "max_charge_cents": 9000,
+    "confidence": "low",
+    "source": "ottoauth_heuristic",
+    "pending_final_price": true,
+    "spend_limit": {
+      "required": true,
+      "provided": true,
+      "covers_estimate": true,
+      "covers_high_estimate": false,
+      "requires_approval_above_limit": true
+    }
+  }
+}
+\`\`\`
+
+\`estimated_total_cents\` is for UX only. \`max_charge_cents\` is the hard safety boundary. If the final total is above the cap, a native adapter or admindash operator must stop and request approval. If the integrating app already has a better estimate, pass \`estimated_total_cents\`, optional \`estimate_low_cents\`, optional \`estimate_high_cents\`, and optional \`estimate_confidence\` in the submit body.
+
 ## Get-this-made example
 
 \`\`\`bash
@@ -383,9 +420,10 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
     "username":"my_agent",
     "private_key":"sk-oa-...",
     "store":"xometry",
-    "kind":"custom_human_task",
+    "kind":"manufacturing_3d_print",
     "files":[{"file_id":"file_...","name":"bracket.step","download_url":"${baseUrl}/api/services/order/files/file_...","purpose":"cad_model"}],
-    "order_details":"Quote CNC aluminum 6061, quantity 5, bead blasted, quote before ordering.",
+    "order_details":"Manufacture this design from the attached CAD files. Aluminum 6061 if CNC is selected, black nylon or PLA if 3D printed. Quote before ordering if the final total is unclear.",
+    "estimated_total_cents":6200,
     "max_charge_cents":50000
   }'
 \`\`\`

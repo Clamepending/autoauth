@@ -40,6 +40,15 @@ function compact(value) {
     status: value.order?.status ?? value.order_preview?.status,
     mode: value.order?.fulfillment_mode ?? value.order_preview?.fulfillment_mode,
     kind: value.order?.kind ?? value.order_preview?.kind,
+    pricing: value.pricing?.state ?? value.order?.pricing?.state ?? value.order_preview?.pricing?.state,
+    display_total_cents:
+      value.pricing?.display_total_cents ??
+      value.order?.pricing?.display_total_cents ??
+      value.order_preview?.pricing?.display_total_cents,
+    max_charge_cents:
+      value.pricing?.max_charge_cents ??
+      value.order?.pricing?.max_charge_cents ??
+      value.order_preview?.pricing?.max_charge_cents,
     files: value.files?.length ?? value.order_preview?.files?.length,
     messages: value.messages?.length,
     clarifications: value.clarifications?.length,
@@ -141,8 +150,50 @@ async function main() {
     "amazon dry run",
     "/api/services/order/submit",
     { json: { dry_run: true, store: "amazon", item_name: "AA batteries", max_charge_cents: 1500 } },
-    (_res, data) => data?.ok === true && data?.order_preview?.fulfillment_mode === "human_admin",
-    "Amazon dry run should route to human admin fallback",
+    (_res, data) =>
+      data?.ok === true &&
+      data?.order_preview?.fulfillment_mode === "human_admin" &&
+      data?.order_preview?.pricing?.state === "spend_limit_only" &&
+      data?.order_preview?.pricing?.max_charge_cents === 1500,
+    "Amazon dry run should route to human admin fallback with spend-limit pricing",
+  );
+  await expect(
+    "explicit estimate dry run",
+    "/api/services/order/submit",
+    {
+      json: {
+        dry_run: true,
+        store: "amazon",
+        item_name: "AA batteries",
+        estimated_total_cents: 1299,
+        estimate_high_cents: 1800,
+        max_charge_cents: 2000,
+      },
+    },
+    (_res, data) =>
+      data?.ok === true &&
+      data?.pricing?.state === "estimated" &&
+      data?.pricing?.source === "explicit_request" &&
+      data?.pricing?.display_total_cents === 1299 &&
+      data?.pricing?.spend_limit?.covers_high_estimate === true,
+    "Explicit estimates should be surfaced in pricing",
+  );
+  await expect(
+    "dry run without spend cap",
+    "/api/services/order/submit",
+    {
+      json: {
+        dry_run: true,
+        store: "treatstock",
+        order_details: "3D print a small bracket.",
+        files: [{ file_id: "file_preview", name: "bracket.stl", download_url: "https://example.com/bracket.stl" }],
+      },
+    },
+    (_res, data) =>
+      data?.ok === true &&
+      data?.pricing?.state === "estimated" &&
+      data?.pricing?.spend_limit?.provided === false,
+    "Dry runs should return estimates even before a spend limit is chosen",
   );
   await expect(
     "treatstock file dry run",
@@ -159,8 +210,10 @@ async function main() {
     (_res, data) =>
       data?.ok === true &&
       data?.order_preview?.kind === "manufacturing_3d_print" &&
-      data?.order_preview?.files?.length === 1,
-    "Manufacturing dry run should preserve file references",
+      data?.order_preview?.files?.length === 1 &&
+      data?.order_preview?.pricing?.state === "estimated" &&
+      data?.order_preview?.pricing?.estimated_total_cents > 0,
+    "Manufacturing dry run should preserve file references and return an estimate",
   );
 
   const agent = await expect(
@@ -192,6 +245,19 @@ async function main() {
     { cookieJar: adminJar, json: { pairing_key: linkedAgent.pairingKey } },
     (_res, data) => data?.ok === true,
     "Pairing should link the agent to the logged-in human",
+  );
+  await expect(
+    "real order requires spend cap",
+    "/api/services/order/submit",
+    {
+      json: {
+        ...authPayload(linkedAgent),
+        store: "amazon",
+        item_name: "AA batteries",
+      },
+    },
+    (res, data) => res.status === 400 && /max_charge_cents is required/i.test(data?.error || ""),
+    "Real orders should require max_charge_cents",
   );
 
   const fileUpload = await expect(
@@ -238,8 +304,13 @@ async function main() {
     "create funded linked order",
     "/api/services/order/submit",
     { json: orderBody },
-    (res, data) => res.status === 201 && data?.ok === true && data?.order?.status === "human_required",
-    "Linked order should create without x402 when starter credits cover the cap",
+    (res, data) =>
+      res.status === 201 &&
+      data?.ok === true &&
+      data?.order?.status === "human_required" &&
+      data?.order?.pricing?.state === "estimated" &&
+      data?.order?.pricing?.max_charge_cents === 1500,
+    "Linked order should create without x402 when starter credits cover the cap and expose pricing",
   );
   const orderId = created.data.order.id;
   await expect(
@@ -253,8 +324,12 @@ async function main() {
     "get order status",
     `/api/services/order/tasks/${orderId}`,
     { json: authPayload(linkedAgent) },
-    (_res, data) => data?.ok === true && data?.order?.id === orderId && Array.isArray(data?.events),
-    "Status endpoint should return normalized order state",
+    (_res, data) =>
+      data?.ok === true &&
+      data?.order?.id === orderId &&
+      data?.order?.pricing?.state === "estimated" &&
+      Array.isArray(data?.events),
+    "Status endpoint should return normalized order state and pricing",
   );
   await expect(
     "send provider message",
@@ -332,6 +407,22 @@ async function main() {
     },
     (res, data) => res.status === 201 && data?.order?.status === "human_required",
     "Second order should be available for cancellation",
+  );
+  await expect(
+    "manual completion over cap rejects",
+    `/api/admin/fulfillment/orders/${cancelOrder.data.order.id}/manual`,
+    {
+      cookieJar: adminJar,
+      json: {
+        status: "completed",
+        merchant: "Amazon",
+        summary: "This should not close because it exceeds the cap.",
+        order_number: `OVER-CAP-${suffix}`,
+        goods_cents: 600,
+      },
+    },
+    (res, data) => res.status === 409 && /exceeds the spend cap/i.test(data?.error || ""),
+    "Manual fulfillment should reject totals above max_charge_cents",
   );
   await expect(
     "cancel order",

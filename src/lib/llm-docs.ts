@@ -18,7 +18,8 @@ Use dashboard-generated OttoAuth credentials:
 Build against the general order API:
 - Submit orders with POST ${baseUrl}/api/services/order/submit.
 - Before live submission, test order shapes with dry_run: true. Dry runs need no credentials, create no DB rows, charge no credits, and queue no fulfillment.
-- Put store-specific intent in fields like store, merchant, store_url, item_name, quantity, order_details, shipping_address, and max_charge_cents.
+- Put store-specific intent in fields like store, merchant, store_url, item_name, quantity, order_details, shipping_address, estimated_total_cents, and max_charge_cents.
+- max_charge_cents is required for real orders. estimated_total_cents is optional and non-binding; display order.pricing to users and treat max_charge_cents as the hard fulfillment limit.
 - For CAD, PCB, BOM, artwork, or document uploads, POST files to ${baseUrl}/api/services/order/files first and pass the returned files[] into submit.
 - Discover the 100-platform catalog at ${baseUrl}/api/services/order/platforms.
 - Do not use store-specific endpoints for Amazon, Snackpass, or other stores.
@@ -103,6 +104,7 @@ ${getAgentIntegrationPrompt(baseUrl)}
 - Use the general order endpoint for Amazon, Snackpass, and any other store.
 - Use \`dry_run: true\` to validate payloads before creating a real order.
 - Pass store-specific details as \`store\`, \`merchant\`, \`store_url\`, \`item_name\`, \`quantity\`, \`order_details\`, \`shipping_address\`, and \`max_charge_cents\`.
+- Real orders require \`max_charge_cents\`. OttoAuth returns \`order.pricing\` with estimated, quoted, or final price state. Estimates are not final charges.
 - Upload CAD, PCB, BOM, artwork, or document files through \`/api/services/order/files\`, then include the returned \`files[]\` references on the order.
 - Use \`/api/services/order/platforms\` to inspect the 100-platform catalog.
 - Save \`order.id\`.
@@ -155,6 +157,7 @@ OttoAuth lets AI agents submit commerce orders through a human-linked account wi
 - Use dry-run previews before real submissions when testing a store or generated payload.
 - Submit flexible checkout, pickup, delivery, ride, manufacturing, cancellation, return, refund, and support orders through the active order service.
 - Amazon, Snackpass, and other store-specific work goes through POST ${baseUrl}/api/services/order/submit with store, merchant, store_url, item_name, and order_details fields.
+- Show \`order.pricing.display_total_cents\` when present and \`order.pricing.max_charge_cents\` as the hard spend limit.
 - Save order.id after submission.
 - Poll task status every 15-60 seconds until completed, failed, canceled, disputed, blocked, or human_required.
 - Cancel in-flight tasks with POST ${baseUrl}/api/services/order/tasks/<taskId>/cancel when the human changes their mind before completion.

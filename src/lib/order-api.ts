@@ -186,6 +186,24 @@ export async function createOrderForAgentRequest(params: {
   const { humanUser, hasLinkedHuman } = resolvedHuman;
   const creditBalance = await getHumanCreditBalance(humanUser.id);
   const cap = requestedCap(params.payload);
+  if (cap == null || cap <= 0) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          error:
+            "max_charge_cents is required for real orders and must be a positive integer. Use dry_run: true for estimate-only previews.",
+          pricing: {
+            state: "spend_limit_required",
+            max_charge_cents: null,
+            explanation:
+              "OttoAuth can show estimates, but fulfillment needs a hard spend limit before any native adapter or human operator can place an order.",
+          },
+        },
+        { status: 400 },
+      ),
+    };
+  }
   const priceQuote = await resolveQuoteForOrderPayload(params.payload);
   const defaultTopUpCents = defaultX402TopUpCents();
   const fundingRequiredCents = hasLinkedHuman
@@ -339,6 +357,7 @@ export function orderApiBody(order: OttoAuthOrderRecord | null) {
       fulfillment_mode: order.fulfillment_mode,
       provider_id: order.provider_id,
       price_quote: apiOrder.quote,
+      pricing: apiOrder.pricing,
     },
   };
 }

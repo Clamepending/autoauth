@@ -46,7 +46,7 @@ Read these in order:
 4. Confirm the human has credits, or handle OttoAuth's x402 \`402 Payment Required\` top-up response.
 5. Validate order shapes with \`dry_run: true\` before real submission. Dry runs need no credentials and create no rows.
 6. Optionally call \`POST ${baseUrl}/v1/quotes\` to show a non-browser price, estimate, or retroactive-billing state before creating the order.
-7. Submit orders through \`POST ${baseUrl}/api/services/order/submit\` or \`POST ${baseUrl}/v1/orders\`.
+7. Submit orders through \`POST ${baseUrl}/api/services/order/submit\` or \`POST ${baseUrl}/v1/orders\`. Real orders require \`max_charge_cents\`.
 8. Store \`order.id\` from the response, for example \`ord_123\`. The compatibility \`task.id\` is numeric.
 9. Poll \`POST ${baseUrl}/api/services/order/tasks/<orderId>\` or \`GET ${baseUrl}/v1/orders/<orderId>\`.
 10. Use message, clarification, cancel, and dispute endpoints as needed.
@@ -85,7 +85,9 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
   }'
 \`\`\`
 
-Structured fields matter. Prefer \`store\`, \`merchant\`, \`store_url\`, \`kind\`, \`order_type\`, \`items[]\`, \`files[]\`, \`pickup_location\`, \`shipping_address\`, \`order_details\`, and \`max_charge_cents\` over a vague prompt.
+Structured fields matter. Prefer \`store\`, \`merchant\`, \`store_url\`, \`kind\`, \`order_type\`, \`items[]\`, \`files[]\`, \`pickup_location\`, \`shipping_address\`, \`order_details\`, \`estimated_total_cents\`, and \`max_charge_cents\` over a vague prompt.
+
+Every order response includes \`order.pricing\`. Display \`pricing.display_total_cents\` when present, label it as an estimate unless \`pricing.state\` is \`quoted\` or \`final\`, and always show \`pricing.max_charge_cents\` as the hard spend limit.
 
 ## Non-Browser Quotes
 
@@ -125,6 +127,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
     "store":"xometry",
     "files":[{"file_id":"file_...","name":"bracket.step","download_url":"${baseUrl}/api/services/order/files/file_...","purpose":"cad_model"}],
     "order_details":"Quote CNC aluminum 6061, quantity 5, bead blasted. Ask before ordering.",
+    "estimated_total_cents":6200,
     "max_charge_cents":50000
   }'
 \`\`\`

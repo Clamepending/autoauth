@@ -108,8 +108,8 @@ async function main() {
     const manualQuoteRes = await request('/v1/quotes', {
       headers: { authorization: `Bearer ${privateKey}` },
       json: {
-        task: 'Quote one manually priced test order.',
-        store: 'manual',
+        task: 'Quote one explicitly priced supplier order.',
+        store: 'xometry',
         merchant: 'Manual Supplier',
         quote: {
           source: 'operator_pricing_model',
@@ -176,7 +176,7 @@ async function main() {
     const orderRes = await request('/v1/orders', {
       headers: { authorization: `Bearer ${privateKey}` },
       json: {
-        store: 'manual',
+        store: 'xometry',
         merchant: 'Manual Supplier',
         task: 'Buy the manually quoted verification item. This is a routing verification; do not complete a live purchase.',
         max_charge_cents: 2000,

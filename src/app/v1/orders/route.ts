@@ -37,10 +37,12 @@ export async function POST(request: Request) {
     body.payload.test_mode === true
   ) {
     try {
+      const preview = previewOrderRequest(body.payload);
       return NextResponse.json({
         ok: true,
         dry_run: true,
-        order_preview: previewOrderRequest(body.payload),
+        order_preview: preview,
+        pricing: preview.pricing,
         note: "No order was created, no credits were checked, and no fulfillment was queued.",
       });
     } catch (error) {
@@ -59,11 +61,13 @@ export async function POST(request: Request) {
   });
   if (!created.ok) return created.response;
 
+  const apiBody = orderApiBody(created.order);
   const response = NextResponse.json(
     {
       ok: true,
       reused: created.reused,
-      ...orderApiBody(created.order),
+      ...apiBody,
+      pricing: apiBody?.order?.pricing ?? null,
       events: await listOrderEvents(created.order.id, 20),
     },
     { status: created.reused ? 200 : 201 },

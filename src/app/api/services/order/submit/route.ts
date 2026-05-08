@@ -23,10 +23,12 @@ export async function POST(request: Request) {
     payload.test_mode === true
   ) {
     try {
+      const preview = previewOrderRequest(payload);
       return NextResponse.json({
         ok: true,
         dry_run: true,
-        order_preview: previewOrderRequest(payload),
+        order_preview: preview,
+        pricing: preview.pricing,
         note: "No order was created, no credits were checked, and no fulfillment was queued.",
       });
     } catch (error) {
@@ -51,6 +53,7 @@ export async function POST(request: Request) {
       ok: true,
       reused: created.reused,
       ...apiBody,
+      pricing: apiBody?.order?.pricing ?? null,
       events: await listOrderEvents(created.order.id, 20),
       linked_human: created.linkedHuman,
       human_credit_balance: `$${(created.availableAfterFunding / 100).toFixed(2)}`,

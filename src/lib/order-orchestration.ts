@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { addCreditLedgerEntry, getHumanCreditBalance } from "@/lib/human-accounts";
+import { estimateOrderPricing } from "@/lib/order-pricing";
 import { PLATFORM_CATALOG, type PlatformCatalogEntry } from "@/lib/platform-catalog";
 import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
@@ -862,6 +863,12 @@ export function previewOrderRequest(payload: Record<string, unknown>) {
       payload.max_spend_cents ??
       payload.maxSpendCents,
   );
+  const pricing = estimateOrderPricing({
+    request: normalized,
+    provider,
+    maxChargeCents,
+    currency: normalizeCurrency(payload.currency),
+  });
   const humanPacket = buildHumanPacket({
     provider,
     request: normalized,
@@ -882,6 +889,7 @@ export function previewOrderRequest(payload: Record<string, unknown>) {
       shipping_address_present: Boolean(normalized.shippingAddress),
     },
     provider_capabilities: provider.capabilities,
+    pricing,
   };
 
   return {
@@ -905,6 +913,7 @@ export function previewOrderRequest(payload: Record<string, unknown>) {
     request: requestJson,
     items: normalized.items,
     files: normalized.files,
+    pricing,
     human_fulfillment_packet: humanPacket,
     payment: {
       status: "not_charged",
@@ -1203,6 +1212,14 @@ export async function createOrchestratedOrder(params: {
   const status = initialStatusFor(provider, fulfillmentMode);
   const now = new Date().toISOString();
   const priceQuote = params.priceQuote ?? null;
+  const pricing = estimateOrderPricing({
+    request: normalized,
+    provider,
+    maxChargeCents,
+    priceQuote,
+    quotedTotalCents: priceQuote?.total_cents ?? null,
+    currency: normalizeCurrency(params.payload.currency),
+  });
   const requestJson = {
     ...normalized.raw,
     normalized: {
@@ -1218,6 +1235,7 @@ export async function createOrchestratedOrder(params: {
     },
     provider_capabilities: provider.capabilities,
     price_quote: priceQuote,
+    pricing,
   };
 
   await ensureOrderOrchestrationSchema();
@@ -1290,6 +1308,7 @@ export async function createOrchestratedOrder(params: {
           ? "No enabled native API adapter matched this order, so OttoAuth routed it to the human fulfillment queue."
           : "Order routed to provider adapter.",
       provider_capabilities: provider.capabilities,
+      pricing,
     },
   });
   return { order, reused: false };
@@ -1941,7 +1960,39 @@ export function parseOrderFileForApi(file: OttoAuthOrderFileRecord, baseUrl?: st
 }
 
 export function parseOrderForApi(order: OttoAuthOrderRecord) {
-  const provider = PROVIDERS.find((entry) => entry.id === order.provider_id);
+  const provider =
+    PROVIDERS.find((entry) => entry.id === order.provider_id) ||
+    PROVIDERS.find((entry) => entry.id === "manual")!;
+  const request = optionalRecord(parseJsonObject(order.request_json)) ?? {};
+  let normalizedForPricing: NormalizedOrderRequest;
+  try {
+    normalizedForPricing = normalizeOrderRequest(request);
+  } catch {
+    normalizedForPricing = {
+      kind: order.kind,
+      store: order.provider_id,
+      merchant: order.provider_label,
+      task: order.public_id,
+      title: order.public_id,
+      orderType: null,
+      storeUrl: null,
+      pickupLocation: null,
+      shippingAddress: null,
+      items: [],
+      files: [],
+      notes: null,
+      raw: request,
+    };
+  }
+  const pricing = estimateOrderPricing({
+    request: normalizedForPricing,
+    provider,
+    maxChargeCents: order.max_charge_cents,
+    priceQuote: optionalRecord(parseJsonObject(order.quote_json)) as NonBrowserPriceQuote | null,
+    quotedTotalCents: order.quoted_total_cents,
+    capturedCents: order.captured_cents,
+    currency: order.currency,
+  });
   return {
     id: order.public_id,
     numeric_id: order.id,
@@ -1954,9 +2005,10 @@ export function parseOrderForApi(order: OttoAuthOrderRecord) {
       native_available: provider?.nativeAvailable ?? order.fulfillment_mode !== "human_admin",
       capabilities: provider?.capabilities ?? DEFAULT_CAPABILITIES,
     },
-    request: parseJsonObject(order.request_json),
+    request,
     items: order.normalized_items_json ? parseJsonObject(order.normalized_items_json) : [],
     quote: order.quote_json ? parseJsonObject(order.quote_json) : null,
+    pricing,
     human_fulfillment_packet: order.human_packet_json ? parseJsonObject(order.human_packet_json) : null,
     result: order.result_json ? parseJsonObject(order.result_json) : null,
     payment: {

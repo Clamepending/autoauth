@@ -111,6 +111,7 @@ export default async function AdminFulfillmentOrderPage({ params }: PageProps) {
   const request = parseJson(order.request_json);
   const result = parseJson(order.result_json);
   const final = ["completed", "failed", "canceled"].includes(order.status);
+  const pricing = apiOrder.pricing;
 
   return (
     <main className="admin-control-plane">
@@ -145,6 +146,8 @@ export default async function AdminFulfillmentOrderPage({ params }: PageProps) {
               <Fact label="Kind" value={order.kind.replace(/_/g, " ")} />
               <Fact label="Agent" value={order.agent_username_lower || "none"} mono />
               <Fact label="Human user" value={`#${order.human_user_id}`} mono />
+              <Fact label="Pricing state" value={pricing.state.replace(/_/g, " ")} />
+              <Fact label="Estimated" value={fmtMoney(pricing.estimated_total_cents, order.currency)} />
               <Fact label="Spend cap" value={fmtMoney(order.max_charge_cents, order.currency)} />
               <Fact label="Captured" value={fmtMoney(order.captured_cents, order.currency)} />
               <Fact label="Claimed by" value={order.claimed_by_admin_email} />

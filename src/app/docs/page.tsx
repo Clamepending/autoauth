@@ -124,6 +124,7 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
     "store":"xometry",
     "files":[{"file_id":"file_...","name":"bracket.step","download_url":"${baseUrl}/api/services/order/files/file_..."}],
     "order_details":"Quote CNC aluminum 6061, quantity 5, bead blasted. Ask before ordering.",
+    "estimated_total_cents":6200,
     "max_charge_cents":50000
   }'`;
 
@@ -191,6 +192,48 @@ if (!response.ok) {
 
 const task = await response.json();
 console.log(task.order.id, task.order.status);`;
+
+  const minimalSdkExample = `type OttoAuthOrderInput = {
+  store?: string;
+  kind?: "retail_purchase" | "grocery_delivery" | "restaurant_delivery" | "ride" | "manufacturing_3d_print" | "manufacturing_pcb";
+  items?: Array<{ name: string; quantity?: string; details?: string; url?: string }>;
+  files?: Array<{ file_id: string; name: string; download_url: string; purpose?: string }>;
+  order_details?: string;
+  shipping_address?: string;
+  max_charge_cents: number;
+  estimated_total_cents?: number;
+  idempotency_key?: string;
+};
+
+export async function submitOttoAuthOrder(input: OttoAuthOrderInput) {
+  const response = await fetch(\`\${process.env.OTTOAUTH_BASE_URL || "${baseUrl}"}/api/services/order/submit\`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(input.idempotency_key ? { "idempotency-key": input.idempotency_key } : {})
+    },
+    body: JSON.stringify({
+      username: process.env.OTTOAUTH_USERNAME,
+      private_key: process.env.OTTOAUTH_PRIVATE_KEY,
+      ...input
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "OttoAuth order failed");
+  return data as {
+    order: {
+      id: string;
+      status: string;
+      pricing: {
+        state: "estimated" | "spend_limit_only" | "quoted" | "final";
+        display_total_cents: number | null;
+        max_charge_cents: number;
+        pending_final_price: boolean;
+      };
+    };
+  };
+}`;
 
   const pollingExample = `async function waitForOrder(orderId: string) {
   while (true) {
@@ -296,16 +339,17 @@ print(response.json())`;
             <p>
               Use <code>/api/services/order/submit</code> for every platform:
               Amazon, Instacart, Uber, Treatstock, Xometry, PCBWay, Printful,
-              and unsupported stores. If the provider has no native adapter yet,
-              First test payloads with <code>dry_run: true</code>; dry runs
+              and unsupported stores. First test payloads with{" "}
+              <code>dry_run: true</code>; dry runs
               create no order rows and require no credentials. If the provider
               has no native adapter yet, OttoAuth routes live orders to
               admindash for human fulfillment while the
-              API still exposes price, confirmation, tracking, cancellation,
-              messaging, clarification, and dispute state.
+              API still exposes estimates, spend limits, confirmation,
+              tracking, cancellation, messaging, clarification, and dispute state.
             </p>
             <CodeBlock label="Minimal integration" code={simpleQuickstart} />
             <CodeBlock label="Orders with files" code={fileUploadQuickstart} />
+            <CodeBlock label="Tiny unopinionated TypeScript wrapper" code={minimalSdkExample} />
             <CodeBlock label="Supported platform catalog" code={platformCatalogExample} />
           </section>
 
