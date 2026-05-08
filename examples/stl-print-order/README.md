@@ -19,3 +19,7 @@ private key, start Connect, or manage local credentials.
 
 The app defaults to `https://ottoauth.vercel.app`. Set
 `OTTOAUTH_BASE_URL=http://127.0.0.1:3000` only when developing OttoAuth itself.
+
+The handoff endpoint also returns `Access-Control-Allow-Private-Network: true`
+so a production OttoAuth checkout page can import a payload from a localhost app
+in a fresh Chrome profile.

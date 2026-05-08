@@ -150,32 +150,18 @@
               </div>
               <div>
                 <span>Source</span>
-                <strong>demo quote</strong>
+                <strong>OttoAuth</strong>
               </div>
               <div>
                 <span>Mode</span>
-                <strong>hosted confirm</strong>
+                <strong>hosted checkout</strong>
               </div>
             </div>
           </section>
-
-          <form class="order-panel" id="ottoauthForm">
-            <div class="panel-header">
-              <h2>OttoAuth</h2>
-              <button class="secondary-button" id="previewButton" type="button">Preview</button>
-            </div>
-            <label>
-              Base URL override
-              <input id="ottoauthBaseUrl" placeholder="default: https://ottoauth.vercel.app" />
-            </label>
-            <label>
-              Agent private key override
-              <input id="privateKey" type="password" placeholder="optional sk-oa-..." autocomplete="off" />
-            </label>
-            <pre id="payloadPreview" class="payload-preview"></pre>
-            <div id="result" class="result"></div>
-          </form>
         </div>
+
+        <pre id="payloadPreview" class="payload-preview" hidden></pre>
+        <div id="result" class="result" hidden></div>
       </section>
     </main>
     <script src="/app.js" type="module"></script>

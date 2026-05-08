@@ -1,6 +1,6 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,9 +12,6 @@ const defaultOttoAuthBaseUrl =
   process.env.OTTOAUTH_BASE_URL || "https://ottoauth.vercel.app";
 const appId = "ottoauth-tshirt-designer-demo";
 const appName = "T-Shirt Studio";
-const installStorePath =
-  process.env.OTTOAUTH_INSTALL_STORE || path.join(__dirname, ".ottoauth-install.json");
-const connectScopes = ["files:write", "quotes:read", "checkout.sessions:create"];
 const storedDesigns = new Map();
 
 function sendJson(response, status, payload) {
@@ -47,242 +44,6 @@ async function readJson(request) {
   const body = Buffer.concat(chunks).toString("utf8");
   if (!body.trim()) return {};
   return JSON.parse(body);
-}
-
-async function readInstallState() {
-  try {
-    const text = await readFile(installStorePath, "utf8");
-    const parsed = JSON.parse(text);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch (error) {
-    if (error && error.code === "ENOENT") return null;
-    return null;
-  }
-}
-
-async function writeInstallState(state) {
-  await mkdir(path.dirname(installStorePath), { recursive: true });
-  await writeFile(`${installStorePath}.tmp`, JSON.stringify(state, null, 2));
-  await rename(`${installStorePath}.tmp`, installStorePath);
-}
-
-async function ensureInstallState(ottoauthBaseUrl) {
-  const existing = (await readInstallState()) || {};
-  const installId =
-    sanitizeText(existing.install_id, 160) || `tshirt-${randomUUID().toLowerCase()}`;
-  const next = {
-    ...existing,
-    app_id: appId,
-    app_name: appName,
-    install_id: installId,
-    ottoauth_base_url: sanitizeText(existing.ottoauth_base_url, 2000) || ottoauthBaseUrl,
-  };
-  if (!existing.install_id) {
-    await writeInstallState(next);
-  }
-  return next;
-}
-
-function base64Url(buffer) {
-  return buffer
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
-function makeCodeVerifier() {
-  return base64Url(randomBytes(48));
-}
-
-function codeChallenge(verifier) {
-  return base64Url(createHash("sha256").update(verifier).digest());
-}
-
-async function createOttoAuthConnectSession({ request, ottoauthBaseUrl }) {
-  const install = await ensureInstallState(ottoauthBaseUrl);
-  const codeVerifier = makeCodeVerifier();
-  const state = base64Url(randomBytes(18));
-  const redirectUrl = `${publicBaseUrl(request)}/api/ottoauth/callback`;
-  const remote = await fetch(`${ottoauthBaseUrl}/v1/connect/sessions`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      app_id: appId,
-      app_name: appName,
-      install_id: install.install_id,
-      redirect_url: redirectUrl,
-      scopes: connectScopes,
-      state,
-      code_challenge: codeChallenge(codeVerifier),
-      code_challenge_method: "S256",
-    }),
-    signal: AbortSignal.timeout(12000),
-  });
-  const text = await remote.text();
-  let payload = null;
-  try {
-    payload = text ? JSON.parse(text) : null;
-  } catch {
-    throw new Error(
-      `OttoAuth Connect returned non-JSON status ${remote.status}: ${text.slice(0, 160)}`,
-    );
-  }
-  if (!remote.ok) {
-    throw new Error(payload?.error || `OttoAuth Connect failed with status ${remote.status}.`);
-  }
-  const connectUrl = payload?.connect_url || payload?.session?.connect_url;
-  if (!connectUrl) throw new Error("OttoAuth Connect did not return a connect URL.");
-
-  await writeInstallState({
-    ...install,
-    app_id: appId,
-    app_name: appName,
-    ottoauth_base_url: ottoauthBaseUrl,
-    pending: {
-      state,
-      code_verifier: codeVerifier,
-      ottoauth_base_url: ottoauthBaseUrl,
-      created_at: new Date().toISOString(),
-    },
-  });
-
-  return {
-    connectUrl,
-    connect_url: connectUrl,
-    install_id: install.install_id,
-    ottoauthBaseUrl,
-    session: payload?.session || payload,
-  };
-}
-
-async function handleOttoAuthConnect(request, response) {
-  const input = await readJson(request);
-  const ottoauthBaseUrl = (
-    sanitizeText(input.ottoauthBaseUrl, 2000) || defaultOttoAuthBaseUrl
-  ).replace(/\/$/, "");
-  const connect = await createOttoAuthConnectSession({ request, ottoauthBaseUrl });
-  sendJson(response, 200, { ok: true, ...connect });
-}
-
-async function handleOttoAuthStatus(_request, response) {
-  const state = await readInstallState();
-  sendJson(response, 200, {
-    ok: true,
-    connected: Boolean(state?.access_token),
-    app: state ? { id: state.app_id || appId, name: state.app_name || appName } : null,
-    install_id: state?.install_id || null,
-    agent: state?.agent || null,
-    scopes: Array.isArray(state?.scopes) ? state.scopes : [],
-    ottoauthBaseUrl: state?.ottoauth_base_url || defaultOttoAuthBaseUrl,
-    pending: Boolean(state?.pending),
-  });
-}
-
-function redirect(response, location, status = 302) {
-  response.writeHead(status, { location });
-  response.end();
-}
-
-async function handleOttoAuthCallback(request, response) {
-  const url = new URL(request.url, publicBaseUrl(request));
-  const install = (await readInstallState()) || {};
-  const pending = install.pending || null;
-  const finish = (kind, details = {}) => {
-    const target = new URL("/", publicBaseUrl(request));
-    target.searchParams.set("ottoauth_connect", kind);
-    for (const [key, value] of Object.entries(details)) {
-      if (value != null && value !== "") target.searchParams.set(key, String(value));
-    }
-    redirect(response, target.href, 303);
-  };
-
-  if (url.searchParams.get("error")) {
-    await writeInstallState({ ...install, pending: null });
-    finish("error", { error: url.searchParams.get("error") });
-    return;
-  }
-
-  try {
-    const state = url.searchParams.get("state") || "";
-    const code = url.searchParams.get("code") || "";
-    const installId = url.searchParams.get("install_id") || install.install_id || "";
-    if (!pending?.code_verifier || !pending?.state) {
-      throw new Error("Missing local OttoAuth Connect state. Start checkout again.");
-    }
-    if (state !== pending.state) {
-      throw new Error("OttoAuth Connect state mismatch. Start checkout again.");
-    }
-    if (!code) {
-      throw new Error("OttoAuth did not return a connect code.");
-    }
-
-    const ottoauthBaseUrl = (
-      sanitizeText(pending.ottoauth_base_url, 2000) ||
-      sanitizeText(install.ottoauth_base_url, 2000) ||
-      defaultOttoAuthBaseUrl
-    ).replace(/\/$/, "");
-    const remote = await fetch(`${ottoauthBaseUrl}/v1/connect/token`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        code,
-        code_verifier: pending.code_verifier,
-        install_id: installId,
-      }),
-      signal: AbortSignal.timeout(12000),
-    });
-    const text = await remote.text();
-    let payload = null;
-    try {
-      payload = text ? JSON.parse(text) : null;
-    } catch {
-      throw new Error(
-        `OttoAuth token exchange returned non-JSON status ${remote.status}: ${text.slice(0, 160)}`,
-      );
-    }
-    if (!remote.ok || !payload?.access_token) {
-      throw new Error(payload?.error || `OttoAuth token exchange failed with status ${remote.status}.`);
-    }
-
-    await writeInstallState({
-      ...install,
-      app_id: appId,
-      app_name: appName,
-      install_id: payload.install_id || installId,
-      ottoauth_base_url: ottoauthBaseUrl,
-      token_type: payload.token_type || "Bearer",
-      access_token: payload.access_token,
-      scopes: Array.isArray(payload.scopes) ? payload.scopes : connectScopes,
-      agent: payload.agent || null,
-      connected_at: new Date().toISOString(),
-      pending: null,
-    });
-    finish("success");
-  } catch (error) {
-    await writeInstallState({ ...install, pending: null });
-    finish("error", {
-      error: error instanceof Error ? error.message : "Could not finish OttoAuth Connect.",
-    });
-  }
-}
-
-async function resolveOttoAuthAccessToken(input, ottoauthBaseUrl) {
-  const override =
-    sanitizeText(input.privateKey, 400) || sanitizeText(process.env.OTTOAUTH_PRIVATE_KEY, 400);
-  if (override) return { token: override, source: "private_key_override" };
-  const install = await readInstallState();
-  if (
-    install?.access_token &&
-    sanitizeText(install.ottoauth_base_url, 2000).replace(/\/$/, "") === ottoauthBaseUrl
-  ) {
-    return {
-      token: sanitizeText(install.access_token, 400),
-      source: "ottoauth_connect",
-      install,
-    };
-  }
-  return { token: null, source: "missing", install };
 }
 
 function sleep(ms) {
@@ -385,7 +146,7 @@ function renderDesignSvg(state) {
 </svg>`;
 }
 
-function buildOrderPayload(input, designUrl) {
+function buildOrderPayload(input, designFile) {
   const state = input.state || {};
   const design = state.design || {};
   const quantity = Math.max(1, Math.min(200, Number(state.quantity || 1)));
@@ -398,6 +159,22 @@ function buildOrderPayload(input, designUrl) {
   const style = sanitizeText(state.style, 80) || "classic unisex tee";
   const shippingAddress = sanitizeText(state.shippingAddress, 2000);
   const itemName = `${quantity} ${style}, size ${size}, ${shirtColor}`;
+  const designUrl =
+    typeof designFile === "string" ? designFile : sanitizeText(designFile?.url, 2000);
+  const file = {
+    name: "ottoauth-shirt-design.svg",
+    purpose: "front_print_artwork",
+    source: "tshirt_designer_demo",
+    content_type: "image/svg+xml",
+    ...(designUrl ? { url: designUrl } : {}),
+    ...(designFile && typeof designFile === "object"
+      ? {
+          content_base64: designFile.contentBase64,
+          size: designFile.size,
+          sha256: designFile.sha256,
+        }
+      : {}),
+  };
 
   return {
     store: provider,
@@ -408,14 +185,7 @@ function buildOrderPayload(input, designUrl) {
     quantity: String(quantity),
     shipping_address: shippingAddress || undefined,
     max_charge_cents: maxChargeCents,
-    files: [
-      {
-        name: "ottoauth-shirt-design.svg",
-        url: designUrl,
-        purpose: "front_print_artwork",
-        source: "tshirt_designer_demo",
-      },
-    ],
+    files: [file],
     quote: {
       source: "tshirt_demo_estimate",
       source_label: "T-shirt demo estimate",
@@ -434,76 +204,12 @@ function buildOrderPayload(input, designUrl) {
       "Place the order only if the final total is under max_charge_cents.",
       "If the provider requires choices that are not specified, ask for clarification instead of guessing.",
     ].join("\n"),
-    task: `Order a custom printed T-shirt using the attached SVG artwork.\n\nGarment: ${itemName}\nProvider preference: ${provider}\nArtwork URL: ${designUrl}\n\nOnly complete fulfillment if the final total is under the spend cap.`,
+    task: `Order a custom printed T-shirt using the attached SVG artwork.\n\nGarment: ${itemName}\nProvider preference: ${provider}\n${designUrl ? `Artwork URL: ${designUrl}\n` : ""}\nOnly complete fulfillment if the final total is under the spend cap.`,
     metadata: {
       source_app: "ottoauth_tshirt_designer_demo",
       design,
     },
   };
-}
-
-async function uploadDesignToOttoAuth(params) {
-  const svg = renderDesignSvg(params.state || {});
-  const remote = await fetch(`${params.ottoauthBaseUrl}/api/sdk/files`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${params.privateKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      files: [
-        {
-          name: "ottoauth-shirt-design.svg",
-          content_type: "image/svg+xml",
-          content_base64: Buffer.from(svg, "utf8").toString("base64"),
-          metadata: {
-            source: "tshirt_designer_demo",
-            purpose: "front_print_artwork",
-          },
-        },
-      ],
-    }),
-    signal: AbortSignal.timeout(12000),
-  });
-  const text = await remote.text();
-  let payload = null;
-  try {
-    payload = text ? JSON.parse(text) : null;
-  } catch {
-    throw new Error(
-      `OttoAuth file upload returned non-JSON status ${remote.status}: ${text.slice(0, 160)}`,
-    );
-  }
-  if (!remote.ok) {
-    throw new Error(payload?.error || `OttoAuth file upload failed with status ${remote.status}.`);
-  }
-  const file = Array.isArray(payload?.files) ? payload.files[0] : null;
-  if (!file?.url) {
-    throw new Error("OttoAuth file upload did not return a file URL.");
-  }
-  return file;
-}
-
-function attachUploadedDesign(orderPayload, uploadedDesign, localDesignUrl) {
-  orderPayload.files = orderPayload.files.map((file, index) =>
-    index === 0
-      ? {
-          ...file,
-          id: uploadedDesign.id,
-          url: uploadedDesign.url,
-          size: uploadedDesign.size,
-          sha256: uploadedDesign.sha256,
-          content_type: uploadedDesign.content_type,
-          storage_backend: uploadedDesign.storage_backend,
-        }
-      : file,
-  );
-  orderPayload.metadata = {
-    ...orderPayload.metadata,
-    local_design_url: localDesignUrl,
-    ottoauth_file_id: uploadedDesign.id,
-  };
-  return orderPayload;
 }
 
 async function handleAgentDesign(request, response) {
@@ -516,63 +222,12 @@ async function handlePreview(request, response) {
   const id = randomUUID();
   storedDesigns.set(id, input.state || {});
   const localDesignUrl = `${publicBaseUrl(request)}/api/designs/${id}.svg`;
-  let designUrl = localDesignUrl;
-  let orderPayload = buildOrderPayload(input, designUrl);
-  const ottoauthBaseUrl = (
-    sanitizeText(input.ottoauthBaseUrl, 2000) || defaultOttoAuthBaseUrl
-  ).replace(/\/$/, "");
-  const access = await resolveOttoAuthAccessToken(input, ottoauthBaseUrl);
-  let uploadedDesign = null;
-  let dryRun = null;
-  let dryRunError = null;
-
-  if (access.token) {
-    try {
-      uploadedDesign = await uploadDesignToOttoAuth({
-        state: input.state || {},
-        ottoauthBaseUrl,
-        privateKey: access.token,
-      });
-      designUrl = uploadedDesign.url;
-      orderPayload = attachUploadedDesign(
-        buildOrderPayload(input, designUrl),
-        uploadedDesign,
-        localDesignUrl,
-      );
-
-      const remote = await fetch(`${ottoauthBaseUrl}/v1/quotes`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${access.token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(orderPayload),
-        signal: AbortSignal.timeout(5000),
-      });
-      const text = await remote.text();
-      dryRun = text ? JSON.parse(text) : null;
-    } catch (error) {
-      dryRunError =
-        error instanceof Error ? error.message : "Could not reach OttoAuth for quote preview.";
-    }
-  } else {
-    dryRun = {
-      skipped: true,
-      requires_connect: true,
-      note: "Connect OttoAuth to upload artwork and preview the OttoAuth quote response.",
-    };
-  }
-
+  const orderPayload = buildOrderPayload(input, localDesignUrl);
   sendJson(response, 200, {
     ok: true,
     orderPayload,
-    designUrl,
+    designUrl: localDesignUrl,
     localDesignUrl,
-    uploadedDesign,
-    ottoauthBaseUrl,
-    credentialSource: access.source,
-    dryRun,
-    dryRunError,
   });
 }
 
@@ -581,52 +236,23 @@ async function handleBuy(request, response) {
   const ottoauthBaseUrl = (
     sanitizeText(input.ottoauthBaseUrl, 2000) || defaultOttoAuthBaseUrl
   ).replace(/\/$/, "");
-  const access = await resolveOttoAuthAccessToken(input, ottoauthBaseUrl);
-
-  if (!access.token) {
-    try {
-      const connect = await createOttoAuthConnectSession({ request, ottoauthBaseUrl });
-      sendJson(response, 200, {
-        ok: false,
-        requires_connect: true,
-        credentialSource: access.source,
-        ...connect,
-      });
-    } catch (error) {
-      sendJson(response, 502, {
-        ok: false,
-        requires_connect: true,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Could not start OttoAuth Connect.",
-        ottoauthBaseUrl,
-      });
-    }
-    return;
-  }
-
   const id = randomUUID();
   storedDesigns.set(id, input.state || {});
   const localDesignUrl = `${publicBaseUrl(request)}/api/designs/${id}.svg`;
+  const svg = renderDesignSvg(input.state || {});
+  const designFile = {
+    contentBase64: Buffer.from(svg, "utf8").toString("base64"),
+    size: Buffer.byteLength(svg, "utf8"),
+    sha256: createHash("sha256").update(svg).digest("hex"),
+  };
   const demoBaseUrl = publicBaseUrl(request);
   const successUrl = `${demoBaseUrl}/?ottoauth_checkout=success&session_id={CHECKOUT_SESSION_ID}&order_id={ORDER_ID}&task_id={TASK_ID}`;
   const cancelUrl = `${demoBaseUrl}/?ottoauth_checkout=canceled&session_id={CHECKOUT_SESSION_ID}`;
-  let orderPayload = null;
+  let orderPayload = buildOrderPayload(input, designFile);
 
   try {
-    const uploadedDesign = await uploadDesignToOttoAuth({
-      state: input.state || {},
-      ottoauthBaseUrl,
-      privateKey: access.token,
-    });
-    orderPayload = attachUploadedDesign(
-      buildOrderPayload(input, uploadedDesign.url),
-      uploadedDesign,
-      localDesignUrl,
-    );
-
     const checkoutBody = {
+      auth_mode: "human_session",
       app_id: appId,
       app_name: appName,
       success_url: successUrl,
@@ -636,7 +262,7 @@ async function handleBuy(request, response) {
       metadata: {
         source_app: "ottoauth_tshirt_designer_demo",
         design_id: id,
-        ottoauth_file_id: uploadedDesign.id,
+        local_design_url: localDesignUrl,
       },
     };
 
@@ -645,10 +271,7 @@ async function handleBuy(request, response) {
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       remote = await fetch(`${ottoauthBaseUrl}/v1/checkout/sessions`, {
         method: "POST",
-        headers: {
-          authorization: `Bearer ${access.token}`,
-          "content-type": "application/json",
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(checkoutBody),
         signal: AbortSignal.timeout(12000),
       });
@@ -674,11 +297,14 @@ async function handleBuy(request, response) {
     sendJson(response, remote.status, {
       ok: remote.ok,
       ottoauthBaseUrl,
-      credentialSource: access.source,
       localDesignUrl,
-      designUrl: uploadedDesign.url,
-      uploadedDesign,
-      request: orderPayload,
+      request: {
+        ...orderPayload,
+        files: orderPayload.files.map((file) => ({
+          ...file,
+          content_base64: file.content_base64 ? "[base64 artwork omitted]" : undefined,
+        })),
+      },
       response: payload,
       checkoutUrl: payload?.url || payload?.session?.url || null,
     });
@@ -746,18 +372,6 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "POST" && request.url === "/api/ottoauth-preview") {
       await handlePreview(request, response);
-      return;
-    }
-    if (request.method === "POST" && request.url === "/api/ottoauth-connect") {
-      await handleOttoAuthConnect(request, response);
-      return;
-    }
-    if (request.method === "GET" && request.url.startsWith("/api/ottoauth/callback")) {
-      await handleOttoAuthCallback(request, response);
-      return;
-    }
-    if (request.method === "GET" && request.url === "/api/ottoauth-status") {
-      await handleOttoAuthStatus(request, response);
       return;
     }
     if (request.method === "POST" && request.url === "/api/buy") {

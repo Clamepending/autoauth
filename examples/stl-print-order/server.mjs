@@ -77,7 +77,8 @@ function corsHeaders(request) {
   return {
     "access-control-allow-origin": allowOrigin,
     "access-control-allow-methods": "GET,OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "accept,content-type",
+    "access-control-allow-private-network": "true",
     "cache-control": "no-store",
     vary: "Origin",
   };

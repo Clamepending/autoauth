@@ -37,8 +37,6 @@ const els = {
   provider: document.querySelector("#provider"),
   style: document.querySelector("#style"),
   shippingAddress: document.querySelector("#shippingAddress"),
-  ottoauthBaseUrl: document.querySelector("#ottoauthBaseUrl"),
-  privateKey: document.querySelector("#privateKey"),
   payloadPreview: document.querySelector("#payloadPreview"),
   result: document.querySelector("#result"),
   estimate: document.querySelector("#estimate"),
@@ -46,21 +44,9 @@ const els = {
   artLayer: document.querySelector("#artLayer"),
   agentButton: document.querySelector("#agentButton"),
   randomizeButton: document.querySelector("#randomizeButton"),
-  previewButton: document.querySelector("#previewButton"),
   buyButton: document.querySelector("#buyButton"),
   statusBanner: document.querySelector("#statusBanner"),
 };
-
-const savedBaseUrl = localStorage.getItem("ottoauth_tshirt_base_url");
-const legacyLocalDefaultUrls = new Set([
-  "http://127.0.0.1:3000",
-  "http://localhost:3000",
-]);
-if (savedBaseUrl && !legacyLocalDefaultUrls.has(savedBaseUrl.replace(/\/$/, ""))) {
-  els.ottoauthBaseUrl.value = savedBaseUrl;
-} else if (savedBaseUrl) {
-  localStorage.removeItem("ottoauth_tshirt_base_url");
-}
 
 function money(cents) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -162,6 +148,7 @@ function applyDesign(design) {
 }
 
 function showResult(kind, payload) {
+  els.result.hidden = false;
   els.result.className = `result ${kind}`;
   els.result.textContent =
     typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
@@ -190,17 +177,9 @@ async function postJson(path, body) {
 
 function requestBody() {
   syncFromInputs();
-  const ottoauthBaseUrl = els.ottoauthBaseUrl.value.trim();
-  if (ottoauthBaseUrl) {
-    localStorage.setItem("ottoauth_tshirt_base_url", ottoauthBaseUrl);
-  } else {
-    localStorage.removeItem("ottoauth_tshirt_base_url");
-  }
   localStorage.setItem("ottoauth_tshirt_state", JSON.stringify(state));
   return {
     state: { ...state, design: { ...state.design } },
-    ottoauthBaseUrl,
-    privateKey: els.privateKey.value.trim(),
   };
 }
 
@@ -229,40 +208,25 @@ async function generateDesign() {
 }
 
 async function previewOrder() {
-  els.previewButton.disabled = true;
   try {
     const { response, payload } = await postJson("/api/ottoauth-preview", requestBody());
     if (!response.ok) throw new Error(payload?.error || "Preview failed.");
     els.payloadPreview.textContent = JSON.stringify(payload.orderPayload, null, 2);
-    showResult(payload.dryRunError ? "error" : "ok", {
-      design_url: payload.designUrl,
-      credential_source: payload.credentialSource,
-      dry_run: payload.dryRun,
-      dry_run_error: payload.dryRunError,
-    });
+    els.payloadPreview.hidden = false;
   } catch (error) {
     showResult("error", error instanceof Error ? error.message : "Preview failed.");
-  } finally {
-    els.previewButton.disabled = false;
   }
 }
 
 async function buyWithOttoAuth() {
   els.buyButton.disabled = true;
   try {
+    showBanner("ok", "Opening OttoAuth", "Creating the hosted checkout with the artwork attached.");
     const { response, payload } = await postJson("/api/buy", requestBody());
     els.payloadPreview.textContent = JSON.stringify(payload?.request || {}, null, 2);
-    const connectUrl = payload?.connectUrl || payload?.connect_url;
-    if (payload?.requires_connect && connectUrl) {
-      showResult("ok", {
-        connect: "required",
-        redirecting_to: connectUrl,
-      });
-      window.location.href = connectUrl;
-      return;
-    }
     if (!response.ok) {
       showResult("error", payload || "OttoAuth order failed.");
+      showBanner("error", "Checkout failed", payload?.error || "OttoAuth could not create the checkout.");
       return;
     }
     const checkoutUrl = payload.checkoutUrl || payload.response?.url || payload.response?.session?.url;
@@ -284,22 +248,6 @@ async function buyWithOttoAuth() {
 
 function showReturnStatus() {
   const params = new URLSearchParams(window.location.search);
-  const connectStatus = params.get("ottoauth_connect");
-  if (connectStatus) {
-    window.history.replaceState({}, "", window.location.pathname);
-    if (connectStatus === "success") {
-      showBanner("ok", "Connected to OttoAuth", "Opening the hosted checkout page now.");
-      showResult("ok", { connect: "success", next: "opening_checkout" });
-      window.setTimeout(() => {
-        buyWithOttoAuth();
-      }, 50);
-    } else {
-      const error = params.get("error") || "OttoAuth Connect was canceled.";
-      showBanner("error", "Connection canceled", error);
-      showResult("error", { connect: connectStatus, error });
-    }
-    return;
-  }
   const status = params.get("ottoauth_checkout");
   if (!status) return;
   const payload = { checkout: status };
@@ -380,14 +328,11 @@ document.querySelectorAll("[data-shirt]").forEach((button) => {
 
 els.agentButton.addEventListener("click", generateDesign);
 els.randomizeButton.addEventListener("click", randomize);
-els.previewButton.addEventListener("click", previewOrder);
 els.buyButton.addEventListener("click", buyWithOttoAuth);
 
 restoreSavedState();
 render();
 const returnParams = new URLSearchParams(window.location.search);
-if (returnParams.has("ottoauth_checkout") || returnParams.has("ottoauth_connect")) {
+if (returnParams.has("ottoauth_checkout")) {
   showReturnStatus();
-} else {
-  previewOrder();
 }
