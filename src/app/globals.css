@@ -319,17 +319,17 @@ h1 {
 }
 
 .platform-carousel-row {
-  --platform-carousel-duration: 54s;
+  --platform-carousel-duration: 96s;
   display: flex;
   width: max-content;
   animation: platform-carousel-scroll var(--platform-carousel-duration) linear infinite;
-  animation-delay: 2.4s;
+  animation-delay: 4.8s;
   animation-fill-mode: backwards;
   will-change: transform;
 }
 
 .platform-carousel-row:nth-child(2) {
-  --platform-carousel-duration: 62s;
+  --platform-carousel-duration: 108s;
 }
 
 .platform-carousel:hover .platform-carousel-row {
