@@ -330,6 +330,33 @@ const BASE_PROVIDERS: ProviderDefinition[] = [
     },
   },
   {
+    id: "restaurant_delivery",
+    label: "Restaurant delivery",
+    defaultKind: "restaurant_delivery",
+    preferredMode: "human_admin",
+    nativeAvailable: false,
+    aliases: [
+      "restaurant_delivery",
+      "restaurant delivery",
+      "restaurant",
+      "food delivery",
+      "food",
+      "hot dog",
+      "doordash",
+      "door dash",
+      "grubhub",
+      "grub hub",
+    ],
+    capabilities: {
+      ...DEFAULT_CAPABILITIES,
+      cancel: true,
+      status_tracking: true,
+      live_tracking: true,
+      messaging: true,
+      refund: true,
+    },
+  },
+  {
     id: "snackpass",
     label: "Snackpass",
     defaultKind: "restaurant_delivery",
@@ -446,9 +473,18 @@ function normalizeCents(value: unknown) {
     typeof value === "number"
       ? value
       : typeof value === "string"
-        ? Number(value.replace(/[^0-9.]/g, ""))
+        ? Number(value.replace(/[^0-9.-]/g, ""))
         : Number.NaN;
   return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+}
+
+function hasSpendLimitField(payload: Record<string, unknown>) {
+  return (
+    payload.max_charge_cents != null ||
+    payload.maxChargeCents != null ||
+    payload.max_spend_cents != null ||
+    payload.maxSpendCents != null
+  );
 }
 
 function normalizeCurrency(value: unknown) {
@@ -563,9 +599,15 @@ function inferKind(payload: Record<string, unknown>, provider: ProviderDefinitio
     payload.store,
     payload.platform,
     payload.service,
+    payload.order_details,
+    payload.orderDetails,
+    payload.instructions,
     payload.task,
     payload.task_prompt,
-  ]).join(" ").toLowerCase();
+  ])
+    .join(" ")
+    .replace(/_/g, " ")
+    .toLowerCase();
 
   if (/\b(ride|rideshare|uber|taxi|driver)\b/.test(candidates)) return "ride";
   if (/\b(pcb|pcba|gerber|cpl|bom|circuit board|jlc)\b/.test(candidates)) {
@@ -728,6 +770,11 @@ export function normalizeOrderRequest(payload: Record<string, unknown>): Normali
   if (!task) {
     throw new Error("Order needs a task, item, file, or enough structured fields to fulfill.");
   }
+  if (!explicitTask && !notes && items.length === 0 && files.length === 0) {
+    throw new Error(
+      "Order needs actionable instructions, at least one item, or at least one file. Store/provider alone is not enough to fulfill.",
+    );
+  }
   const kind = inferKind(payload, provider);
   const title =
     optionalString(payload.task_title ?? payload.taskTitle ?? payload.title, 160) ||
@@ -863,6 +910,9 @@ export function previewOrderRequest(payload: Record<string, unknown>) {
       payload.max_spend_cents ??
       payload.maxSpendCents,
   );
+  if (hasSpendLimitField(payload) && (maxChargeCents == null || maxChargeCents <= 0)) {
+    throw new Error("max_charge_cents must be a positive integer when provided.");
+  }
   const pricing = estimateOrderPricing({
     request: normalized,
     provider,

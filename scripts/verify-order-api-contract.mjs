@@ -147,6 +147,38 @@ async function main() {
     "Missing order data should return 400",
   );
   await expect(
+    "store-only dry run",
+    "/api/services/order/submit",
+    { json: { dry_run: true, store: "restaurant_delivery", max_charge_cents: 2500 } },
+    (res, data) => res.status === 400 && /actionable instructions/i.test(data?.error || ""),
+    "Store/provider-only dry runs should be rejected",
+  );
+  await expect(
+    "negative cap dry run",
+    "/api/services/order/submit",
+    { json: { dry_run: true, store: "restaurant_delivery", order_details: "Order one hot dog.", max_charge_cents: -1 } },
+    (res, data) => res.status === 400 && /max_charge_cents must be a positive integer/i.test(data?.error || ""),
+    "Dry runs should reject invalid spend caps when provided",
+  );
+  await expect(
+    "restaurant delivery dry run",
+    "/api/services/order/submit",
+    {
+      json: {
+        dry_run: true,
+        store: "restaurant_delivery",
+        order_details: "Order one hot dog for delivery.",
+        max_charge_cents: 2500,
+      },
+    },
+    (_res, data) =>
+      data?.ok === true &&
+      data?.order_preview?.kind === "restaurant_delivery" &&
+      data?.order_preview?.provider?.id === "restaurant_delivery" &&
+      data?.order_preview?.pricing?.state === "estimated",
+    "Generic restaurant delivery should not fall through to the internal manual provider",
+  );
+  await expect(
     "amazon dry run",
     "/api/services/order/submit",
     { json: { dry_run: true, store: "amazon", item_name: "AA batteries", max_charge_cents: 1500 } },
