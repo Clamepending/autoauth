@@ -222,33 +222,6 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
             <span>Tracking number</span>
             <input name="tracking_number" type="text" placeholder="Carrier tracking" />
           </label>
-          <label className="admin-fact">
-            <span>Confirmation code</span>
-            <input name="confirmation_code" type="text" placeholder="Confirmation or pickup code" />
-          </label>
-          <label className="admin-fact">
-            <span>Delivery ETA</span>
-            <input name="delivery_eta" type="text" placeholder="Today, May 9, 2-5 PM" />
-          </label>
-        </div>
-
-        <div className="admin-fact-grid compact">
-          <label className="admin-fact">
-            <span>Provider status</span>
-            <input name="provider_status" type="text" placeholder="Ordered, shipped, ready, etc." />
-          </label>
-          <label className="admin-fact">
-            <span>Tracking URL</span>
-            <input name="tracking_url" type="url" placeholder="https://..." />
-          </label>
-          <label className="admin-fact">
-            <span>Receipt URL</span>
-            <input name="receipt_url" type="url" placeholder="https://..." />
-          </label>
-          <label className="admin-fact">
-            <span>Pickup code</span>
-            <input name="pickup_code" type="text" />
-          </label>
         </div>
 
         <div className="admin-fact-grid compact">
@@ -276,8 +249,36 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
         </label>
 
         <details className="admin-compact-details">
-          <summary>Receipt text and internal notes</summary>
+          <summary>Confirmation, receipt, ETA, and notes</summary>
           <div className="admin-control-stack">
+            <div className="admin-fact-grid compact">
+              <label className="admin-fact">
+                <span>Confirmation code</span>
+                <input name="confirmation_code" type="text" placeholder="Confirmation or pickup code" />
+              </label>
+              <label className="admin-fact">
+                <span>Pickup code</span>
+                <input name="pickup_code" type="text" />
+              </label>
+              <label className="admin-fact">
+                <span>Provider status</span>
+                <input name="provider_status" type="text" placeholder="Ordered, shipped, ready, etc." />
+              </label>
+              <label className="admin-fact">
+                <span>Delivery ETA</span>
+                <input name="delivery_eta" type="text" placeholder="Today, May 9, 2-5 PM" />
+              </label>
+            </div>
+            <div className="admin-fact-grid compact">
+              <label className="admin-fact">
+                <span>Tracking URL</span>
+                <input name="tracking_url" type="url" placeholder="https://..." />
+              </label>
+              <label className="admin-fact">
+                <span>Receipt URL</span>
+                <input name="receipt_url" type="url" placeholder="https://..." />
+              </label>
+            </div>
             <label className="admin-fact">
               <span>Receipt text</span>
               <textarea name="receipt_text" rows={4} placeholder="Paste receipt details when no receipt URL exists." />

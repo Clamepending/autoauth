@@ -3981,7 +3981,20 @@ main.admin-control-plane::after {
   }
 
   .admin-operator-aside {
+    display: contents;
     position: static;
+  }
+
+  .admin-manual-panel {
+    order: -1;
+  }
+
+  .admin-operator-main {
+    order: 1;
+  }
+
+  .admin-system-panel {
+    order: 2;
   }
 
   .admin-operator-metrics {
@@ -4031,6 +4044,10 @@ main.admin-control-plane::after {
     grid-template-columns: 1fr;
   }
 
+  .admin-manual-form .admin-fact-grid.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-bar-chart,
   .admin-money-chart {
     gap: 5px;
@@ -4049,7 +4066,8 @@ main.admin-control-plane::after {
 
 @media (max-width: 420px) {
   .admin-brief-grid,
-  .admin-operator-metrics {
+  .admin-operator-metrics,
+  .admin-manual-form .admin-fact-grid.compact {
     grid-template-columns: 1fr;
   }
 }
