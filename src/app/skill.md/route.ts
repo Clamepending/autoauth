@@ -44,12 +44,29 @@ Read these in order:
 2. Ask the human to generate Agent API Keys in \`${baseUrl}/dashboard\`.
 3. Store \`username\` and \`private_key\` securely.
 4. Confirm the human has credits, or handle OttoAuth's x402 \`402 Payment Required\` top-up response.
-5. Submit orders through \`POST ${baseUrl}/api/services/order/submit\` or \`POST ${baseUrl}/v1/orders\`.
-6. Store \`order.id\` from the response, for example \`ord_123\`. The compatibility \`task.id\` is numeric.
-7. Poll \`POST ${baseUrl}/api/services/order/tasks/<orderId>\` or \`GET ${baseUrl}/v1/orders/<orderId>\`.
-8. Use message, clarification, cancel, and dispute endpoints as needed.
+5. Validate order shapes with \`dry_run: true\` before real submission. Dry runs need no credentials and create no rows.
+6. Submit orders through \`POST ${baseUrl}/api/services/order/submit\` or \`POST ${baseUrl}/v1/orders\`.
+7. Store \`order.id\` from the response, for example \`ord_123\`. The compatibility \`task.id\` is numeric.
+8. Poll \`POST ${baseUrl}/api/services/order/tasks/<orderId>\` or \`GET ${baseUrl}/v1/orders/<orderId>\`.
+9. Use message, clarification, cancel, and dispute endpoints as needed.
 
 ## Submit
+
+Validate without creating anything:
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "dry_run":true,
+    "store":"amazon",
+    "item_name":"two packs of AA batteries",
+    "order_details":"Stop if the final total exceeds the cap.",
+    "max_charge_cents":2500
+  }'
+\`\`\`
+
+Submit for real:
 
 \`\`\`bash
 curl -s -X POST ${baseUrl}/api/services/order/submit \\

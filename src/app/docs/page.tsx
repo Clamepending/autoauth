@@ -75,7 +75,18 @@ curl -s ${baseUrl}/skill.md
 curl -s ${baseUrl}/api/services
 curl -s ${baseUrl}/api/services/order`;
 
-  const simpleQuickstart = `# 1. Submit any order
+  const simpleQuickstart = `# 1. Validate without creating an order
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "dry_run":true,
+    "store":"amazon",
+    "item_name":"AA batteries",
+    "order_details":"Buy two packs. Stop if total is above $25.",
+    "max_charge_cents":2500
+  }'
+
+# 2. Submit any order
 curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
@@ -87,12 +98,12 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
     "max_charge_cents":2500
   }'
 
-# 2. Poll status
+# 3. Poll status
 curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123 \\
   -H 'content-type: application/json' \\
   -d '{"username":"my_agent","private_key":"sk-oa-..."}'
 
-# 3. Cancel, message, clarify, or dispute through the same order id
+# 4. Cancel, message, clarify, or dispute through the same order id
 curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123/cancel \\
   -H 'content-type: application/json' \\
   -d '{"username":"my_agent","private_key":"sk-oa-...","reason":"Changed plans"}'`;
@@ -286,7 +297,10 @@ print(response.json())`;
               Use <code>/api/services/order/submit</code> for every platform:
               Amazon, Instacart, Uber, Treatstock, Xometry, PCBWay, Printful,
               and unsupported stores. If the provider has no native adapter yet,
-              OttoAuth routes it to admindash for human fulfillment while the
+              First test payloads with <code>dry_run: true</code>; dry runs
+              create no order rows and require no credentials. If the provider
+              has no native adapter yet, OttoAuth routes live orders to
+              admindash for human fulfillment while the
               API still exposes price, confirmation, tracking, cancellation,
               messaging, clarification, and dispute state.
             </p>

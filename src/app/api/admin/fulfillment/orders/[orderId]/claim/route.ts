@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireAdminApiAccess } from "@/lib/admin-auth";
 import {
   claimOrderForAdmin,
   getOrderByPublicIdOrId,
@@ -8,21 +9,10 @@ import {
 
 type Context = { params: Promise<{ orderId: string }> };
 
-async function readOptionalJson(request: Request) {
-  const payload = (await request.json().catch(() => ({}))) as unknown;
-  return payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload as Record<string, unknown>)
-    : {};
-}
+export async function POST(_request: Request, context: Context) {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
 
-function adminEmail(payload: Record<string, unknown>) {
-  return typeof payload.admin_email === "string" && payload.admin_email.trim()
-    ? payload.admin_email.trim().toLowerCase()
-    : "admin@ottoauth.local";
-}
-
-export async function POST(request: Request, context: Context) {
-  const payload = await readOptionalJson(request);
   const { orderId } = await context.params;
   const order = await getOrderByPublicIdOrId(orderId);
   if (!order) {
@@ -32,7 +22,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const claimed = await claimOrderForAdmin({
       orderId: order.id,
-      adminEmail: adminEmail(payload),
+      adminEmail: admin.email,
     });
     return NextResponse.json({
       ok: true,

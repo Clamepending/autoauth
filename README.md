@@ -34,6 +34,7 @@ Optional auth env vars:
 
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+- `OTTOAUTH_ADMIN_EMAILS=you@example.com,ops@example.com` to allow production access to `/admindash` and `/api/admin/*`
 - `OTTOAUTH_ENABLE_DEV_HUMAN_LOGIN=1` to enable the local dev human login fallback even in production-like environments
 
 ## Deploy on Vercel
@@ -51,6 +52,7 @@ Optional auth env vars:
 
    - **Optional:**
      - `NEXT_PUBLIC_APP_URL` or `APP_URL` - your canonical URL (e.g. `https://your-app.vercel.app`). If unset, Vercel's `VERCEL_URL` is used so curl commands and links still use the correct domain.
+     - `OTTOAUTH_ADMIN_EMAILS` - comma-separated Google account emails allowed to use the production admin dashboard and admin APIs.
      - `SLACK_WEBHOOK_URL` - Slack [Incoming Webhook](https://api.slack.com/messaging/webhooks) URL. Agent requests are posted here. Set to different values per environment in Vercel (Production vs Preview) if you want different channels.
 
 4. **Deploy.** Vercel will build and deploy. The app URL will be used automatically for `skill.md` and the homepage curl command.

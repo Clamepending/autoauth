@@ -5,6 +5,7 @@ import {
   createAgent,
   ensureSchema,
   getAgentByPairingKey,
+  getAgentByUsername,
   markAgentPairingKeyConsumed,
   type AgentRecord,
 } from "@/lib/db";
@@ -117,6 +118,28 @@ export const REFERRAL_BONUS_CENTS = 500;
 export const MAX_CREDIT_TRANSFER_CENTS = 50000;
 export const MAX_CREDIT_TRANSFER_NOTE_LENGTH = 280;
 export const CREDIT_CLAIM_EXPIRY_DAYS = 7;
+const RESERVED_ADDRESS_NAMES = new Set([
+  "admin",
+  "api",
+  "app",
+  "auth",
+  "billing",
+  "dashboard",
+  "docs",
+  "help",
+  "human",
+  "login",
+  "logout",
+  "orders",
+  "ottoauth",
+  "pay",
+  "root",
+  "send",
+  "settings",
+  "support",
+  "system",
+  "www",
+]);
 
 type SqlExecutor = Pick<Client, "execute"> | Pick<Transaction, "execute">;
 
@@ -145,6 +168,20 @@ export function normalizeHumanHandleLookup(value: string) {
   const normalized = value.trim().replace(/^@+/, "").toLowerCase();
   if (!/^[a-z0-9][a-z0-9_-]{2,31}$/.test(normalized)) return null;
   return normalized;
+}
+
+export function validateOttoAuthAddress(value: string) {
+  const normalized = normalizeHumanHandleLookup(value);
+  if (!normalized) {
+    return {
+      ok: false as const,
+      error: "Username must be 3-32 characters and use letters, numbers, underscores, or dashes.",
+    };
+  }
+  if (RESERVED_ADDRESS_NAMES.has(normalized)) {
+    return { ok: false as const, error: `@${normalized} is reserved.` };
+  }
+  return { ok: true as const, value: normalized };
 }
 
 export function normalizePaymentRecipientInput(value: string) {
@@ -308,7 +345,13 @@ async function findAvailableHumanHandle(
             LIMIT 1`,
       args: [candidate, params.humanUserId],
     });
-    if (!existing.rows?.[0]) return candidate;
+    const agentExisting = await executor.execute({
+      sql: "SELECT id FROM agents WHERE username_lower = ? LIMIT 1",
+      args: [candidate],
+    });
+    if (!existing.rows?.[0] && !agentExisting.rows?.[0] && !RESERVED_ADDRESS_NAMES.has(candidate)) {
+      return candidate;
+    }
   }
 
   return `user_${params.humanUserId}_${randomBytes(2).toString("hex")}`.slice(
@@ -327,7 +370,13 @@ async function ensureHumanHandleWithExecutor(
   },
 ) {
   const existing = normalizeHumanHandleLookup(params.currentHandle ?? "");
-  if (existing) return existing;
+  if (existing && !RESERVED_ADDRESS_NAMES.has(existing)) {
+    const agentExisting = await executor.execute({
+      sql: "SELECT id FROM agents WHERE username_lower = ? LIMIT 1",
+      args: [existing],
+    });
+    if (!agentExisting.rows?.[0]) return existing;
+  }
 
   const base = params.displayName?.trim() || params.email.split("@")[0] || "";
   const handle = await findAvailableHumanHandle(executor, {
@@ -347,20 +396,31 @@ async function backfillHumanHandles(executor: SqlExecutor) {
   const result = await executor.execute({
     sql: `SELECT id, email, display_name, handle_lower
           FROM human_users
-          WHERE handle_lower IS NULL
-             OR handle_lower = ''
           ORDER BY id ASC`,
     args: [],
   });
   for (const row of (result.rows ?? []) as Record<string, unknown>[]) {
-    await ensureHumanHandleWithExecutor(executor, {
-      humanUserId: Number(row.id),
-      email: String(row.email),
-      displayName:
-        row.display_name == null ? null : String(row.display_name),
-      currentHandle:
-        row.handle_lower == null ? null : String(row.handle_lower),
-    });
+    const currentHandle = normalizeHumanHandleLookup(
+      row.handle_lower == null ? "" : String(row.handle_lower),
+    );
+    let needsHandle =
+      !currentHandle || RESERVED_ADDRESS_NAMES.has(currentHandle);
+    if (currentHandle && !needsHandle) {
+      const agentExisting = await executor.execute({
+        sql: "SELECT id FROM agents WHERE username_lower = ? LIMIT 1",
+        args: [currentHandle],
+      });
+      needsHandle = Boolean(agentExisting.rows?.[0]);
+    }
+    if (needsHandle) {
+      await ensureHumanHandleWithExecutor(executor, {
+        humanUserId: Number(row.id),
+        email: String(row.email),
+        displayName:
+          row.display_name == null ? null : String(row.display_name),
+        currentHandle: null,
+      });
+    }
   }
 }
 
@@ -1124,6 +1184,55 @@ export async function getHumanUserByHandle(handle: string) {
   return row ? mapHumanUser(row) : null;
 }
 
+export async function getOttoAuthAddressAvailability(
+  requested: string,
+  options?: { excludeHumanUserId?: number | null },
+) {
+  await ensureHumanAccountSchema();
+  const validation = validateOttoAuthAddress(requested);
+  if (!validation.ok) {
+    return { ok: false as const, available: false, error: validation.error };
+  }
+  const handle = validation.value;
+  const client = getTursoClient();
+  const humanResult = await client.execute({
+    sql: `SELECT id FROM human_users
+          WHERE handle_lower = ?
+            AND id != ?
+          LIMIT 1`,
+    args: [handle, options?.excludeHumanUserId ?? 0],
+  });
+  if (humanResult.rows?.[0]) {
+    return { ok: true as const, available: false, value: handle, reason: "human_handle" as const };
+  }
+  const agent = await getAgentByUsername(handle);
+  if (agent) {
+    return { ok: true as const, available: false, value: handle, reason: "agent_username" as const };
+  }
+  return { ok: true as const, available: true, value: handle };
+}
+
+export async function setHumanUserHandle(params: {
+  humanUserId: number;
+  handle: string;
+}) {
+  await ensureHumanAccountSchema();
+  const availability = await getOttoAuthAddressAvailability(params.handle, {
+    excludeHumanUserId: params.humanUserId,
+  });
+  if (!availability.ok) throw new Error(availability.error);
+  if (!availability.available) throw new Error(`@${availability.value} is already taken.`);
+
+  const now = new Date().toISOString();
+  await getTursoClient().execute({
+    sql: "UPDATE human_users SET handle_lower = ?, handle_display = ?, updated_at = ? WHERE id = ?",
+    args: [availability.value, availability.value, now, params.humanUserId],
+  });
+  const user = await getHumanUserById(params.humanUserId);
+  if (!user) throw new Error("Human account not found.");
+  return user;
+}
+
 export async function resolveHumanPaymentRecipient(
   recipientInput: string,
 ): Promise<HumanPaymentRecipient | null> {
@@ -1830,6 +1939,8 @@ export async function createHumanGeneratedAgentApiKey(params: {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const suffix = randomBytes(3).toString("hex");
     const usernameLower = `${usernameBase.slice(0, 25)}_${suffix}`.slice(0, 32);
+    const availability = await getOttoAuthAddressAvailability(usernameLower);
+    if (!availability.ok || !availability.available) continue;
     try {
       createdAgent = await createAgent({
         usernameLower,

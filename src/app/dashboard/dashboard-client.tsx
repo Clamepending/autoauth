@@ -50,6 +50,9 @@ export function DashboardClient(props: {
   showUserFulfillmentControls?: boolean;
 }) {
   const [copiedReferralLink, setCopiedReferralLink] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState(props.user.handle_display);
+  const [usernameInput, setUsernameInput] = useState(props.user.handle_display);
+  const [savingUsername, setSavingUsername] = useState(false);
   const [agentName, setAgentName] = useState("my-agent");
   const [creatingAgentKey, setCreatingAgentKey] = useState(false);
   const [copiedAgentCredential, setCopiedAgentCredential] = useState(false);
@@ -120,6 +123,31 @@ export function DashboardClient(props: {
       );
     } finally {
       setCreatingAgentKey(false);
+    }
+  }
+
+  async function handleSaveUsername(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!usernameInput.trim()) return;
+    setSavingUsername(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/human/username", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: usernameInput }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStatusMessage(payload?.error || "Could not update your OttoAuth address.");
+        return;
+      }
+      const username = String(payload?.username || payload?.user?.handle_display || usernameInput);
+      setCurrentUsername(username);
+      setUsernameInput(username);
+      setStatusMessage(`Your OttoAuth address is now @${username}.`);
+    } finally {
+      setSavingUsername(false);
     }
   }
 
@@ -324,11 +352,29 @@ export function DashboardClient(props: {
                 Send money
               </Link>
             </div>
+            <form className="stack-form dashboard-address-form" onSubmit={handleSaveUsername}>
+              <label className="auth-label" htmlFor="ottoauth-username">Your address</label>
+              <div className="agent-key-form">
+                <input
+                  id="ottoauth-username"
+                  className="auth-input mono"
+                  value={usernameInput}
+                  onChange={(event) => setUsernameInput(event.target.value)}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="username"
+                />
+                <button className="auth-button" type="submit" disabled={savingUsername}>
+                  {savingUsername ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
             <Link
               className="dashboard-profile-link mono"
-              href={`/u/${encodeURIComponent(props.user.handle_lower)}`}
+              href={`/u/${encodeURIComponent(currentUsername.toLowerCase())}`}
             >
-              Public profile @{props.user.handle_display}
+              Public profile @{currentUsername}
             </Link>
           </article>
         </section>

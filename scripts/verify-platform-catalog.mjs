@@ -47,6 +47,7 @@ for (const platform of platforms) {
   }
 
   const sampleOrder = {
+    dry_run: true,
     store: platform.id,
     merchant: platform.name,
     kind: platform.kind,
@@ -61,6 +62,7 @@ for (const platform of platforms) {
       : [],
   };
   assert(sampleOrder.store && sampleOrder.order_details, `${platform.id}: sample order is incomplete`);
+  assert(sampleOrder.dry_run === true, `${platform.id}: sample order must be safe to validate`);
   sampleOrderCount += 1;
   if (sampleOrder.files.length) sampleFileOrderCount += 1;
 }
@@ -85,6 +87,6 @@ console.log(JSON.stringify({
   categories: Object.fromEntries([...categories.entries()].sort()),
   file_upload_platforms: fileUploadCount,
   get_made_platforms: getMadeCount,
-  sample_orders_validated: sampleOrderCount,
+  dry_run_orders_validated: sampleOrderCount,
   sample_file_orders_validated: sampleFileOrderCount,
 }, null, 2));

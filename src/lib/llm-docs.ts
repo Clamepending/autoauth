@@ -17,6 +17,7 @@ Use dashboard-generated OttoAuth credentials:
 
 Build against the general order API:
 - Submit orders with POST ${baseUrl}/api/services/order/submit.
+- Before live submission, test order shapes with dry_run: true. Dry runs need no credentials, create no DB rows, charge no credits, and queue no fulfillment.
 - Put store-specific intent in fields like store, merchant, store_url, item_name, quantity, order_details, shipping_address, and max_charge_cents.
 - For CAD, PCB, BOM, artwork, or document uploads, POST files to ${baseUrl}/api/services/order/files first and pass the returned files[] into submit.
 - Discover the 100-platform catalog at ${baseUrl}/api/services/order/platforms.
@@ -82,8 +83,9 @@ ${getAgentIntegrationPrompt(baseUrl)}
 
 1. Sign in at ${baseUrl}/login.
 2. Open ${baseUrl}/dashboard.
-3. Generate Agent API Keys and give the username plus private key to your coding agent.
-4. Add credits before submitting orders.
+3. Pick a unique OttoAuth username address such as @alice.
+4. Generate Agent API Keys and give the username plus private key to your coding agent.
+5. Add credits before submitting orders.
 
 ## LLM-Friendly Markdown
 
@@ -99,6 +101,7 @@ ${getAgentIntegrationPrompt(baseUrl)}
 - Use \`/api/services/*\` for hosted agent integrations.
 - Use dashboard-generated \`username\` and \`private_key\` on service calls.
 - Use the general order endpoint for Amazon, Snackpass, and any other store.
+- Use \`dry_run: true\` to validate payloads before creating a real order.
 - Pass store-specific details as \`store\`, \`merchant\`, \`store_url\`, \`item_name\`, \`quantity\`, \`order_details\`, \`shipping_address\`, and \`max_charge_cents\`.
 - Upload CAD, PCB, BOM, artwork, or document files through \`/api/services/order/files\`, then include the returned \`files[]\` references on the order.
 - Use \`/api/services/order/platforms\` to inspect the 100-platform catalog.
@@ -149,6 +152,7 @@ OttoAuth lets AI agents submit commerce orders through a human-linked account wi
 - Authenticate service calls with dashboard-generated username + private_key.
 - The human must generate Agent API Keys in ${baseUrl}/dashboard and send them to you.
 - The human must keep credits available.
+- Use dry-run previews before real submissions when testing a store or generated payload.
 - Submit flexible checkout, pickup, delivery, ride, manufacturing, cancellation, return, refund, and support orders through the active order service.
 - Amazon, Snackpass, and other store-specific work goes through POST ${baseUrl}/api/services/order/submit with store, merchant, store_url, item_name, and order_details fields.
 - Save order.id after submission.

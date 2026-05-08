@@ -1,8 +1,9 @@
 import type { ServiceManifest } from "@/services/_shared/types";
 import { getManifest as getOrderManifest } from "@/services/order/manifest";
+import { getManifest as getWalletManifest } from "@/services/wallet/manifest";
 
 export function getAllManifests(): ServiceManifest[] {
-  return [getOrderManifest()];
+  return [getOrderManifest(), getWalletManifest()];
 }
 
 export function getManifest(serviceId: string): ServiceManifest | null {

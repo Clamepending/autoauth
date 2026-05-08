@@ -755,6 +755,14 @@ function chooseFulfillmentMode(provider: ProviderDefinition): FulfillmentMode {
   return "human_admin";
 }
 
+function initialStatusFor(provider: ProviderDefinition, fulfillmentMode: FulfillmentMode): OrderStatus {
+  return fulfillmentMode === "native_api"
+    ? "api_ordering"
+    : fulfillmentMode === "quote_first_api" && provider.nativeAvailable
+      ? "quote_requested"
+      : "human_required";
+}
+
 function checklistForKind(kind: OrderKind, provider: ProviderDefinition) {
   const common = [
     "Confirm the requested merchant, exact item/service, quantity, and location/address.",
@@ -838,6 +846,71 @@ function buildHumanPacket(params: {
       "Do not ask chat or the model for raw card numbers or CVV.",
       "If a provider blocks checkout, needs identity verification, or requires unavailable credentials, request clarification instead of guessing.",
     ],
+  };
+}
+
+export function previewOrderRequest(payload: Record<string, unknown>) {
+  const normalized = normalizeOrderRequest(payload);
+  const provider = selectProvider(payload);
+  const fulfillmentMode = chooseFulfillmentMode(provider);
+  const maxChargeCents = normalizeCents(
+    payload.max_charge_cents ??
+      payload.maxChargeCents ??
+      payload.max_spend_cents ??
+      payload.maxSpendCents,
+  );
+  const humanPacket = buildHumanPacket({
+    provider,
+    request: normalized,
+    maxChargeCents,
+  });
+  const status = initialStatusFor(provider, fulfillmentMode);
+  const requestJson = {
+    ...normalized.raw,
+    normalized: {
+      kind: normalized.kind,
+      store: normalized.store,
+      merchant: normalized.merchant,
+      title: normalized.title,
+      task: normalized.task,
+      order_type: normalized.orderType,
+      store_url: normalized.storeUrl,
+      pickup_location: normalized.pickupLocation,
+      shipping_address_present: Boolean(normalized.shippingAddress),
+    },
+    provider_capabilities: provider.capabilities,
+  };
+
+  return {
+    id: null,
+    dry_run: true,
+    creates_db_rows: false,
+    charges_credits: false,
+    queues_human_fulfillment: false,
+    would_create_order: true,
+    would_queue_human_fulfillment: fulfillmentMode === "human_admin",
+    would_route_native_adapter: fulfillmentMode !== "human_admin",
+    status,
+    kind: normalized.kind,
+    fulfillment_mode: fulfillmentMode,
+    provider: {
+      id: provider.id,
+      label: provider.label,
+      native_available: provider.nativeAvailable,
+      capabilities: provider.capabilities,
+    },
+    request: requestJson,
+    items: normalized.items,
+    files: normalized.files,
+    human_fulfillment_packet: humanPacket,
+    payment: {
+      status: "not_charged",
+      max_charge_cents: maxChargeCents,
+      quoted_total_cents: null,
+      authorized_cents: 0,
+      captured_cents: 0,
+      currency: normalizeCurrency(payload.currency),
+    },
   };
 }
 
@@ -1107,12 +1180,7 @@ export async function createOrchestratedOrder(params: {
     request: normalized,
     maxChargeCents,
   });
-  const status: OrderStatus =
-    fulfillmentMode === "native_api"
-      ? "api_ordering"
-      : fulfillmentMode === "quote_first_api" && provider.nativeAvailable
-        ? "quote_requested"
-        : "human_required";
+  const status = initialStatusFor(provider, fulfillmentMode);
   const now = new Date().toISOString();
   const requestJson = {
     ...normalized.raw,
@@ -1576,6 +1644,27 @@ export async function listOrderMessages(orderId: number) {
     delivery_mode: String(row.delivery_mode) as OttoAuthOrderMessageRecord["delivery_mode"],
     status: String(row.status),
     created_at: String(row.created_at),
+  }));
+}
+
+export async function listOrderClarifications(orderId: number) {
+  await ensureOrderOrchestrationSchema();
+  const result = await getTursoClient().execute({
+    sql: `SELECT * FROM ottoauth_order_clarifications
+          WHERE order_id = ?
+          ORDER BY created_at ASC, id ASC`,
+    args: [orderId],
+  });
+  return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
+    id: Number(row.id),
+    order_id: Number(row.order_id),
+    question: String(row.question),
+    status: String(row.status) as OttoAuthOrderClarificationRecord["status"],
+    response: row.response == null ? null : String(row.response),
+    requested_by: row.requested_by == null ? null : String(row.requested_by),
+    responded_by: row.responded_by == null ? null : String(row.responded_by),
+    created_at: String(row.created_at),
+    responded_at: row.responded_at == null ? null : String(row.responded_at),
   }));
 }
 

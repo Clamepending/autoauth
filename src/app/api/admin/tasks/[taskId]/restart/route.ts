@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireAdminApiAccess } from "@/lib/admin-auth";
 import {
   duplicateAdminOrderTask,
   resolveAdminOrderTask,
@@ -21,6 +22,9 @@ function statusFromError(error: Error) {
 }
 
 export async function POST(_request: Request, context: Context) {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const originalTask = await resolveAdminOrderTask(context.params.taskId ?? "");
   if (!originalTask) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });

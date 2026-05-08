@@ -374,7 +374,7 @@ export function SendMoneyClient(props: {
                           void resolveRecipient();
                         }
                       }}
-                      placeholder="@handle, email, linked agent username, or profile link"
+                      placeholder="@username, email, linked agent username, or profile link"
                     />
                     <button
                       type="button"
@@ -459,7 +459,7 @@ export function SendMoneyClient(props: {
             </article>
 
             <article className="dashboard-card payment-profile-card">
-              <div className="supported-accounts-title">Your OttoAuth profile</div>
+              <div className="supported-accounts-title">Your OttoAuth address</div>
               <div className="payment-recipient-card">
                 <RecipientAvatar
                   name={props.user.display_name || props.user.email}

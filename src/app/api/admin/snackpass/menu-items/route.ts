@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminApiAccess } from "@/lib/admin-auth";
 import {
   createMenuItem,
   listMenuItems,
@@ -17,6 +18,9 @@ function parseCents(value: unknown): number | null {
 }
 
 export async function GET() {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const items = await listMenuItems();
   return NextResponse.json(items, {
     headers: {
@@ -28,6 +32,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const payload = await request.json().catch(() => null);
   if (!payload) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });

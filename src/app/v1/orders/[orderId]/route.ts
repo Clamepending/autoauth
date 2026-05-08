@@ -6,6 +6,7 @@ import {
   requireAgentOrderAccess,
 } from "@/lib/order-api";
 import {
+  listOrderClarifications,
   listOrderEvents,
   listOrderMessages,
 } from "@/lib/order-orchestration";
@@ -20,6 +21,7 @@ async function showOrder(request: Request, payload: Record<string, unknown>, ord
     ...orderApiBody(access.order),
     events: await listOrderEvents(access.order.id, 100),
     messages: await listOrderMessages(access.order.id),
+    clarifications: await listOrderClarifications(access.order.id),
   });
 }
 

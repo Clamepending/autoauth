@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAgent, getAgentByUsername } from "@/lib/db";
+import { getOttoAuthAddressAvailability } from "@/lib/human-accounts";
 import {
   generatePairingKey,
   generatePrivateKey,
@@ -36,8 +37,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Username '${usernameLower}' is reserved.` }, { status: 400 });
   }
 
+  const availability = await getOttoAuthAddressAvailability(usernameLower);
+  if (!availability.ok) {
+    return NextResponse.json({ error: availability.error }, { status: 400 });
+  }
   const existing = await getAgentByUsername(usernameLower);
-  if (existing) {
+  if (existing || !availability.available) {
     return NextResponse.json({ error: "Username is already taken." }, { status: 400 });
   }
 

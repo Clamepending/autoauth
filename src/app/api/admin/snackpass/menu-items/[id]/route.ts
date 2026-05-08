@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminApiAccess } from "@/lib/admin-auth";
 import {
   getMenuItemById,
   updateMenuItem,
@@ -16,6 +17,9 @@ function parseCents(value: unknown): number | null {
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, { params }: Context) {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const { id: idParam } = await params;
   const id = Number(idParam);
   if (!Number.isInteger(id) || id < 1) {
@@ -29,6 +33,9 @@ export async function GET(_request: Request, { params }: Context) {
 }
 
 export async function PATCH(request: Request, { params }: Context) {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const { id: idParam } = await params;
   const id = Number(idParam);
   if (!Number.isInteger(id) || id < 1) {

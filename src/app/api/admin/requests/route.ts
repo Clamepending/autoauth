@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireAdminApiAccess } from "@/lib/admin-auth";
 import { getAgentRequestsForAdmin } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(request: Request) {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const { searchParams } = new URL(request.url);
   const statusParam = searchParams.get("status")?.trim().toLowerCase() ?? "";
   const allowedStatuses = new Set(["pending", "notify_failed", "resolved", "rejected"]);

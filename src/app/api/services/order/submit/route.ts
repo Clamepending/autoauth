@@ -5,8 +5,9 @@ import {
   createOrderForAgentRequest,
   orderApiBody,
   readJsonObject,
+  responseFromOrderError,
 } from "@/lib/order-api";
-import { listOrderEvents } from "@/lib/order-orchestration";
+import { listOrderEvents, previewOrderRequest } from "@/lib/order-orchestration";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,24 @@ export async function POST(request: Request) {
   const body = await readJsonObject(request);
   if (!body.ok) return body.response;
   const { payload } = body;
+
+  if (
+    payload.dry_run === true ||
+    payload.preview === true ||
+    payload.validate_only === true ||
+    payload.test_mode === true
+  ) {
+    try {
+      return NextResponse.json({
+        ok: true,
+        dry_run: true,
+        order_preview: previewOrderRequest(payload),
+        note: "No order was created, no credits were checked, and no fulfillment was queued.",
+      });
+    } catch (error) {
+      return responseFromOrderError(error, 400);
+    }
+  }
 
   const auth = await authenticateOrderAgentFromRequest(request, payload);
   if (!auth.ok) return auth.response;

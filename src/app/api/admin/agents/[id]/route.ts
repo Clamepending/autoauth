@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireAdminApiAccess } from "@/lib/admin-auth";
 import { getAgentById, deleteAgent } from "@/lib/db";
 
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const { id: idParam } = await params;
   const id = Number(idParam);
   if (!Number.isInteger(id) || id < 1) {

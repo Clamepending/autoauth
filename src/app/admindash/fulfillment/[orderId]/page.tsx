@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ManualFulfillmentForm } from "@/app/admindash/fulfillment/[orderId]/manual-fulfillment-form";
 import {
   getOrderByPublicIdOrId,
+  listOrderClarifications,
   listOrderEvents,
   listOrderMessages,
   parseOrderForApi,
@@ -106,6 +107,7 @@ export default async function AdminFulfillmentOrderPage({ params }: PageProps) {
   const packet = packetFrom(apiOrder.human_fulfillment_packet);
   const events = await listOrderEvents(order.id, 120);
   const messages = await listOrderMessages(order.id);
+  const clarifications = await listOrderClarifications(order.id);
   const request = parseJson(order.request_json);
   const result = parseJson(order.result_json);
   const final = ["completed", "failed", "canceled"].includes(order.status);
@@ -325,6 +327,39 @@ export default async function AdminFulfillmentOrderPage({ params }: PageProps) {
             )}
           </article>
 
+          <article className="admin-panel">
+            <div className="admin-panel-header">
+              <div>
+                <h2>Clarifications</h2>
+                <p>Questions that block fulfillment until the agent or requester answers.</p>
+              </div>
+            </div>
+            {clarifications.length === 0 ? (
+              <p className="admin-empty">No clarifications requested.</p>
+            ) : (
+              <div className="admin-request-list">
+                {clarifications.map((clarification) => (
+                  <article key={clarification.id}>
+                    <div>
+                      <strong>{clarification.status}</strong>
+                      <span className={`admin-status ${clarification.status === "open" ? "warning" : "success"}`}>
+                        {fmtDate(clarification.created_at)}
+                      </span>
+                    </div>
+                    <p>{clarification.question}</p>
+                    {clarification.response ? <p>{clarification.response}</p> : null}
+                    <small>
+                      {clarification.requested_by || "operator"}
+                      {clarification.responded_by ? ` -> ${clarification.responded_by}` : ""}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            )}
+          </article>
+        </section>
+
+        <section className="admin-two-column">
           <article className="admin-panel">
             <div className="admin-panel-header">
               <div>

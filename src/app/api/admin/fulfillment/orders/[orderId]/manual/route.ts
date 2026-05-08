@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireAdminApiAccess } from "@/lib/admin-auth";
 import {
   completeOrderManually,
   getOrderByPublicIdOrId,
@@ -44,10 +45,6 @@ function cents(payload: Record<string, unknown>, centsKey: string, dollarsKey: s
   return 0;
 }
 
-function adminEmail(payload: Record<string, unknown>) {
-  return text(payload, ["admin_email", "adminEmail"], 200) || "admin@ottoauth.local";
-}
-
 function status(payload: Record<string, unknown>) {
   return payload.status === "failed" || payload.outcome === "failed"
     ? "failed"
@@ -55,6 +52,9 @@ function status(payload: Record<string, unknown>) {
 }
 
 export async function POST(request: Request, context: Context) {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const payload = await readJson(request);
   if (!payload) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
@@ -68,7 +68,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const updated = await completeOrderManually({
       orderId: order.id,
-      adminEmail: adminEmail(payload),
+      adminEmail: admin.email,
       status: status(payload),
       merchant: text(payload, ["merchant"], 500),
       summary: text(payload, ["summary"], 4000),

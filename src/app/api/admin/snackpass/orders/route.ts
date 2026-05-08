@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminApiAccess } from "@/lib/admin-auth";
 import { listSnackpassOrders } from "@/services/snackpass/orders";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,9 @@ function fmt(cents: number | null): string | null {
 }
 
 export async function GET() {
+  const admin = await requireAdminApiAccess();
+  if (!admin.ok) return admin.response;
+
   const orders = await listSnackpassOrders();
   return NextResponse.json(
     orders.map((o) => {

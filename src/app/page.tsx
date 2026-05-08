@@ -143,7 +143,7 @@ export default async function HomePage() {
         <div className="eyebrow">OTTOAUTH</div>
         <h1>Let Agents buy and make things</h1>
         <p className="lede">
-          One API for stores, delivery, rides, 3D printing, PCB fab, CNC, signs, apparel, and weird custom orders.
+          One API for stores, delivery, rides, 3D printing, PCB fab, CNC, signs, apparel, weird custom orders, and username-based agent payments.
         </p>
         <div className="grid">
           <div className="card">

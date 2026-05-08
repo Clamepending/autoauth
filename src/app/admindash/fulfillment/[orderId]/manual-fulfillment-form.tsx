@@ -26,7 +26,7 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function claim(form: FormData) {
+  async function claim() {
     setSubmitting(true);
     setMessage(null);
     setError(null);
@@ -34,7 +34,7 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
       const response = await fetch(`/api/admin/fulfillment/orders/${orderId}/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_email: field(form, "admin_email") }),
+        body: JSON.stringify({}),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -62,7 +62,6 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          admin_email: field(form, "admin_email"),
           status: field(form, "status"),
           merchant: field(form, "merchant"),
           summary: field(form, "summary"),
@@ -98,13 +97,70 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
     }
   }
 
-  return (
-    <form className="admin-control-stack" onSubmit={submit}>
-      <label className="admin-fact">
-        <span>Admin email</span>
-        <input name="admin_email" type="email" placeholder="operator@ottoauth.com" />
-      </label>
+  async function sendMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (final) return;
+    const form = new FormData(event.currentTarget);
+    setSubmitting(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/fulfillment/orders/${orderId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: field(form, "message_channel"),
+          message: field(form, "message_body"),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error || "Could not record message.");
+        return;
+      }
+      event.currentTarget.reset();
+      setMessage("Message recorded.");
+      router.refresh();
+    } catch {
+      setError("Network error while recording message.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
+  async function askClarification(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (final) return;
+    const form = new FormData(event.currentTarget);
+    setSubmitting(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/fulfillment/orders/${orderId}/clarification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: field(form, "clarification_question"),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error || "Could not request clarification.");
+        return;
+      }
+      event.currentTarget.reset();
+      setMessage("Clarification requested; order is blocked.");
+      router.refresh();
+    } catch {
+      setError("Network error while requesting clarification.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="admin-control-stack">
+      <form className="admin-control-stack" onSubmit={submit}>
       <div className="admin-fact-grid compact">
         <label className="admin-fact">
           <span>Status</span>
@@ -204,9 +260,8 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
           className="admin-button"
           type="button"
           disabled={submitting || final}
-          onClick={(event) => {
-            const form = event.currentTarget.form;
-            if (form) void claim(new FormData(form));
+          onClick={() => {
+            void claim();
           }}
         >
           Claim
@@ -219,6 +274,40 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
       {error ? <p className="danger-text">{error}</p> : null}
       {message ? <p className="admin-subtle">{message}</p> : null}
       {final ? <p className="admin-empty">This order is final.</p> : null}
-    </form>
+      </form>
+
+      <form className="admin-control-stack" onSubmit={sendMessage}>
+        <div className="admin-fact-grid compact">
+          <label className="admin-fact">
+            <span>Message channel</span>
+            <select name="message_channel" defaultValue="requester">
+              <option value="requester">requester</option>
+              <option value="human_operator">operator note</option>
+              <option value="provider_vendor">vendor/provider</option>
+              <option value="driver">driver</option>
+              <option value="shopper">shopper</option>
+              <option value="support">support</option>
+            </select>
+          </label>
+        </div>
+        <label className="admin-fact">
+          <span>Record or deliver message</span>
+          <textarea name="message_body" rows={3} placeholder="What needs to be sent or recorded for this order." />
+        </label>
+        <button className="admin-button" type="submit" disabled={submitting || final}>
+          Record message
+        </button>
+      </form>
+
+      <form className="admin-control-stack" onSubmit={askClarification}>
+        <label className="admin-fact">
+          <span>Ask clarification</span>
+          <textarea name="clarification_question" rows={3} placeholder="What exact answer is needed before fulfillment can continue." />
+        </label>
+        <button className="admin-button" type="submit" disabled={submitting || final}>
+          Block and ask
+        </button>
+      </form>
+    </div>
   );
 }

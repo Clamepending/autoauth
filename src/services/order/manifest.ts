@@ -96,6 +96,11 @@ export function getManifest(): ServiceManifest {
             required: false,
             description: "Maximum spend in cents. Human operators cannot close a completed order above this cap.",
           },
+          dry_run: {
+            type: "boolean",
+            required: false,
+            description: "When true, validate and preview routing without authentication, credit checks, DB rows, or fulfillment.",
+          },
         },
       },
       {
@@ -265,6 +270,20 @@ Take the returned \`files[]\` and pass it directly into the order request. JSON/
 \`\`\`
 
 ### 2. Create the order
+
+Set \`dry_run: true\` first to validate the exact same normalized request without creating an order, charging credits, or queueing human fulfillment.
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "dry_run":true,
+    "store":"amazon",
+    "item_name":"two packs of AA batteries",
+    "order_details":"Use the default saved checkout path. Stop if the total exceeds the cap.",
+    "max_charge_cents":2500
+  }'
+\`\`\`
 
 \`\`\`bash
 curl -s -X POST ${baseUrl}/api/services/order/submit \\
