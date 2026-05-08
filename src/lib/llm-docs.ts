@@ -18,6 +18,8 @@ Use dashboard-generated OttoAuth credentials:
 Build against the general order API:
 - Submit orders with POST ${baseUrl}/api/services/order/submit.
 - Put store-specific intent in fields like store, merchant, store_url, item_name, quantity, order_details, shipping_address, and max_charge_cents.
+- For CAD, PCB, BOM, artwork, or document uploads, POST files to ${baseUrl}/api/services/order/files first and pass the returned files[] into submit.
+- Discover the 100-platform catalog at ${baseUrl}/api/services/order/platforms.
 - Do not use store-specific endpoints for Amazon, Snackpass, or other stores.
 - Save order.id, for example ord_123. task.id is kept only for compatibility.
 - Poll POST ${baseUrl}/api/services/order/tasks/<orderId> until completed, failed, canceled, disputed, blocked, or human_required.
@@ -98,6 +100,8 @@ ${getAgentIntegrationPrompt(baseUrl)}
 - Use dashboard-generated \`username\` and \`private_key\` on service calls.
 - Use the general order endpoint for Amazon, Snackpass, and any other store.
 - Pass store-specific details as \`store\`, \`merchant\`, \`store_url\`, \`item_name\`, \`quantity\`, \`order_details\`, \`shipping_address\`, and \`max_charge_cents\`.
+- Upload CAD, PCB, BOM, artwork, or document files through \`/api/services/order/files\`, then include the returned \`files[]\` references on the order.
+- Use \`/api/services/order/platforms\` to inspect the 100-platform catalog.
 - Save \`order.id\`.
 - Poll task status every 15-60 seconds.
 - Use messages, clarification, cancellation, and dispute endpoints for follow-up.

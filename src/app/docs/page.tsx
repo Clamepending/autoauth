@@ -75,6 +75,49 @@ curl -s ${baseUrl}/skill.md
 curl -s ${baseUrl}/api/services
 curl -s ${baseUrl}/api/services/order`;
 
+  const simpleQuickstart = `# 1. Submit any order
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"my_agent",
+    "private_key":"sk-oa-...",
+    "store":"amazon",
+    "item_name":"AA batteries",
+    "order_details":"Buy two packs. Stop if total is above $25.",
+    "max_charge_cents":2500
+  }'
+
+# 2. Poll status
+curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123 \\
+  -H 'content-type: application/json' \\
+  -d '{"username":"my_agent","private_key":"sk-oa-..."}'
+
+# 3. Cancel, message, clarify, or dispute through the same order id
+curl -s -X POST ${baseUrl}/api/services/order/tasks/ord_123/cancel \\
+  -H 'content-type: application/json' \\
+  -d '{"username":"my_agent","private_key":"sk-oa-...","reason":"Changed plans"}'`;
+
+  const fileUploadQuickstart = `# Upload a CAD, Gerber, BOM, artwork, or document file
+curl -s -X POST ${baseUrl}/api/services/order/files \\
+  -F username=my_agent \\
+  -F private_key=sk-oa-... \\
+  -F purpose=cad_model \\
+  -F file=@./bracket.step
+
+# Then pass the returned files[] into the order
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"my_agent",
+    "private_key":"sk-oa-...",
+    "store":"xometry",
+    "files":[{"file_id":"file_...","name":"bracket.step","download_url":"${baseUrl}/api/services/order/files/file_..."}],
+    "order_details":"Quote CNC aluminum 6061, quantity 5, bead blasted. Ask before ordering.",
+    "max_charge_cents":50000
+  }'`;
+
+  const platformCatalogExample = `curl -s ${baseUrl}/api/services/order/platforms`;
+
   const submitTaskExample = `curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
   -d '{
@@ -208,6 +251,7 @@ print(response.json())`;
           </a>
           <nav>
             <a href="#send-to-agent">Send to Agent</a>
+            <a href="#quick-api">Quick API</a>
             <a href="#introduction">Introduction</a>
             <a href="#agent-start">Agent Start</a>
             <a href="#features">Features</a>
@@ -232,6 +276,24 @@ print(response.json())`;
               <a className="auth-button primary" href="/skill.md">Agent skill</a>
             </div>
           </header>
+
+          <section id="quick-api" className="docs-section docs-agent-sendoff">
+            <div className="docs-section-heading">
+              <span className="docs-kicker">Quickstart</span>
+              <h2>One API for any order</h2>
+            </div>
+            <p>
+              Use <code>/api/services/order/submit</code> for every platform:
+              Amazon, Instacart, Uber, Treatstock, Xometry, PCBWay, Printful,
+              and unsupported stores. If the provider has no native adapter yet,
+              OttoAuth routes it to admindash for human fulfillment while the
+              API still exposes price, confirmation, tracking, cancellation,
+              messaging, clarification, and dispute state.
+            </p>
+            <CodeBlock label="Minimal integration" code={simpleQuickstart} />
+            <CodeBlock label="Orders with files" code={fileUploadQuickstart} />
+            <CodeBlock label="Supported platform catalog" code={platformCatalogExample} />
+          </section>
 
           <section id="send-to-agent" className="docs-section docs-agent-sendoff">
             <div className="docs-section-heading">

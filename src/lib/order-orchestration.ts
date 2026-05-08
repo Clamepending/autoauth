@@ -1,6 +1,7 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { addCreditLedgerEntry, getHumanCreditBalance } from "@/lib/human-accounts";
+import { PLATFORM_CATALOG, type PlatformCatalogEntry } from "@/lib/platform-catalog";
 import { getTursoClient } from "@/lib/turso";
 
 export type OrderKind =
@@ -179,6 +180,23 @@ export type OttoAuthOrderDisputeRecord = {
   updated_at: string;
 };
 
+export type OttoAuthOrderFileRecord = {
+  id: number;
+  file_id: string;
+  agent_id: number;
+  agent_username_lower: string;
+  human_user_id: number;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  purpose: string;
+  storage_kind: "db_blob";
+  blob_data: Uint8Array;
+  metadata_json: string | null;
+  created_at: string;
+};
+
 const DEFAULT_CAPABILITIES: ProviderCapabilities = {
   quote: false,
   place_order: false,
@@ -193,7 +211,7 @@ const DEFAULT_CAPABILITIES: ProviderCapabilities = {
   refund: false,
 };
 
-const PROVIDERS: ProviderDefinition[] = [
+const BASE_PROVIDERS: ProviderDefinition[] = [
   {
     id: "amazon",
     label: "Amazon",
@@ -346,6 +364,58 @@ const PROVIDERS: ProviderDefinition[] = [
   },
 ];
 
+function capabilitiesForPlatform(platform: PlatformCatalogEntry): ProviderCapabilities {
+  const fileUpload = platform.fileTypes.length > 0;
+  const quoteHeavy =
+    platform.category === "get_made_manufacturing" ||
+    platform.category === "pcb_electronics" ||
+    platform.category === "print_custom_goods";
+  return {
+    ...DEFAULT_CAPABILITIES,
+    quote: quoteHeavy,
+    place_order: true,
+    cancel: true,
+    status_tracking: true,
+    live_tracking: platform.kind === "ride" || platform.kind === "restaurant_delivery" || platform.kind === "grocery_delivery",
+    messaging:
+      platform.kind === "ride" ||
+      platform.kind === "restaurant_delivery" ||
+      platform.kind === "grocery_delivery" ||
+      quoteHeavy,
+    dispute: true,
+    file_upload: fileUpload,
+    refund: true,
+  };
+}
+
+function providerFromPlatform(platform: PlatformCatalogEntry): ProviderDefinition {
+  return {
+    id: platform.id,
+    label: platform.name,
+    defaultKind: platform.kind as OrderKind,
+    preferredMode:
+      platform.category === "get_made_manufacturing" || platform.category === "pcb_electronics"
+        ? "quote_first_api"
+        : "human_admin",
+    nativeAvailable: false,
+    aliases: [
+      platform.id,
+      platform.name,
+      platform.category.replace(/_/g, " "),
+      ...platform.aliases,
+    ],
+    capabilities: capabilitiesForPlatform(platform),
+  };
+}
+
+const BASE_PROVIDER_IDS = new Set(BASE_PROVIDERS.map((provider) => provider.id));
+const PROVIDERS: ProviderDefinition[] = [
+  ...BASE_PROVIDERS,
+  ...PLATFORM_CATALOG.platforms
+    .filter((platform) => !BASE_PROVIDER_IDS.has(platform.id))
+    .map(providerFromPlatform),
+];
+
 let schemaReady = false;
 
 function optionalString(value: unknown, maxLength = 2000) {
@@ -401,8 +471,37 @@ function asStringArray(values: unknown[]) {
 function normalizeFiles(value: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => optionalRecord(entry))
-    .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    .map((entry): Record<string, unknown> | null => {
+      const record = optionalRecord(entry);
+      if (!record) return null;
+      const fileId = optionalString(record.file_id ?? record.fileId ?? record.id, 120);
+      const name = optionalString(record.name ?? record.filename ?? record.file_name ?? record.fileName, 500);
+      const url = optionalString(record.url ?? record.download_url ?? record.downloadUrl, 2000);
+      const contentType = optionalString(record.content_type ?? record.contentType ?? record.mime_type, 200);
+      const sizeBytes =
+        typeof record.size_bytes === "number"
+          ? record.size_bytes
+          : typeof record.sizeBytes === "number"
+            ? record.sizeBytes
+            : typeof record.size === "number"
+              ? record.size
+              : null;
+      const purpose = optionalString(record.purpose ?? record.role, 120);
+      const notes = optionalString(record.notes ?? record.description, 1000);
+      if (!fileId && !name && !url) return null;
+      return {
+        file_id: fileId,
+        name,
+        url,
+        download_url: url,
+        content_type: contentType,
+        size_bytes: sizeBytes,
+        purpose,
+        notes,
+        source: optionalString(record.source, 120) || (fileId ? "ottoauth_upload" : "external_url"),
+      };
+    })
+    .filter((entry): entry is Record<string, unknown> => entry !== null)
     .slice(0, 80);
 }
 
@@ -519,6 +618,7 @@ function buildTaskFromFields(params: {
   pickupLocation: string | null;
   shippingAddress: string | null;
   items: NormalizedOrderItem[];
+  files: Array<Record<string, unknown>>;
   notes: string | null;
 }) {
   const target = [params.merchant, params.store].filter(Boolean).join(" on ");
@@ -535,6 +635,16 @@ function buildTaskFromFields(params: {
     params.orderType ? `Order type: ${params.orderType}` : null,
     target ? `Store or provider: ${target}` : null,
     itemLines.length ? `Items:\n${itemLines.join("\n")}` : null,
+    params.files.length
+      ? `Files:\n${params.files
+          .map((file) => {
+            const name = typeof file.name === "string" ? file.name : "uploaded file";
+            const url = typeof file.download_url === "string" ? file.download_url : typeof file.url === "string" ? file.url : null;
+            const purpose = typeof file.purpose === "string" ? file.purpose : null;
+            return `- ${[name, purpose, url].filter(Boolean).join(" - ")}`;
+          })
+          .join("\n")}`
+      : null,
     params.pickupLocation ? `Pickup/search/destination location: ${params.pickupLocation}` : null,
     params.shippingAddress
       ? `Delivery/shipping address:\n${params.shippingAddress}`
@@ -608,6 +718,7 @@ export function normalizeOrderRequest(payload: Record<string, unknown>): Normali
       pickupLocation,
       shippingAddress,
       items,
+      files,
       notes,
     });
   if (!task) {
@@ -898,6 +1009,30 @@ export async function ensureOrderOrchestrationSchema() {
   );
   await client.execute(
     "CREATE INDEX IF NOT EXISTS idx_ottoauth_order_disputes_order ON ottoauth_order_disputes(order_id, created_at)",
+  );
+  await client.execute(
+    `CREATE TABLE IF NOT EXISTS ottoauth_order_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_id TEXT NOT NULL UNIQUE,
+      agent_id INTEGER NOT NULL DEFAULT 0,
+      agent_username_lower TEXT NOT NULL DEFAULT '',
+      human_user_id INTEGER NOT NULL,
+      filename TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      purpose TEXT NOT NULL DEFAULT 'order_attachment',
+      storage_kind TEXT NOT NULL DEFAULT 'db_blob',
+      blob_data BLOB NOT NULL,
+      metadata_json TEXT,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_ottoauth_order_files_agent ON ottoauth_order_files(agent_username_lower, created_at)",
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS idx_ottoauth_order_files_human ON ottoauth_order_files(human_user_id, created_at)",
   );
   schemaReady = true;
 }
@@ -1580,6 +1715,108 @@ export async function approveOrder(params: {
     payload: { actor: params.actor, next_status: nextStatus },
   });
   return getOrderById(order.id);
+}
+
+function binaryFromDb(value: unknown): Uint8Array {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+  if (typeof value === "string") return new TextEncoder().encode(value);
+  return new Uint8Array();
+}
+
+function mapFileRow(row: Record<string, unknown>): OttoAuthOrderFileRecord {
+  return {
+    id: Number(row.id),
+    file_id: String(row.file_id),
+    agent_id: Number(row.agent_id ?? 0),
+    agent_username_lower: String(row.agent_username_lower || ""),
+    human_user_id: Number(row.human_user_id),
+    filename: String(row.filename || "attachment"),
+    content_type: String(row.content_type || "application/octet-stream"),
+    size_bytes: Number(row.size_bytes ?? 0),
+    sha256: String(row.sha256 || ""),
+    purpose: String(row.purpose || "order_attachment"),
+    storage_kind: "db_blob",
+    blob_data: binaryFromDb(row.blob_data),
+    metadata_json: row.metadata_json == null ? null : String(row.metadata_json),
+    created_at: String(row.created_at),
+  };
+}
+
+export async function createOrderFileUpload(params: {
+  agentId: number;
+  agentUsernameLower: string;
+  humanUserId: number;
+  filename: string;
+  contentType?: string | null;
+  bytes: Uint8Array;
+  purpose?: string | null;
+  metadata?: Record<string, unknown> | null;
+}) {
+  await ensureOrderOrchestrationSchema();
+  if (params.bytes.byteLength <= 0) throw new Error("Uploaded file is empty.");
+  const maxBytes = 20 * 1024 * 1024;
+  if (params.bytes.byteLength > maxBytes) {
+    throw new Error("Uploaded files are limited to 20 MB each. Use an external file URL for larger CAD packages.");
+  }
+  const safeName =
+    optionalString(params.filename, 240)?.replace(/[^\w.\-()[\] ]+/g, "_") || "attachment";
+  const contentType = optionalString(params.contentType, 200) || "application/octet-stream";
+  const fileId = `file_${randomUUID().replace(/-/g, "")}`;
+  const now = new Date().toISOString();
+  const sha256 = createHash("sha256").update(params.bytes).digest("hex");
+  await getTursoClient().execute({
+    sql: `INSERT INTO ottoauth_order_files
+          (file_id, agent_id, agent_username_lower, human_user_id, filename, content_type,
+           size_bytes, sha256, purpose, storage_kind, blob_data, metadata_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'db_blob', ?, ?, ?)`,
+    args: [
+      fileId,
+      params.agentId,
+      params.agentUsernameLower.trim().toLowerCase(),
+      params.humanUserId,
+      safeName,
+      contentType,
+      params.bytes.byteLength,
+      sha256,
+      optionalString(params.purpose, 120) || "order_attachment",
+      params.bytes,
+      params.metadata ? JSON.stringify(params.metadata) : null,
+      now,
+    ],
+  });
+  return getOrderFileByPublicId(fileId);
+}
+
+export async function getOrderFileByPublicId(fileId: string) {
+  await ensureOrderOrchestrationSchema();
+  const result = await getTursoClient().execute({
+    sql: "SELECT * FROM ottoauth_order_files WHERE file_id = ? LIMIT 1",
+    args: [fileId.trim()],
+  });
+  const row = result.rows?.[0] as Record<string, unknown> | undefined;
+  return row ? mapFileRow(row) : null;
+}
+
+export function parseOrderFileForApi(file: OttoAuthOrderFileRecord, baseUrl?: string) {
+  const path = `/api/services/order/files/${file.file_id}`;
+  return {
+    file_id: file.file_id,
+    name: file.filename,
+    filename: file.filename,
+    content_type: file.content_type,
+    size_bytes: file.size_bytes,
+    sha256: file.sha256,
+    purpose: file.purpose,
+    source: "ottoauth_upload",
+    download_url: baseUrl ? `${baseUrl}${path}` : path,
+    url: baseUrl ? `${baseUrl}${path}` : path,
+    metadata: parseJsonObject(file.metadata_json),
+    created_at: file.created_at,
+  };
 }
 
 export function parseOrderForApi(order: OttoAuthOrderRecord) {

@@ -136,20 +136,9 @@ export async function createOrderForAgentRequest(params: {
   auth: AgentOrderAuth;
   resourcePath: string;
 }) {
-  const humanLink = await getHumanLinkForAgentUsername(params.auth.usernameLower);
-  const linkedHuman = humanLink ? await getHumanUserById(humanLink.human_user_id) : null;
-  if (humanLink && !linkedHuman) {
-    return {
-      ok: false as const,
-      response: NextResponse.json(
-        { error: "Linked human account no longer exists." },
-        { status: 404 },
-      ),
-    };
-  }
-
-  const humanUser = linkedHuman ?? (await ensureOttoAuthInternalHumanUser());
-  const hasLinkedHuman = Boolean(linkedHuman);
+  const resolvedHuman = await resolveHumanForOrderAgent(params.auth.usernameLower);
+  if (!resolvedHuman.ok) return resolvedHuman;
+  const { humanUser, hasLinkedHuman } = resolvedHuman;
   const creditBalance = await getHumanCreditBalance(humanUser.id);
   const cap = requestedCap(params.payload);
   const defaultTopUpCents = defaultX402TopUpCents();
@@ -229,6 +218,24 @@ export async function createOrderForAgentRequest(params: {
     fundedCents: fundingRequiredCents,
     ...created,
   };
+}
+
+export async function resolveHumanForOrderAgent(usernameLower: string) {
+  const humanLink = await getHumanLinkForAgentUsername(usernameLower);
+  const linkedHuman = humanLink ? await getHumanUserById(humanLink.human_user_id) : null;
+  if (humanLink && !linkedHuman) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { error: "Linked human account no longer exists." },
+        { status: 404 },
+      ),
+    };
+  }
+
+  const humanUser = linkedHuman ?? (await ensureOttoAuthInternalHumanUser());
+  const hasLinkedHuman = Boolean(linkedHuman);
+  return { ok: true as const, humanUser, hasLinkedHuman };
 }
 
 export async function requireAgentOrderAccess(params: {

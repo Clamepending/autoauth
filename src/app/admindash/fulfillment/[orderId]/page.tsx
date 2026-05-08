@@ -89,6 +89,14 @@ function Fact({
   );
 }
 
+function fileText(file: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = file[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
 export default async function AdminFulfillmentOrderPage({ params }: PageProps) {
   const { orderId } = await params;
   const order = await getOrderByPublicIdOrId(orderId);
@@ -246,7 +254,44 @@ export default async function AdminFulfillmentOrderPage({ params }: PageProps) {
                 <p>CAD/manufacturing files plus operator risk notes.</p>
               </div>
             </div>
-            <pre className="admin-code-block">{pretty({ files: packet?.files || [], risk_notes: packet?.risk_notes || [] })}</pre>
+            {packet?.files.length ? (
+              <div className="admin-table-wrap">
+                <table className="admin-table compact">
+                  <thead>
+                    <tr>
+                      <th>File</th>
+                      <th>Purpose</th>
+                      <th>Type</th>
+                      <th>Open</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {packet.files.map((file, index) => {
+                      const url = fileText(file, ["download_url", "url"]);
+                      return (
+                        <tr key={`${fileText(file, ["file_id", "name"]) || "file"}:${index}`}>
+                          <td><strong>{fileText(file, ["name", "filename"]) || "attachment"}</strong></td>
+                          <td>{fileText(file, ["purpose", "notes"]) || "order attachment"}</td>
+                          <td>{fileText(file, ["content_type"]) || "unknown"}</td>
+                          <td>
+                            {url ? (
+                              <a className="admin-mini-link" href={url} target="_blank" rel="noreferrer">
+                                download
+                              </a>
+                            ) : (
+                              <span className="admin-subtle">none</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="admin-empty">No uploaded files.</p>
+            )}
+            <pre className="admin-code-block">{pretty({ risk_notes: packet?.risk_notes || [] })}</pre>
           </article>
         </section>
 

@@ -213,6 +213,10 @@ h1 {
   .grid {
     grid-template-columns: 1fr;
   }
+
+  .platform-stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 .hero-actions {
@@ -285,6 +289,64 @@ h1 {
   padding: 0;
   display: grid;
   gap: 12px;
+}
+
+.platform-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.platform-stats > div {
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 14px;
+  min-width: 0;
+}
+
+.platform-stats strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.platform-stats span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.platform-category-list,
+.platform-chip-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.platform-category-list span,
+.platform-chip-list li {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.platform-chip-list small {
+  border-left: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  padding-left: 8px;
+  text-transform: uppercase;
 }
 
 .supported-account {

@@ -99,6 +99,28 @@ export function getManifest(): ServiceManifest {
         },
       },
       {
+        name: "upload_order_files",
+        method: "POST",
+        path: "/api/services/order/files",
+        description:
+          "Upload CAD, Gerber, BOM, artwork, document, or personalization files before creating an order. Returns file references to pass in submit_order.files[].",
+        params: {
+          username: { type: "string", required: true, description: "Agent username for JSON uploads or multipart forms." },
+          private_key: { type: "string", required: true, description: "Agent private key for JSON uploads or multipart forms." },
+          file: { type: "file", required: false, description: "Multipart file field. Repeat file/files for multiple uploads." },
+          files: { type: "array", required: false, description: "JSON files with filename, content_type, content_base64, purpose, and optional metadata." },
+          purpose: { type: "string", required: false, description: "cad_model, gerber_zip, bom, cpl, artwork, proof, document, or order_attachment." },
+        },
+      },
+      {
+        name: "platform_catalog",
+        method: "GET",
+        path: "/api/services/order/platforms",
+        description:
+          "Return the 100-platform 80/20 coverage catalog used for provider recognition, file-upload support, homepage coverage, and operator routing.",
+        params: {},
+      },
+      {
         name: "get_order_status",
         method: "POST",
         path: "/api/services/order/tasks/:taskId",
@@ -213,6 +235,37 @@ Every order response includes \`order.provider.capabilities\` so clients can see
 
 ## Submit an order
 
+The whole integration is two calls when files are needed, one call when they are not.
+
+### 1. Upload files when needed
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/order/files \\
+  -F username=my_agent \\
+  -F private_key=sk-oa-... \\
+  -F purpose=cad_model \\
+  -F file=@./bracket.step
+\`\`\`
+
+Take the returned \`files[]\` and pass it directly into the order request. JSON/base64 uploads also work:
+
+\`\`\`json
+{
+  "username": "my_agent",
+  "private_key": "sk-oa-...",
+  "files": [
+    {
+      "filename": "front-panel.dxf",
+      "content_type": "application/dxf",
+      "content_base64": "BASE64_BYTES",
+      "purpose": "laser_cut_file"
+    }
+  ]
+}
+\`\`\`
+
+### 2. Create the order
+
 \`\`\`bash
 curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
@@ -236,6 +289,34 @@ Minimum required body:
 - enough structured fields, \`items[]\`, \`files[]\`, or \`task_prompt\` to describe the order
 
 The response contains both \`order.id\` and a compatibility \`task.id\`. New clients should store \`order.id\`, for example \`ord_123\`.
+
+## Get-this-made example
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"my_agent",
+    "private_key":"sk-oa-...",
+    "store":"xometry",
+    "kind":"custom_human_task",
+    "files":[{"file_id":"file_...","name":"bracket.step","download_url":"${baseUrl}/api/services/order/files/file_...","purpose":"cad_model"}],
+    "order_details":"Quote CNC aluminum 6061, quantity 5, bead blasted, quote before ordering.",
+    "max_charge_cents":50000
+  }'
+\`\`\`
+
+For 3D printing use \`store: "treatstock"\`, \`"craftcloud"\`, \`"xometry"\`, \`"hubs"\`, or another catalog entry. For PCB use \`"jlcpcb"\`, \`"pcbway"\`, \`"oshpark"\`, \`"seeed_fusion"\`, or another PCB catalog entry.
+
+## Platform catalog
+
+\`GET ${baseUrl}/api/services/order/platforms\` returns the 100-platform 80/20 catalog. OttoAuth recognizes these platforms today and routes unsupported native APIs to admindash human fulfillment:
+
+- retail marketplaces and stores
+- food, grocery, delivery, rides, and travel
+- 3D printing, CNC, sheet metal, laser cutting, injection molding, and front panels
+- PCB fabrication, PCBA, electronics components, BOM procurement, and industrial supply
+- print-on-demand, signs, stickers, business cards, and custom apparel
 
 ## Resource-oriented v1 alias
 

@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 
 import { getCurrentHumanUser } from "@/lib/human-session";
 import { getBaseUrl } from "@/lib/base-url";
+import {
+  getFeaturedPlatforms,
+  getPlatformCategoryCounts,
+  getUploadPlatformCount,
+} from "@/lib/platform-catalog";
 import { HomeCommandBox } from "@/app/home-command-box";
 import { TweetEmbed } from "@/app/tweet-embed";
 
@@ -109,9 +114,18 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+function categoryLabel(category: string) {
+  return category
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export default async function HomePage() {
   const curlCommand = `curl -s ${getBaseUrl()}/llms.txt`;
   const humanUser = await getCurrentHumanUser();
+  const featuredPlatforms = getFeaturedPlatforms(36);
+  const categoryCounts = getPlatformCategoryCounts();
+  const uploadPlatformCount = getUploadPlatformCount();
   const socialPosts = [
     {
       id: "first-boba",
@@ -127,9 +141,9 @@ export default async function HomePage() {
     <main>
       <section className="hero">
         <div className="eyebrow">OTTOAUTH</div>
-        <h1>Let Agents buy things</h1>
+        <h1>Let Agents buy and make things</h1>
         <p className="lede">
-          One API. Any store.
+          One API for stores, delivery, rides, 3D printing, PCB fab, CNC, signs, apparel, and weird custom orders.
         </p>
         <div className="grid">
           <div className="card">
@@ -152,12 +166,34 @@ export default async function HomePage() {
           </div>
           <div className="card">
             <strong>For developers</strong>
-            <div>Read the docs, copy the examples, and connect your AI agent to the general order API.</div>
+            <div>Read the docs, copy the quickstart, upload files when needed, and connect your AI agent to the general order API.</div>
             <div className="hero-actions" style={{ marginTop: 14 }}>
               <a className="auth-button primary" href="/docs">
                 Developer Docs
               </a>
             </div>
+          </div>
+        </div>
+        <div className="supported-accounts">
+          <div className="supported-accounts-title">Commerce coverage</div>
+          <div className="platform-stats">
+            <div>
+              <strong>100</strong>
+              <span>platforms in the 80/20 catalog</span>
+            </div>
+            <div>
+              <strong>{uploadPlatformCount}</strong>
+              <span>support files for CAD, PCB, BOM, artwork, or documents</span>
+            </div>
+            <div>
+              <strong>1</strong>
+              <span>order API for price, confirmation, tracking, cancel, messages, and disputes</span>
+            </div>
+          </div>
+          <div className="platform-category-list">
+            {Object.entries(categoryCounts).map(([category, count]) => (
+              <span key={category}>{categoryLabel(category)}: {count}</span>
+            ))}
           </div>
         </div>
         <div className="supported-accounts">
@@ -179,6 +215,22 @@ export default async function HomePage() {
               );
             })}
           </ul>
+        </div>
+        <div className="supported-accounts">
+          <div className="supported-accounts-title">Get-this-made platforms and major stores</div>
+          <ul className="platform-chip-list">
+            {featuredPlatforms.map((platform) => (
+              <li key={platform.id}>
+                <span>{platform.name}</span>
+                {platform.fileTypes.length ? <small>files</small> : null}
+              </li>
+            ))}
+          </ul>
+          <div className="hero-actions" style={{ marginTop: 14 }}>
+            <a className="auth-button" href="/api/services/order/platforms">
+              View platform catalog
+            </a>
+          </div>
         </div>
         <div className="supported-agents">
           <div className="supported-accounts-title">Supported agents</div>

@@ -69,6 +69,39 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
 
 Structured fields matter. Prefer \`store\`, \`merchant\`, \`store_url\`, \`kind\`, \`order_type\`, \`items[]\`, \`files[]\`, \`pickup_location\`, \`shipping_address\`, \`order_details\`, and \`max_charge_cents\` over a vague prompt.
 
+## Orders With Files
+
+For 3D printing, PCB, CNC, laser cutting, signs, stickers, apparel, documents, BOMs, and custom goods, upload files first and pass the returned references into the order.
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/order/files \\
+  -F username=my_agent \\
+  -F private_key=sk-oa-... \\
+  -F purpose=cad_model \\
+  -F file=@./bracket.step
+\`\`\`
+
+Then submit:
+
+\`\`\`bash
+curl -s -X POST ${baseUrl}/api/services/order/submit \\
+  -H 'content-type: application/json' \\
+  -d '{
+    "username":"my_agent",
+    "private_key":"sk-oa-...",
+    "store":"xometry",
+    "files":[{"file_id":"file_...","name":"bracket.step","download_url":"${baseUrl}/api/services/order/files/file_...","purpose":"cad_model"}],
+    "order_details":"Quote CNC aluminum 6061, quantity 5, bead blasted. Ask before ordering.",
+    "max_charge_cents":50000
+  }'
+\`\`\`
+
+JSON/base64 uploads also work through \`POST ${baseUrl}/api/services/order/files\` with \`files[].content_base64\`.
+
+## Platform Catalog
+
+\`GET ${baseUrl}/api/services/order/platforms\` returns the 100-platform catalog. It covers the 80/20 of web commerce plus get-this-made workflows: retail marketplaces, grocery/food/rides/travel, 3D printing, CNC, sheet metal, PCB/PCBA, electronics BOM buying, laser cutting, front panels, signs, stickers, apparel, and print-on-demand.
+
 ## Statuses
 
 - \`quote_requested\`: quote-first provider flow has started.
