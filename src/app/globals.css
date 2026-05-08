@@ -610,15 +610,57 @@ footer {
   max-width: 640px;
 }
 
+.dashboard-profile-heading {
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 100%;
+  margin-top: 10px;
+  text-decoration: none;
+}
+
+.dashboard-profile-heading h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-header-avatar {
+  width: 72px;
+  height: 72px;
+  border: 2px solid var(--line);
+  background: #f2f2f2;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 72px;
+  font-size: 22px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.dashboard-header-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .dashboard-top-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(128px, 1fr));
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
   gap: 10px;
   min-width: min(100%, 300px);
 }
 
 .dashboard-top-actions > * {
-  width: 100%;
+  width: auto;
+}
+
+.dashboard-top-actions .auth-button.primary {
+  min-width: 132px;
 }
 
 .dashboard-quiet-action {
@@ -668,40 +710,10 @@ footer {
   background: linear-gradient(135deg, #fff, #f0f0f0);
 }
 
-.dashboard-credit-card {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-}
-
-.dashboard-credit-card .supported-accounts-title,
-.dashboard-profile-link {
-  grid-column: 1 / -1;
-}
-
-.dashboard-credit-actions,
 .referral-copy-row,
 .agent-key-form {
   display: grid;
   gap: 10px;
-}
-
-.dashboard-credit-actions {
-  grid-template-columns: auto;
-  justify-content: end;
-  align-items: center;
-}
-
-.dashboard-credit-actions .auth-button {
-  width: 52px;
-  min-width: 52px;
-}
-
-.dashboard-profile-link {
-  border-top: 1px solid var(--grid);
-  color: var(--muted);
-  font-size: 14px;
-  padding-top: 14px;
-  text-decoration: none;
 }
 
 .referral-banner {
@@ -1727,6 +1739,26 @@ footer {
   line-height: 1.5;
   overflow-wrap: anywhere;
   text-align: left;
+}
+
+.profile-balance-card {
+  width: min(100%, 560px);
+  border: 1px solid var(--line);
+  background: #fcfcfc;
+  padding: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+
+.profile-balance-card .supported-accounts-title {
+  margin-bottom: 8px;
+}
+
+.profile-balance-card .auth-button {
+  flex: 0 0 auto;
 }
 
 .profile-actions {
@@ -3313,23 +3345,20 @@ main.admin-control-plane::after {
   }
 
   .referral-copy-row,
-  .dashboard-credit-card,
-  .dashboard-credit-actions,
   .agent-key-form {
     grid-template-columns: 1fr;
-  }
-
-  .dashboard-credit-actions {
-    justify-content: stretch;
-  }
-
-  .dashboard-credit-actions .auth-button {
-    width: 100%;
   }
 
   .dashboard-header {
     flex-direction: column;
     gap: 18px;
+  }
+
+  .dashboard-header-avatar {
+    width: 58px;
+    height: 58px;
+    flex-basis: 58px;
+    font-size: 18px;
   }
 
   .dashboard-actions {
@@ -3355,6 +3384,11 @@ main.admin-control-plane::after {
   .dashboard-row {
     flex-direction: column;
     gap: 6px;
+  }
+
+  .profile-balance-card {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .dashboard-task-meta {
@@ -3658,14 +3692,10 @@ main.admin-control-plane::after {
 }
 
 .dashboard-actions > .dashboard-action-icon-button,
-.dashboard-credit-actions .dashboard-action-icon-button {
+.dashboard-top-actions > .dashboard-action-icon-button {
   flex: 0 0 52px;
   width: 52px;
   min-width: 52px;
   height: 52px;
   min-height: 52px;
-}
-
-.dashboard-credit-actions .dashboard-action-icon-button {
-  justify-self: end;
 }

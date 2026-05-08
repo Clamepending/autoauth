@@ -48,19 +48,6 @@ function HistoryIcon() {
   );
 }
 
-function RefillIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
-      <path d="M21 12a9 9 0 0 1-15.4 6.4" />
-      <path d="M3 12A9 9 0 0 1 18.4 5.6" />
-      <path d="M18 2v4h4" />
-      <path d="M6 22v-4H2" />
-      <path d="M12 8v8" />
-      <path d="M8 12h8" />
-    </svg>
-  );
-}
-
 function SignOutIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
@@ -68,6 +55,22 @@ function SignOutIcon() {
       <path d="M16 17l5-5-5-5" />
       <path d="M21 12H9" />
     </svg>
+  );
+}
+
+function initialsForUser(user: {
+  display_name: string | null;
+  email: string;
+  handle_display: string;
+}) {
+  const label = user.display_name?.trim() || user.email || user.handle_display;
+  return (
+    label
+      .split(/[\s@._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || user.handle_display.slice(0, 2).toUpperCase()
   );
 }
 
@@ -82,7 +85,6 @@ export function DashboardClient(props: {
     successful_referrals: number;
     total_bonus_cents: number;
   };
-  balanceCents: number;
   linkedAgents: LinkedAgentWithSpend[];
   devices: ComputerUseDeviceRecord[];
   pairingCodes: HumanDevicePairingCodeRecord[];
@@ -92,9 +94,6 @@ export function DashboardClient(props: {
   showUserFulfillmentControls?: boolean;
 }) {
   const [copiedReferralLink, setCopiedReferralLink] = useState(false);
-  const [currentUsername, setCurrentUsername] = useState(props.user.handle_display);
-  const [usernameInput, setUsernameInput] = useState(props.user.handle_display);
-  const [savingUsername, setSavingUsername] = useState(false);
   const [agentName, setAgentName] = useState("my-agent");
   const [creatingAgentKey, setCreatingAgentKey] = useState(false);
   const [copiedAgentCredential, setCopiedAgentCredential] = useState(false);
@@ -109,6 +108,8 @@ export function DashboardClient(props: {
   const [removingDeviceId, setRemovingDeviceId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const activeCode = props.pairingCodes[0] ?? null;
+  const profileHref = `/u/${encodeURIComponent(props.user.handle_lower)}`;
+  const dashboardName = props.user.display_name || props.user.email;
 
   function getAgentCredentialText(credential = generatedAgentCredential) {
     if (!credential) return "";
@@ -165,31 +166,6 @@ export function DashboardClient(props: {
       );
     } finally {
       setCreatingAgentKey(false);
-    }
-  }
-
-  async function handleSaveUsername(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!usernameInput.trim()) return;
-    setSavingUsername(true);
-    setStatusMessage(null);
-    try {
-      const response = await fetch("/api/human/username", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: usernameInput }),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        setStatusMessage(payload?.error || "Could not update your OttoAuth address.");
-        return;
-      }
-      const username = String(payload?.username || payload?.user?.handle_display || usernameInput);
-      setCurrentUsername(username);
-      setUsernameInput(username);
-      setStatusMessage(`Your OttoAuth address is now @${username}.`);
-    } finally {
-      setSavingUsername(false);
     }
   }
 
@@ -359,7 +335,21 @@ export function DashboardClient(props: {
         <div className="dashboard-header">
           <div>
             <div className="eyebrow">Human Dashboard</div>
-            <h1>{props.user.display_name || props.user.email}</h1>
+            <Link
+              className="dashboard-profile-heading"
+              href={profileHref}
+              aria-label={`Open profile for ${dashboardName}`}
+            >
+              <span className="dashboard-header-avatar" aria-hidden="true">
+                {props.user.picture_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={props.user.picture_url} alt="" />
+                ) : (
+                  <span>{initialsForUser(props.user)}</span>
+                )}
+              </span>
+              <h1>{dashboardName}</h1>
+            </Link>
             <p className="lede">
               Generate OttoAuth API keys for agents, manage credits, and submit your own browser fulfillment orders.
             </p>
@@ -381,42 +371,6 @@ export function DashboardClient(props: {
         </div>
 
         {statusMessage && <div className="auth-success">{statusMessage}</div>}
-
-        <section className="dashboard-grid mobile-priority-grid">
-          <article className="dashboard-card dashboard-credit-card highlight">
-            <div className="supported-accounts-title">Credits</div>
-            <div className="dashboard-balance">{fmtUsd(props.balanceCents)}</div>
-            <div className="dashboard-credit-actions">
-              <Link className="auth-button primary dashboard-action-icon-button" href="/credits/refill" aria-label="Refill credits" title="Refill credits">
-                <RefillIcon />
-              </Link>
-            </div>
-            <form className="stack-form dashboard-address-form" onSubmit={handleSaveUsername}>
-              <label className="auth-label" htmlFor="ottoauth-username">Your address</label>
-              <div className="agent-key-form">
-                <input
-                  id="ottoauth-username"
-                  className="auth-input mono"
-                  value={usernameInput}
-                  onChange={(event) => setUsernameInput(event.target.value)}
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="username"
-                />
-                <button className="auth-button" type="submit" disabled={savingUsername}>
-                  {savingUsername ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-            <Link
-              className="dashboard-profile-link mono"
-              href={`/u/${encodeURIComponent(currentUsername.toLowerCase())}`}
-            >
-              Public profile @{currentUsername}
-            </Link>
-          </article>
-        </section>
 
         <section className="dashboard-grid wide">
           <article className="dashboard-card dashboard-card-span-2">

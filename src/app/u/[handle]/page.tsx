@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBaseUrl } from "@/lib/base-url";
-import { resolveHumanPaymentRecipient } from "@/lib/human-accounts";
+import {
+  getHumanCreditBalance,
+  resolveHumanPaymentRecipient,
+} from "@/lib/human-accounts";
+import { getCurrentHumanUser } from "@/lib/human-session";
 
 export const dynamic = "force-dynamic";
+
+function fmtUsd(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 function displayName(user: {
   display_name: string | null;
@@ -35,6 +43,9 @@ export default async function OttoAuthProfilePage({
   }
 
   const user = recipient.humanUser;
+  const currentUser = await getCurrentHumanUser();
+  const isOwnProfile = currentUser?.id === user.id;
+  const balanceCents = isOwnProfile ? await getHumanCreditBalance(user.id) : null;
   const profileHandle =
     recipient.matchedBy === "agent_username" && recipient.agentUsernameDisplay
       ? recipient.agentUsernameDisplay
@@ -74,6 +85,17 @@ export default async function OttoAuthProfilePage({
             alt={`QR code for @${profileHandle}`}
           />
           <div className="profile-link-block">{profileUrl}</div>
+          {isOwnProfile && (
+            <section className="profile-balance-card" aria-label="Your OttoAuth balance">
+              <div>
+                <div className="supported-accounts-title">Balance</div>
+                <div className="dashboard-balance">{fmtUsd(balanceCents ?? 0)}</div>
+              </div>
+              <Link className="auth-button primary" href="/credits/refill">
+                Refill credits
+              </Link>
+            </section>
+          )}
           <div className="dashboard-actions profile-actions">
             <Link
               className="auth-button primary"

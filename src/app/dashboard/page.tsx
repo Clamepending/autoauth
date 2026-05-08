@@ -4,7 +4,6 @@ import { getBaseUrl } from "@/lib/base-url";
 import { listComputerUseDevicesForHuman } from "@/lib/computeruse-store";
 import {
   getActiveHumanDevicePairingCodes,
-  getHumanCreditBalance,
   getHumanReferralStats,
   getLinkedAgentsForHuman,
   listCreditLedgerEntries,
@@ -24,7 +23,6 @@ export default async function DashboardPage() {
 
   const showUserFulfillmentControls = isUserFulfillmentEnabled();
   const [
-    balanceCents,
     ledger,
     linkedAgents,
     devices,
@@ -32,7 +30,6 @@ export default async function DashboardPage() {
     referralStats,
     agentSpendTotals,
   ] = await Promise.all([
-    getHumanCreditBalance(user.id),
     listCreditLedgerEntries(user.id, 20),
     getLinkedAgentsForHuman(user.id),
     showUserFulfillmentControls ? listComputerUseDevicesForHuman(user.id) : Promise.resolve([]),
@@ -54,7 +51,6 @@ export default async function DashboardPage() {
         user={user}
         referralLink={`${baseUrl}/login?ref=${user.id}`}
         referralStats={referralStats}
-        balanceCents={balanceCents}
         linkedAgents={linkedAgentsWithSpend}
         devices={devices}
         pairingCodes={pairingCodes}
