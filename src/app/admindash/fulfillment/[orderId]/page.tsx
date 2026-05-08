@@ -416,7 +416,7 @@ export default async function AdminFulfillmentOrderPage({ params }: PageProps) {
               <div className="admin-panel-header admin-tight-header">
                 <div>
                   <h2>Close it out</h2>
-                  <p>Claim, record final charge, save result.</p>
+                  <p>Record outcome, charges, order numbers, tracking, then update or cancel.</p>
                 </div>
               </div>
               <ManualFulfillmentForm

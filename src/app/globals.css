@@ -2793,6 +2793,15 @@ main.admin-control-plane::after {
   background: #2558df;
 }
 
+.admin-button.danger {
+  border-color: rgba(194, 65, 58, 0.34);
+  color: var(--admin-red);
+}
+
+.admin-button.danger:hover:not(:disabled) {
+  background: #fff4f2;
+}
+
 .admin-mini-button.danger {
   border-color: rgba(194, 65, 58, 0.34);
   color: var(--admin-red);
@@ -3723,6 +3732,17 @@ main.admin-control-plane::after {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.58);
   padding: 9px 10px;
+}
+
+.admin-cancel-box {
+  border: 1px solid rgba(194, 65, 58, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 244, 242, 0.42);
+  padding: 9px 10px;
+}
+
+.admin-cancel-box .admin-button {
+  width: 100%;
 }
 
 .admin-compact-details > form,

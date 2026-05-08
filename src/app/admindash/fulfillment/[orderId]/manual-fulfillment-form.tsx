@@ -23,6 +23,7 @@ function dollars(form: FormData, name: string) {
 export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [canceling, setCanceling] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +98,34 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
     }
   }
 
+  async function cancel(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (final) return;
+    const form = new FormData(event.currentTarget);
+    const reason = field(form, "cancel_reason");
+    setCanceling(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/fulfillment/orders/${orderId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error || "Could not cancel order.");
+        return;
+      }
+      setMessage("Order canceled.");
+      router.refresh();
+    } catch {
+      setError("Network error while canceling order.");
+    } finally {
+      setCanceling(false);
+    }
+  }
+
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (final) return;
@@ -163,10 +192,10 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
       <form className="admin-control-stack" onSubmit={submit}>
         <div className="admin-fact-grid compact">
           <label className="admin-fact">
-            <span>Status</span>
+            <span>Result</span>
             <select name="status" defaultValue="completed">
-              <option value="completed">completed</option>
-              <option value="failed">failed</option>
+              <option value="completed">Success</option>
+              <option value="failed">Failed</option>
             </select>
           </label>
           <label className="admin-fact">
@@ -183,6 +212,44 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
             placeholder="What was ordered, where, and what the requester should know."
           />
         </label>
+
+        <div className="admin-fact-grid compact">
+          <label className="admin-fact">
+            <span>Order number</span>
+            <input name="order_number" type="text" placeholder="Merchant order ID" />
+          </label>
+          <label className="admin-fact">
+            <span>Tracking number</span>
+            <input name="tracking_number" type="text" placeholder="Carrier tracking" />
+          </label>
+          <label className="admin-fact">
+            <span>Confirmation code</span>
+            <input name="confirmation_code" type="text" placeholder="Confirmation or pickup code" />
+          </label>
+          <label className="admin-fact">
+            <span>Delivery ETA</span>
+            <input name="delivery_eta" type="text" placeholder="Today, May 9, 2-5 PM" />
+          </label>
+        </div>
+
+        <div className="admin-fact-grid compact">
+          <label className="admin-fact">
+            <span>Provider status</span>
+            <input name="provider_status" type="text" placeholder="Ordered, shipped, ready, etc." />
+          </label>
+          <label className="admin-fact">
+            <span>Tracking URL</span>
+            <input name="tracking_url" type="url" placeholder="https://..." />
+          </label>
+          <label className="admin-fact">
+            <span>Receipt URL</span>
+            <input name="receipt_url" type="url" placeholder="https://..." />
+          </label>
+          <label className="admin-fact">
+            <span>Pickup code</span>
+            <input name="pickup_code" type="text" />
+          </label>
+        </div>
 
         <div className="admin-fact-grid compact">
           <label className="admin-fact">
@@ -203,54 +270,17 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
           </label>
         </div>
 
+        <label className="admin-fact">
+          <span>Failure reason</span>
+          <textarea name="error" rows={2} placeholder="Use this when marking the order failed." />
+        </label>
+
         <details className="admin-compact-details">
-          <summary>Order numbers, tracking, receipt, and notes</summary>
+          <summary>Receipt text and internal notes</summary>
           <div className="admin-control-stack">
-            <div className="admin-fact-grid compact">
-              <label className="admin-fact">
-                <span>Order number</span>
-                <input name="order_number" type="text" />
-              </label>
-              <label className="admin-fact">
-                <span>Confirmation code</span>
-                <input name="confirmation_code" type="text" />
-              </label>
-              <label className="admin-fact">
-                <span>Pickup code</span>
-                <input name="pickup_code" type="text" />
-              </label>
-              <label className="admin-fact">
-                <span>Provider status</span>
-                <input name="provider_status" type="text" />
-              </label>
-            </div>
-
-            <div className="admin-fact-grid compact">
-              <label className="admin-fact">
-                <span>Tracking number</span>
-                <input name="tracking_number" type="text" />
-              </label>
-              <label className="admin-fact">
-                <span>Tracking URL</span>
-                <input name="tracking_url" type="url" />
-              </label>
-              <label className="admin-fact">
-                <span>Delivery ETA</span>
-                <input name="delivery_eta" type="text" />
-              </label>
-              <label className="admin-fact">
-                <span>Receipt URL</span>
-                <input name="receipt_url" type="url" />
-              </label>
-            </div>
-
             <label className="admin-fact">
               <span>Receipt text</span>
               <textarea name="receipt_text" rows={4} placeholder="Paste receipt details when no receipt URL exists." />
-            </label>
-            <label className="admin-fact">
-              <span>Failure reason</span>
-              <textarea name="error" rows={3} placeholder="Required only when marking failed." />
             </label>
             <label className="admin-fact">
               <span>Internal note</span>
@@ -272,13 +302,23 @@ export function ManualFulfillmentForm({ orderId, defaultMerchant, final }: Props
             Claim
           </button>
           <button className="admin-button primary" type="submit" disabled={submitting || final}>
-            {submitting ? "Saving..." : "Save result"}
+            {submitting ? "Updating..." : "Update / complete"}
           </button>
         </div>
 
         {error ? <p className="danger-text">{error}</p> : null}
         {message ? <p className="admin-subtle">{message}</p> : null}
         {final ? <p className="admin-empty">This order is final.</p> : null}
+      </form>
+
+      <form className="admin-control-stack admin-cancel-box" onSubmit={cancel}>
+        <label className="admin-fact">
+          <span>Cancel reason</span>
+          <textarea name="cancel_reason" rows={2} placeholder="Why this order should be canceled." />
+        </label>
+        <button className="admin-button danger" type="submit" disabled={canceling || final}>
+          {canceling ? "Canceling..." : "Cancel order"}
+        </button>
       </form>
 
       <details className="admin-compact-details">
