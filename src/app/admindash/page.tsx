@@ -87,6 +87,17 @@ function humanizeKey(value: string | null | undefined) {
   return value ? value.replace(/_/g, " ") : "unknown";
 }
 
+const FAILURE_PIE_COLORS = [
+  "#d24b43",
+  "#f08a24",
+  "#3f78d8",
+  "#20a39e",
+  "#7b61ff",
+  "#4f9f50",
+  "#b355b1",
+  "#64748b",
+];
+
 function statusTone(status: string) {
   if (status === "completed") return "success";
   if (status === "failed" || status === "canceled" || status === "disputed") return "danger";
@@ -227,6 +238,43 @@ function parseRecord(value: string | null) {
   } catch {
     return null;
   }
+}
+
+function piePoint(cx: number, cy: number, radius: number, fraction: number) {
+  const angle = fraction * Math.PI * 2 - Math.PI / 2;
+  return {
+    x: cx + radius * Math.cos(angle),
+    y: cy + radius * Math.sin(angle),
+  };
+}
+
+function pieSlicePath(startFraction: number, endFraction: number) {
+  const cx = 60;
+  const cy = 60;
+  const radius = 50;
+  const start = piePoint(cx, cy, radius, startFraction);
+  const end = piePoint(cx, cy, radius, endFraction);
+  const largeArcFlag = endFraction - startFraction > 0.5 ? 1 : 0;
+  return `M ${cx} ${cy} L ${start.x.toFixed(3)} ${start.y.toFixed(3)} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x.toFixed(3)} ${end.y.toFixed(3)} Z`;
+}
+
+function failureCategorySlices(rows: AdminFailureCategoryRow[]) {
+  const grouped = new Map<string, { category: string; count: number }>();
+  rows.forEach((row) => {
+    const existing = grouped.get(row.category);
+    if (existing) {
+      existing.count += row.count;
+    } else {
+      grouped.set(row.category, { category: row.category, count: row.count });
+    }
+  });
+  const categories = Array.from(grouped.values()).sort(
+    (a, b) => b.count - a.count || a.category.localeCompare(b.category),
+  );
+  return categories.map((category, index) => ({
+    ...category,
+    color: FAILURE_PIE_COLORS[index % FAILURE_PIE_COLORS.length],
+  }));
 }
 
 function orchestrationTitle(order: OttoAuthOrderRecord) {
@@ -401,63 +449,108 @@ function OrderTable({
   );
 }
 
-function FailureCategoryTable({ rows }: { rows: AdminFailureCategoryRow[] }) {
+function FailureCategoryPieChart({ rows }: { rows: AdminFailureCategoryRow[] }) {
   if (rows.length === 0) {
     return <p className="admin-empty">No failed fulfillment categories in the last 30 days.</p>;
   }
 
+  const slices = failureCategorySlices(rows);
+  const total = slices.reduce((sum, slice) => sum + slice.count, 0);
+  let cursor = 0;
+
   return (
-    <div className="admin-table-wrap">
-      <table className="admin-table compact admin-failure-table">
-        <thead>
-          <tr>
-            <th>Category</th>
-            <th>Count</th>
-            <th>Retryability</th>
-            <th>Latest</th>
-            <th>Suggested action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={`${row.category}:${row.stage}`}>
-              <td>
-                <strong>{humanizeKey(row.category)}</strong>
-                <div className="admin-subtle">
-                  {humanizeKey(row.stage)}
-                  {row.top_signal ? ` · signal: ${row.top_signal}` : ""}
-                </div>
-              </td>
-              <td>
-                <strong>{fmtInt(row.count)}</strong>
-                <div className="admin-subtle">last 30d</div>
-              </td>
-              <td>
-                <span className={`admin-status ${row.non_retryable_count ? "warning" : "info"}`}>
-                  {fmtInt(row.retryable_count)} retryable
-                </span>
-                {row.non_retryable_count ? (
-                  <div className="admin-subtle danger-text">
-                    {fmtInt(row.non_retryable_count)} should change first
-                  </div>
-                ) : null}
-              </td>
-              <td>
-                {row.latest_task_id ? (
-                  <a className="admin-link-strong" href={`/admindash/orders/${row.latest_task_id}`}>
-                    #{row.latest_task_id}
-                  </a>
-                ) : (
-                  "Unknown"
-                )}
-                <div className="admin-subtle">{fmtDate(row.latest_at)}</div>
-                <div className="admin-subtle">{compact(row.latest_error || row.latest_summary, 110)}</div>
-              </td>
-              <td className="admin-task-cell">{compact(row.suggested_action, 180)}</td>
+    <div className="admin-failure-chart-layout">
+      <div className="admin-failure-pie-card">
+        <svg className="admin-failure-pie" viewBox="0 0 120 120" role="img" aria-label="Fulfillment failure categories pie chart">
+          {slices.length === 1 ? (
+            <circle cx="60" cy="60" r="50" fill={slices[0].color} />
+          ) : (
+            slices.map((slice) => {
+              const start = cursor / total;
+              cursor += slice.count;
+              const end = cursor / total;
+              return (
+                <path
+                  key={slice.category}
+                  d={pieSlicePath(start, end)}
+                  fill={slice.color}
+                  stroke="#fff"
+                  strokeWidth="1.5"
+                />
+              );
+            })
+          )}
+        </svg>
+        <div className="admin-failure-pie-total">
+          <span>Failures</span>
+          <strong>{fmtInt(total)}</strong>
+          <small>last 30d</small>
+        </div>
+      </div>
+
+      <div className="admin-failure-legend-list" aria-label="Failure category legend">
+        {slices.map((slice) => (
+          <div key={slice.category} className="admin-failure-legend-row">
+            <span className="admin-failure-swatch" style={{ background: slice.color }} />
+            <strong>{humanizeKey(slice.category)}</strong>
+            <span>{fmtPercent(slice.count, total)}</span>
+            <small>{fmtInt(slice.count)}</small>
+          </div>
+        ))}
+      </div>
+
+      <div className="admin-table-wrap admin-failure-detail-table">
+        <table className="admin-table compact admin-failure-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Count</th>
+              <th>Retryability</th>
+              <th>Latest</th>
+              <th>Suggested action</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${row.category}:${row.stage}`}>
+                <td>
+                  <strong>{humanizeKey(row.category)}</strong>
+                  <div className="admin-subtle">
+                    {humanizeKey(row.stage)}
+                    {row.top_signal ? ` · signal: ${row.top_signal}` : ""}
+                  </div>
+                </td>
+                <td>
+                  <strong>{fmtInt(row.count)}</strong>
+                  <div className="admin-subtle">last 30d</div>
+                </td>
+                <td>
+                  <span className={`admin-status ${row.non_retryable_count ? "warning" : "info"}`}>
+                    {fmtInt(row.retryable_count)} retryable
+                  </span>
+                  {row.non_retryable_count ? (
+                    <div className="admin-subtle danger-text">
+                      {fmtInt(row.non_retryable_count)} should change first
+                    </div>
+                  ) : null}
+                </td>
+                <td>
+                  {row.latest_task_id ? (
+                    <a className="admin-link-strong" href={`/admindash/orders/${row.latest_task_id}`}>
+                      #{row.latest_task_id}
+                    </a>
+                  ) : (
+                    "Unknown"
+                  )}
+                  <div className="admin-subtle">{fmtDate(row.latest_at)}</div>
+                  <div className="admin-subtle">{compact(row.latest_error || row.latest_summary, 110)}</div>
+                </td>
+                <td className="admin-task-cell">{compact(row.suggested_action, 180)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -659,6 +752,42 @@ export default async function AdminDashPage() {
           />
         </section>
 
+        <section className="admin-panel">
+          <div className="admin-panel-header">
+            <div>
+              <h2>Human fulfillment queue</h2>
+              <p>Newest manual/API fallback orders that need operator attention. Open an order to claim it, record charges, message, clarify, cancel, or complete it.</p>
+            </div>
+          </div>
+          <OrchestrationOrderTable orders={orchestrationOrders} />
+        </section>
+
+        <section className="admin-panel">
+          <div className="admin-panel-header">
+            <div>
+              <h2>Recent orders</h2>
+              <p>Latest order traffic across human and agent submissions. Failure flags and clarifications show inline.</p>
+            </div>
+          </div>
+          <OrderTable
+            orders={data.recent_orders.slice(0, 30)}
+            empty="No orders have been submitted yet."
+          />
+        </section>
+
+        <section className="admin-panel">
+          <div className="admin-panel-header">
+            <div>
+              <h2>Problem orders</h2>
+              <p>Failed, stuck, clarification-blocked, or callback-failed orders. Restart queues a replacement order with the same intent and spend cap.</p>
+            </div>
+          </div>
+          <OrderTable
+            orders={data.problem_orders}
+            empty="No problem orders right now."
+          />
+        </section>
+
         <section className="admin-chart-grid" aria-label="Analytics charts">
           <article className="admin-panel">
             <div className="admin-panel-header">
@@ -740,47 +869,11 @@ export default async function AdminDashPage() {
         <section className="admin-panel">
           <div className="admin-panel-header">
             <div>
-              <h2>Human fulfillment queue</h2>
-              <p>Canonical order records routed through provider APIs when available, otherwise assigned to an operator.</p>
-            </div>
-          </div>
-          <OrchestrationOrderTable orders={orchestrationOrders} />
-        </section>
-
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
               <h2>Fulfillment failure categories</h2>
               <p>Last 30 days of failed browser orders grouped by likely blocker and next recovery step.</p>
             </div>
           </div>
-          <FailureCategoryTable rows={data.failure_categories} />
-        </section>
-
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Problem orders</h2>
-              <p>Failed, stuck, clarification-blocked, or callback-failed orders. Restart queues a replacement order with the same intent and spend cap.</p>
-            </div>
-          </div>
-          <OrderTable
-            orders={data.problem_orders}
-            empty="No problem orders right now."
-          />
-        </section>
-
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Recent orders</h2>
-              <p>Latest order traffic across human and agent submissions.</p>
-            </div>
-          </div>
-          <OrderTable
-            orders={data.recent_orders.slice(0, 30)}
-            empty="No orders have been submitted yet."
-          />
+          <FailureCategoryPieChart rows={data.failure_categories} />
         </section>
 
         <section className="admin-two-column">

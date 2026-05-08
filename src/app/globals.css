@@ -2776,6 +2776,94 @@ main.admin-control-plane::after {
   min-width: 920px;
 }
 
+.admin-failure-chart-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-failure-pie-card {
+  min-height: 244px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 18px;
+}
+
+.admin-failure-pie {
+  width: min(100%, 210px);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 10px 18px rgba(20, 33, 52, 0.12));
+}
+
+.admin-failure-pie-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 7px;
+}
+
+.admin-failure-pie-total span,
+.admin-failure-pie-total small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.admin-failure-pie-total strong {
+  color: var(--admin-text);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.admin-failure-legend-list {
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: #fff;
+  display: grid;
+  overflow: hidden;
+}
+
+.admin-failure-legend-row {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--admin-line);
+  font-size: 13px;
+}
+
+.admin-failure-legend-row:last-child {
+  border-bottom: 0;
+}
+
+.admin-failure-legend-row strong {
+  overflow-wrap: anywhere;
+}
+
+.admin-failure-legend-row span:not(.admin-failure-swatch),
+.admin-failure-legend-row small {
+  color: var(--admin-muted);
+  font-weight: 700;
+}
+
+.admin-failure-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.admin-failure-detail-table {
+  grid-column: 1 / -1;
+}
+
 .admin-table th,
 .admin-table td {
   padding: 12px 13px;
@@ -3178,7 +3266,8 @@ main.admin-control-plane::after {
   .admin-ops-grid,
   .admin-two-column,
   .admin-detail-grid,
-  .admin-snapshot-grid {
+  .admin-snapshot-grid,
+  .admin-failure-chart-layout {
     grid-template-columns: 1fr;
   }
 
