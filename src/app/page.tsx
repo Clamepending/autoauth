@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
 
 import { getCurrentHumanUser } from "@/lib/human-session";
-import { getBaseUrl } from "@/lib/base-url";
-import {
-  getFeaturedPlatforms,
-  getPlatformCategoryCounts,
-  getUploadPlatformCount,
-} from "@/lib/platform-catalog";
-import { HomeCommandBox } from "@/app/home-command-box";
+import { getFeaturedPlatforms } from "@/lib/platform-catalog";
 import { TweetEmbed } from "@/app/tweet-embed";
 
 const SERVICE_ICONS: Record<string, React.ReactNode> = {
@@ -85,9 +79,10 @@ const IMAGE_ICONS: Record<string, { src: string; alt: string }> = {
   grubhub: { src: "/grubhublogo.png", alt: "Grubhub" },
   instacart: { src: "/instacartlogo.jpg", alt: "Instacart" },
   snackpass: { src: "/snackpasslogo.png", alt: "Snackpass" },
-  uber: { src: "/uber.svg", alt: "Uber" },
   uber_eats: { src: "/ubereatslogo.png", alt: "Uber Eats" },
 };
+
+const HIDDEN_HOMEPAGE_PLATFORM_IDS = new Set(["uber", "lyft"]);
 
 const SUPPORTED_AGENTS = [
   { id: "codex", name: "Codex" },
@@ -103,20 +98,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
-
-function categoryLabel(category: string) {
-  const labels: Record<string, string> = {
-    retail_marketplace: "Retail marketplace",
-    local_delivery_travel: "Local delivery + travel",
-    get_made_manufacturing: "Get-this-made",
-    pcb_electronics: "PCB + electronics",
-    print_custom_goods: "Print + custom goods",
-  };
-  if (labels[category]) return labels[category];
-  return category
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
 
 function platformHost(url: string) {
   try {
@@ -136,12 +117,15 @@ function platformLogoSrc(platform: { id: string; url: string }) {
 }
 
 export default async function HomePage() {
-  const curlCommand = `curl -s ${getBaseUrl()}/llms.txt`;
   const humanUser = await getCurrentHumanUser();
-  const featuredPlatforms = getFeaturedPlatforms(50);
-  const supportedPlatformCount = featuredPlatforms.length;
-  const categoryCounts = getPlatformCategoryCounts();
-  const uploadPlatformCount = getUploadPlatformCount();
+  const featuredPlatforms = getFeaturedPlatforms(50).filter(
+    (platform) => !HIDDEN_HOMEPAGE_PLATFORM_IDS.has(platform.id),
+  );
+  const carouselSplitIndex = Math.ceil(featuredPlatforms.length / 2);
+  const platformCarouselRows = [
+    featuredPlatforms.slice(0, carouselSplitIndex),
+    featuredPlatforms.slice(carouselSplitIndex),
+  ];
   const socialPosts = [
     {
       id: "first-boba",
@@ -163,15 +147,6 @@ export default async function HomePage() {
         </p>
         <div className="grid">
           <div className="card">
-            <strong>For agents</strong>
-            <HomeCommandBox command={curlCommand} />
-            <div className="agent-steps">
-              <strong>1.</strong> Send the above command to your agent.<br />
-              <strong>2.</strong> Sign in and generate dashboard API keys.<br />
-              <strong>3.</strong> Send the keys to your agent so it can start orders.
-            </div>
-          </div>
-          <div className="card">
             <strong>For humans</strong>
             <div>Link your agent and deposit money</div>
             <div className="hero-actions" style={{ marginTop: 14 }}>
@@ -191,56 +166,37 @@ export default async function HomePage() {
           </div>
         </div>
         <div className="supported-accounts">
-          <div className="supported-accounts-title">Commerce coverage</div>
-          <div className="platform-stats">
-            <div>
-              <strong>{supportedPlatformCount}</strong>
-              <span>popular platforms in the focused catalog</span>
-            </div>
-            <div>
-              <strong>{uploadPlatformCount}</strong>
-              <span>support files for CAD, PCB, BOM, artwork, or documents</span>
-            </div>
-            <div>
-              <strong>1</strong>
-              <span>order API for price, confirmation, tracking, cancel, messages, and disputes</span>
-            </div>
-          </div>
-          <div className="platform-category-list">
-            {Object.entries(categoryCounts).map(([category, count]) => (
-              <span key={category}>{categoryLabel(category)}: {count}</span>
-            ))}
-          </div>
-        </div>
-        <div className="supported-accounts">
           <div className="supported-accounts-title">Popular supported platforms</div>
-          <ul className="supported-platform-grid">
-            {featuredPlatforms.map((platform) => {
-              const logoSrc = platformLogoSrc(platform);
-              return (
-                <li key={platform.id} className="supported-platform">
-                  <span className="supported-platform-logo" title={platform.name} aria-hidden>
-                    {logoSrc ? (
-                      <img src={logoSrc} alt="" width={32} height={32} loading="lazy" />
-                    ) : (
-                      SERVICE_ICONS.other
-                    )}
-                  </span>
-                  <span className="supported-platform-copy">
-                    <strong>{platform.name}</strong>
-                    <small>
-                      {categoryLabel(platform.category)}
-                      {platform.fileTypes.length ? " · files" : ""}
-                    </small>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="hero-actions" style={{ marginTop: 14 }}>
-            <a className="auth-button" href="/api/services/order/platforms">
-              View full 50-platform catalog
-            </a>
+          <div className="platform-carousel" aria-label="Popular supported platforms">
+            {platformCarouselRows.map((row, rowIndex) => (
+              <div
+                key={rowIndex}
+                className={`platform-carousel-row${rowIndex % 2 === 1 ? " platform-carousel-row-reverse" : ""}`}
+              >
+                {[...row, ...row].map((platform, platformIndex) => {
+                  const logoSrc = platformLogoSrc(platform);
+                  const isDuplicate = platformIndex >= row.length;
+                  return (
+                    <div
+                      key={`${platform.id}-${platformIndex}`}
+                      className="supported-platform"
+                      aria-hidden={isDuplicate}
+                    >
+                      <span className="supported-platform-logo" title={platform.name} aria-hidden>
+                        {logoSrc ? (
+                          <img src={logoSrc} alt="" width={32} height={32} loading="lazy" />
+                        ) : (
+                          SERVICE_ICONS.other
+                        )}
+                      </span>
+                      <span className="supported-platform-copy">
+                        <strong>{platform.name}</strong>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
         <div className="supported-agents">
