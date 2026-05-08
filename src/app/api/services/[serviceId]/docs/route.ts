@@ -24,7 +24,16 @@ export async function GET(
     );
   }
 
-  return new Response(manifest.docsMarkdown, {
+  const baseUrl = getBaseUrl();
+  const agentHeader = `# ${manifest.name} docs
+
+Agent-compatible docs: coding agents should read ${baseUrl}/llms.txt and ${baseUrl}/skill.md first. Humans can use ${baseUrl}/docs for the copyable agent prompt and quick tabs.
+
+---
+
+`;
+
+  return new Response(`${agentHeader}${manifest.docsMarkdown}`, {
     headers: { "Content-Type": "text/markdown; charset=utf-8" },
   });
 }
