@@ -38,6 +38,15 @@ function SendMoneyIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
 function HistoryIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
@@ -309,26 +318,19 @@ export function DashboardClient(props: {
         <section className="referral-banner">
           <div className="referral-banner-copy">
             <div className="supported-accounts-title">Referrals</div>
-            <strong className="referral-banner-title">Give $5, get $5.</strong>
-            <p className="dashboard-muted">
-              When a friend creates a new OttoAuth account through your link and makes their first deposit, they get $5 in credits and you get $5 too. Existing accounts do not qualify.
-            </p>
+            <strong className="referral-banner-title">Give $5, get $5</strong>
+            <span className="dashboard-muted referral-banner-stat">
+              {props.referralStats.successful_referrals} · {fmtUsd(props.referralStats.total_bonus_cents)} earned
+            </span>
           </div>
           <div className="referral-banner-actions">
-            <div className="referral-copy-row">
-              <div className="referral-link">{props.referralLink}</div>
-              <button
-                type="button"
-                className="auth-button referral-copy-button"
-                onClick={handleCopyReferralLink}
-              >
-                {copiedReferralLink ? "Copied" : "Copy link"}
-              </button>
-            </div>
-            <div className="dashboard-muted">
-              Successful referrals: {props.referralStats.successful_referrals} · Earned{" "}
-              {fmtUsd(props.referralStats.total_bonus_cents)}
-            </div>
+            <button
+              type="button"
+              className="auth-button referral-copy-button"
+              onClick={handleCopyReferralLink}
+            >
+              {copiedReferralLink ? "Copied" : "Copy"}
+            </button>
           </div>
         </section>
 
@@ -351,12 +353,12 @@ export function DashboardClient(props: {
               <h1>{dashboardName}</h1>
             </Link>
             <p className="lede">
-              Generate OttoAuth API keys for agents, manage credits, and submit your own browser fulfillment orders.
+              Generate API keys for your agents, and manage their spending
             </p>
           </div>
           <div className="dashboard-actions dashboard-top-actions">
-            <Link className="auth-button primary dashboard-new-order-button" href="/orders/new">
-              Browse catalog
+            <Link className="auth-button dashboard-action-icon-button dashboard-catalog-action" href="/orders/new" aria-label="Browse catalog" title="Browse catalog">
+              <SearchIcon />
             </Link>
             <div className="dashboard-top-icon-row" role="group" aria-label="Dashboard shortcuts">
               <Link className="auth-button dashboard-action-icon-button" href="/send" aria-label="Send money" title="Send money">
