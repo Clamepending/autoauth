@@ -323,6 +323,7 @@ export function DashboardClient(props: {
             <span className="dashboard-muted referral-banner-stat">
               {props.referralStats.successful_referrals} · {fmtUsd(props.referralStats.total_bonus_cents)} earned
             </span>
+            <code className="referral-banner-link">{props.referralLink}</code>
           </div>
           <div className="referral-banner-actions">
             <button
@@ -330,7 +331,7 @@ export function DashboardClient(props: {
               className="auth-button referral-copy-button"
               onClick={handleCopyReferralLink}
             >
-              {copiedReferralLink ? "Copied" : "Copy"}
+              {copiedReferralLink ? "Copied!" : "Copy"}
             </button>
           </div>
         </section>
@@ -422,7 +423,7 @@ export function DashboardClient(props: {
                     className="auth-button"
                     onClick={handleCopyAgentCredential}
                   >
-                    {copiedAgentCredential ? "Copied" : "Copy agent credentials"}
+                    {copiedAgentCredential ? "Copied!" : "Copy agent credentials"}
                   </button>
                   <p className="dashboard-muted">
                     The private key is shown only at generation time. Create a new

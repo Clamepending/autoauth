@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 
 import { getCurrentHumanUser } from "@/lib/human-session";
 import { getFeaturedPlatforms } from "@/lib/platform-catalog";
-import { TweetEmbed } from "@/app/tweet-embed";
 
 const SERVICE_ICONS: Record<string, React.ReactNode> = {
   other: (
@@ -85,16 +84,6 @@ export default async function HomePage() {
     carouselPlatforms.slice(0, carouselSplitIndex),
     carouselPlatforms.slice(carouselSplitIndex),
   ];
-  const socialPosts = [
-    {
-      id: "first-boba",
-      html: '<blockquote class="twitter-tweet"><p lang="en" dir="ltr">First boba ordered by my agent! <a href="https://t.co/jzQI4xOp0a">pic.twitter.com/jzQI4xOp0a</a></p>&mdash; Mark (@clamepending) <a href="https://twitter.com/clamepending/status/2043109349967667560?ref_src=twsrc%5Etfw">April 11, 2026</a></blockquote>',
-    },
-    {
-      id: "agent-order",
-      html: '<blockquote class="twitter-tweet"><a href="https://twitter.com/clamepending/status/2049012594481168843?ref_src=twsrc%5Etfw"></a></blockquote>',
-    },
-  ];
 
   return (
     <main>
@@ -163,14 +152,6 @@ export default async function HomePage() {
               );
             })}
           </ul>
-        </div>
-        <div className="homepage-social">
-          <div className="homepage-social-title">From X</div>
-          <div className="homepage-social-grid">
-            {socialPosts.map((post) => (
-              <TweetEmbed key={post.id} html={post.html} />
-            ))}
-          </div>
         </div>
         <footer>Powered by Next.js + Turso. No fluff, just auth.</footer>
       </section>
