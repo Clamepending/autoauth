@@ -356,7 +356,7 @@ export function DashboardClient(props: {
           </div>
           <div className="dashboard-actions dashboard-top-actions">
             <Link className="auth-button primary" href="/orders/new">
-              New order
+              Browse catalog
             </Link>
             <Link className="auth-button dashboard-action-icon-button" href="/send" aria-label="Send money" title="Send money">
               <SendMoneyIcon />
