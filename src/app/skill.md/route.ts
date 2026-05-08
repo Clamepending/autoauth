@@ -220,6 +220,8 @@ The client rule is simple: submit all stores through the same order API, then ad
 
 Orders without an enabled native adapter appear in \`${baseUrl}/admindash\` under Human fulfillment queue. Operators use \`${baseUrl}/admindash/fulfillment/<orderId>\` to inspect the normalized request, items, files, spend cap, checklist, messages, events, and final receipt fields. Manual completion enforces \`max_charge_cents\` and debits credits only once.
 
+If \`OTTOAUTH_ADMIN_SMS_TO\` and Twilio credentials are configured, OttoAuth also texts the operator when real orders enter admin-action statuses such as \`human_required\`, \`quote_requested\`, \`awaiting_approval\`, \`blocked\`, \`failed\`, or \`disputed\`.
+
 ## Hard Rules
 
 - Never ask the human for retailer passwords, raw card numbers, CVVs, bank details, or one-time codes.

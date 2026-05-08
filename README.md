@@ -46,6 +46,7 @@ Optional auth env vars:
 - `GOOGLE_CLIENT_SECRET`
 - `OTTOAUTH_ADMIN_EMAILS=you@example.com,ops@example.com` to allow production access to `/admindash` and `/api/admin/*`
 - `OTTOAUTH_ENABLE_DEV_HUMAN_LOGIN=1` to enable the local dev human login fallback even in production-like environments
+- `OTTOAUTH_ADMIN_SMS_TO=+16095551212` plus `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` to text operators when an order enters an admin-action status
 - `OTTOAUTH_MOUSER_SEARCH_API_KEY=...` to enable Mouser Search API price/stock quote lookup when a part number is present
 - `OTTOAUTH_EBAY_ACCESS_TOKEN=...` to enable eBay Browse API listing quotes when an item id is present
 - `OTTOAUTH_JLCPCB_PRICE_MODEL_JSON={"pcb":{"base_cents":200,"per_board_cents":50,"shipping_cents":800}}` to use a local JLC estimate model when API access is unavailable
@@ -67,6 +68,7 @@ Optional auth env vars:
      - `NEXT_PUBLIC_APP_URL` or `APP_URL` - your canonical URL (e.g. `https://your-app.vercel.app`). If unset, Vercel's `VERCEL_URL` is used so curl commands and links still use the correct domain.
      - `OTTOAUTH_ADMIN_EMAILS` - comma-separated Google account emails allowed to use the production admin dashboard and admin APIs.
      - `SLACK_WEBHOOK_URL` - Slack [Incoming Webhook](https://api.slack.com/messaging/webhooks) URL. Agent requests are posted here. Set to different values per environment in Vercel (Production vs Preview) if you want different channels.
+     - `OTTOAUTH_ADMIN_SMS_TO`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` - Twilio SMS alerts for orders that need admin/operator action. Use `OTTOAUTH_ADMIN_SMS_STATUSES` to override the default statuses: `human_required`, `quote_requested`, `awaiting_approval`, `blocked`, `failed`, and `disputed`.
 
 4. **Deploy.** Vercel will build and deploy. The app URL will be used automatically for `skill.md` and the homepage curl command.
 
