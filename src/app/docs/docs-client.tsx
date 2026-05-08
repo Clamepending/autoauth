@@ -27,8 +27,12 @@ function isTabId(value: string): value is TabId {
 
 async function writeClipboard(value: string) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // Fall back to the legacy path when browser permissions block Clipboard API.
+    }
   }
 
   const textarea = document.createElement("textarea");
@@ -76,7 +80,6 @@ function CodeBlock({ label, code }: { label: string; code: string }) {
     <figure className="docs-code">
       <figcaption>
         <span>{label}</span>
-        <CopyButton value={code} />
       </figcaption>
       <pre>
         <code>{code}</code>
@@ -119,7 +122,7 @@ function AgentCompatibility({
     <section className="docs-agent-card" aria-label="LLM coding agent support">
       <div>
         <span className="docs-kicker">LLM coding agent ready</span>
-        <h2>Copy the prompt. Let the agent integrate.</h2>
+        <h2>Agent-ready by default.</h2>
         <p>
           Works with Codex, Cursor, Claude Code, and any agent that can read
           Markdown URLs.
@@ -136,20 +139,6 @@ function AgentCompatibility({
         <a href="/llms-full.txt">/llms-full.txt</a>
       </div>
     </section>
-  );
-}
-
-function AgentMini({
-  agentIntegrationPrompt,
-}: {
-  agentIntegrationPrompt: string;
-}) {
-  return (
-    <div className="docs-agent-mini">
-      <span>Agent compatible</span>
-      <p>Copy the prompt or point your coding agent at /skill.md.</p>
-      <CopyButton value={agentIntegrationPrompt} label="Copy prompt" />
-    </div>
   );
 }
 
@@ -292,7 +281,7 @@ export function DocsClient({
           <div className="docs-minimal-grid">
             <article>
               <span>1</span>
-              <h3>Copy the agent prompt</h3>
+              <h3>Give your agent the skill</h3>
               <p>
                 Paste it into Codex, Cursor, Claude Code, or another coding
                 agent. It tells the agent exactly which OttoAuth docs to read.
@@ -484,14 +473,6 @@ export function DocsClient({
             read directly.
           </p>
           <div className="docs-hero-actions">
-            <CopyButton
-              value={agentIntegrationPrompt}
-              label="Copy agent prompt"
-              className="docs-copy-button-primary"
-            />
-            <a className="docs-secondary-link" href="/api/services/order/docs">
-              Order API Markdown
-            </a>
             <span>{callableServices.length} callable services</span>
           </div>
         </section>
@@ -525,7 +506,6 @@ export function DocsClient({
             <h2>{activeTabLabel}</h2>
           </div>
           {renderTab()}
-          <AgentMini agentIntegrationPrompt={agentIntegrationPrompt} />
         </section>
       </div>
     </main>

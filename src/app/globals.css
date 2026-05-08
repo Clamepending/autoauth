@@ -5394,7 +5394,6 @@ main.admin-control-plane {
 }
 
 .docs-top-links a,
-.docs-secondary-link,
 .docs-agent-actions a {
   color: var(--ink);
   text-decoration: none;
@@ -5404,8 +5403,6 @@ main.admin-control-plane {
 
 .docs-top-links a:hover,
 .docs-top-links a:focus-visible,
-.docs-secondary-link:hover,
-.docs-secondary-link:focus-visible,
 .docs-agent-actions a:hover,
 .docs-agent-actions a:focus-visible {
   border-bottom-color: var(--ink);
@@ -5458,8 +5455,7 @@ main.admin-control-plane {
   line-height: 1.1;
 }
 
-.docs-agent-card p,
-.docs-agent-mini p {
+.docs-agent-card p {
   margin: 0;
   color: var(--muted);
   line-height: 1.5;
@@ -5584,21 +5580,6 @@ main.admin-control-plane {
   font-size: 12px;
 }
 
-.docs-agent-mini {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  border-top: 1px solid var(--line);
-  padding-top: 16px;
-}
-
-.docs-agent-mini span {
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .docs-copy-button {
   appearance: none;
   border: 1px solid var(--line);
@@ -5641,26 +5622,6 @@ main.admin-control-plane {
 .docs-code figcaption {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.docs-code figcaption .docs-copy-button {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  min-height: 32px;
-  padding: 6px 10px;
-}
-
-.docs-code figcaption .docs-copy-button:hover,
-.docs-code figcaption .docs-copy-button:focus-visible {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.docs-code figcaption .docs-copy-button[data-copied="true"] {
-  border-color: #0ca678;
-  background: #0ca678;
 }
 
 @media (max-width: 780px) {
@@ -5670,8 +5631,7 @@ main.admin-control-plane {
   }
 
   .docs-minimal-topbar,
-  .docs-agent-card,
-  .docs-agent-mini {
+  .docs-agent-card {
     grid-template-columns: 1fr;
     align-items: start;
   }
