@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OttoAuth T-Shirt Designer</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23f26d3d' d='M20 8h24l12 8-6 14-6-3v29H20V27l-6 3-6-14z'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <div class="toolbar">
+          <div>
+            <p class="eyebrow">OttoAuth demo</p>
+            <h1>T-Shirt Studio</h1>
+          </div>
+          <div class="toolbar-actions">
+            <button class="icon-button" id="randomizeButton" type="button" title="Randomize design">
+              ↻
+            </button>
+            <button class="primary-button" id="agentButton" type="button">
+              Generate
+            </button>
+            <button class="buy-button" id="buyButton" type="button">
+              Checkout
+            </button>
+          </div>
+        </div>
+
+        <div class="studio-grid">
+          <form class="control-panel" id="designForm">
+            <label>
+              Prompt
+              <textarea
+                id="prompt"
+                rows="4"
+                placeholder="retro robotics club shirt with a clean front print"
+              ></textarea>
+            </label>
+
+            <div class="field-row">
+              <label>
+                Headline
+                <input id="headline" maxlength="36" value="LOCAL ROBOTS" />
+              </label>
+              <label>
+                Subline
+                <input id="subline" maxlength="48" value="BUILD NIGHT" />
+              </label>
+            </div>
+
+            <div class="segmented" role="group" aria-label="Motif">
+              <button type="button" data-motif="badge" class="active">Badge</button>
+              <button type="button" data-motif="orbit">Orbit</button>
+              <button type="button" data-motif="wave">Wave</button>
+              <button type="button" data-motif="sunburst">Sun</button>
+              <button type="button" data-motif="stack">Stack</button>
+            </div>
+
+            <div class="swatch-row" aria-label="Shirt color">
+              <button type="button" class="swatch active" data-shirt="#f2eadf" data-name="natural" style="--swatch: #f2eadf"></button>
+              <button type="button" class="swatch" data-shirt="#ced7df" data-name="mist blue" style="--swatch: #ced7df"></button>
+              <button type="button" class="swatch" data-shirt="#22272d" data-name="washed black" style="--swatch: #22272d"></button>
+              <button type="button" class="swatch" data-shirt="#b9d2bd" data-name="sage" style="--swatch: #b9d2bd"></button>
+            </div>
+
+            <div class="field-row thirds">
+              <label>
+                Primary ink
+                <input id="inkPrimary" type="color" value="#12355b" />
+              </label>
+              <label>
+                Secondary ink
+                <input id="inkSecondary" type="color" value="#f26d3d" />
+              </label>
+              <label>
+                Accent ink
+                <input id="inkAccent" type="color" value="#f7d154" />
+              </label>
+            </div>
+
+            <div class="field-row thirds">
+              <label>
+                Size
+                <select id="size">
+                  <option>XS</option>
+                  <option>S</option>
+                  <option selected>M</option>
+                  <option>L</option>
+                  <option>XL</option>
+                  <option>2XL</option>
+                </select>
+              </label>
+              <label>
+                Qty
+                <input id="quantity" type="number" min="1" max="200" value="1" />
+              </label>
+              <label>
+                Max spend
+                <input id="maxSpendUsd" inputmode="decimal" value="20" />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label>
+                Provider
+                <select id="provider">
+                  <option value="custom_ink">Custom Ink</option>
+                  <option value="printful">Printful</option>
+                  <option value="printify">Printify</option>
+                </select>
+              </label>
+              <label>
+                Style
+                <select id="style">
+                  <option>classic unisex tee</option>
+                  <option>heavyweight boxy tee</option>
+                  <option>soft ringspun tee</option>
+                  <option>long sleeve tee</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Shipping address
+              <textarea
+                id="shippingAddress"
+                rows="3"
+                placeholder="Jane Doe&#10;123 Main St&#10;San Francisco, CA 94110"
+              ></textarea>
+            </label>
+          </form>
+
+          <section class="preview-panel">
+            <div class="shirt-frame" id="shirtFrame">
+              <svg id="shirtSvg" viewBox="0 0 500 600" aria-label="T-shirt preview">
+                <path id="shirtBody" d="M168 68 L211 42 H289 L332 68 L409 103 L372 190 L332 174 V540 H168 V174 L128 190 L91 103 Z" />
+                <path class="seam" d="M211 42 C224 78 276 78 289 42" />
+                <g id="artLayer" transform="translate(0 36)"></g>
+              </svg>
+            </div>
+
+            <div class="status-strip">
+              <div>
+                <span>Estimate</span>
+                <strong id="estimate">$24.00</strong>
+              </div>
+              <div>
+                <span>Source</span>
+                <strong>demo quote</strong>
+              </div>
+              <div>
+                <span>Mode</span>
+                <strong>hosted confirm</strong>
+              </div>
+            </div>
+          </section>
+
+          <form class="order-panel" id="ottoauthForm">
+            <div class="panel-header">
+              <h2>OttoAuth</h2>
+              <button class="secondary-button" id="previewButton" type="button">Preview</button>
+            </div>
+            <label>
+              Base URL
+              <input id="ottoauthBaseUrl" value="http://127.0.0.1:3000" />
+            </label>
+            <label>
+              Agent private key
+              <input id="privateKey" type="password" placeholder="sk-oa-..." autocomplete="off" />
+            </label>
+            <pre id="payloadPreview" class="payload-preview"></pre>
+            <div id="result" class="result"></div>
+          </form>
+        </div>
+      </section>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

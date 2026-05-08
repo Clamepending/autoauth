@@ -4045,6 +4045,253 @@ main.admin-control-plane::after {
   }
 }
 
+.checkout-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 24px 64px;
+  overflow: visible;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+    #f7f7f4;
+  background-size: 34px 34px;
+}
+
+.checkout-page::before,
+.checkout-page::after {
+  display: none;
+}
+
+.checkout-shell {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, 100%);
+  display: grid;
+  gap: 20px;
+}
+
+.checkout-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.checkout-header h1 {
+  font-size: clamp(34px, 6vw, 58px);
+}
+
+.checkout-status-text {
+  margin: 0;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkout-status-confirmed {
+  color: #067647;
+}
+
+.checkout-status-confirming {
+  color: #175cd3;
+}
+
+.checkout-status-canceled,
+.checkout-status-expired {
+  color: #b42318;
+}
+
+.checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 18px;
+  align-items: start;
+}
+
+.checkout-primary-card,
+.checkout-side-card {
+  box-shadow: 8px 8px 0 var(--shadow);
+}
+
+.checkout-price {
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.checkout-section {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--grid);
+  padding-top: 16px;
+}
+
+.checkout-section h3,
+.checkout-side-card h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.checkout-prewrap {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.checkout-file-list {
+  display: grid;
+  gap: 10px;
+}
+
+.checkout-file-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--grid);
+  background: #fafafa;
+  padding: 12px;
+}
+
+.checkout-file-row div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.checkout-file-row strong,
+.checkout-file-row span {
+  overflow-wrap: anywhere;
+}
+
+.checkout-file-row span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkout-file-row a {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  flex: 0 0 auto;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.checkout-side-card {
+  position: sticky;
+  top: 24px;
+}
+
+.checkout-account {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--grid);
+  background: #fafafa;
+  padding: 14px;
+  margin-top: 12px;
+}
+
+.checkout-account span {
+  color: var(--muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.checkout-field {
+  display: grid;
+  gap: 7px;
+}
+
+.checkout-field > span:first-child {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.checkout-field small,
+.checkout-note {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.checkout-money-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.checkout-money-input > span {
+  padding: 0 10px 0 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.checkout-money-input input {
+  min-width: 0;
+  border: 0;
+  border-left: 1px solid var(--grid);
+  background: transparent;
+  padding: 12px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.checkout-money-input input:disabled {
+  color: var(--muted);
+  background: #f3f3f0;
+}
+
+.checkout-note {
+  margin: 0;
+  font-size: 14px;
+}
+
+.checkout-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.checkout-actions .auth-button {
+  width: 100%;
+}
+
+@media (max-width: 820px) {
+  .checkout-page {
+    padding: 24px 14px 48px;
+  }
+
+  .checkout-header,
+  .checkout-grid,
+  .checkout-file-row {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-header,
+  .checkout-file-row {
+    display: grid;
+  }
+
+  .checkout-side-card {
+    position: static;
+  }
+
+  .checkout-price {
+    white-space: normal;
+  }
+}
+
 /* Sitewide glass minimal theme */
 :root {
   color-scheme: light;
