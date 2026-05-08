@@ -324,7 +324,7 @@ export function DashboardClient(props: {
           </div>
           <div className="dashboard-actions dashboard-top-actions">
             <Link className="auth-button primary" href="/orders/new">
-              New order
+              Browse catalog
             </Link>
             <Link className="auth-button" href="/send">
               Send money

@@ -138,6 +138,20 @@ async function main() {
     assert(amazonQuoteRes.data.quote.goods_cents === 4217, `Expected scraped Amazon price 4217, got ${amazonQuoteRes.text}`);
     assert(amazonQuoteRes.data.quote.product_title === 'Deterministic Test Item', `Expected scraped title, got ${amazonQuoteRes.text}`);
 
+    const amazonSearchRes = await request('/v1/search', {
+      headers: { authorization: `Bearer ${privateKey}` },
+      json: {
+        query: `Find this direct Amazon fixture product ${fixture.url}`,
+        platform: 'amazon',
+        url: fixture.url,
+      },
+    });
+    assert(amazonSearchRes.response.ok, `Amazon search failed: ${amazonSearchRes.text}`);
+    assert(Array.isArray(amazonSearchRes.data.offers), `Search response missing offers: ${amazonSearchRes.text}`);
+    assert(amazonSearchRes.data.offers.length > 0, `Expected at least one search offer, got ${amazonSearchRes.text}`);
+    assert(amazonSearchRes.data.offers[0].source === 'amazon_product_page_scrape', `Expected Amazon scrape offer, got ${amazonSearchRes.text}`);
+    assert(amazonSearchRes.data.offers[0].estimated_total_cents === 4217, `Expected search offer total 4217, got ${amazonSearchRes.text}`);
+
     const jlcQuoteRes = await request('/v1/quotes', {
       headers: { authorization: `Bearer ${privateKey}` },
       json: {
@@ -208,6 +222,7 @@ async function main() {
       checked: [
         'manual quote endpoint',
         'Amazon non-browser HTML scrape quote',
+        'supported-offer search direct URL quote',
         hasJlcPricingModel
           ? 'JLC manual pricing model estimate'
           : 'JLC unavailable/retroactive fallback',

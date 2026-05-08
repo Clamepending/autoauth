@@ -327,8 +327,14 @@ function manualQuote(input: NonBrowserPriceQuoteInput) {
         input.merchantName,
         input.platformHint,
       ]) ?? "Manual price";
-    const confidence =
-      firstString([candidate.confidence]) === "exact" ? "exact" : "medium";
+    const rawConfidence = firstString([candidate.confidence]);
+    const confidence: NonBrowserPriceQuoteConfidence =
+      rawConfidence === "exact" ||
+      rawConfidence === "high" ||
+      rawConfidence === "medium" ||
+      rawConfidence === "low"
+        ? rawConfidence
+        : "medium";
     const manualSource =
       firstString([candidate.source]) ??
       (candidate === payload ? "explicit_price_fields" : "manual_price_quote");

@@ -3642,3 +3642,248 @@ main.admin-control-plane::after {
     max-height: 50vh;
   }
 }
+
+.catalog-minimal-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: visible;
+  padding: 24px;
+  background: #f7f8fa;
+}
+
+.catalog-minimal-page::before,
+.catalog-minimal-page::after {
+  display: none;
+}
+
+.catalog-minimal-shell {
+  position: relative;
+  z-index: 1;
+  width: min(760px, 100%);
+  display: grid;
+  gap: 22px;
+  margin: 0 auto;
+}
+
+.catalog-minimal-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.catalog-minimal-nav a {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.catalog-minimal-search {
+  display: grid;
+  gap: 18px;
+  padding-top: min(12vh, 96px);
+}
+
+.catalog-minimal-search h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(34px, 7vw, 62px);
+  line-height: 0.98;
+  text-align: center;
+}
+
+.catalog-minimal-form {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 8px 8px 8px 22px;
+  box-shadow:
+    0 22px 70px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(24px);
+}
+
+.catalog-minimal-form svg {
+  color: #64748b;
+}
+
+.catalog-minimal-form input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.catalog-minimal-form input::placeholder {
+  color: #94a3b8;
+}
+
+.catalog-minimal-form button,
+.catalog-minimal-order button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  min-height: 52px;
+  padding: 0 20px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.catalog-minimal-form button:disabled,
+.catalog-minimal-order button:disabled {
+  opacity: 0.58;
+  cursor: default;
+}
+
+.catalog-minimal-error,
+.catalog-minimal-empty {
+  color: #b42318;
+  text-align: center;
+  font-size: 14px;
+}
+
+.catalog-minimal-empty {
+  color: #64748b;
+}
+
+.catalog-minimal-results {
+  display: grid;
+  gap: 10px;
+}
+
+.catalog-minimal-offer {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.07);
+  overflow: hidden;
+  backdrop-filter: blur(18px);
+}
+
+.catalog-minimal-offer.selected {
+  border-color: rgba(15, 23, 42, 0.34);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.catalog-minimal-offer > button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  width: 100%;
+  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+}
+
+.catalog-minimal-offer > button > span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.catalog-minimal-offer > button > span:last-child {
+  justify-items: end;
+  text-align: right;
+}
+
+.catalog-minimal-offer strong {
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.catalog-minimal-offer span span,
+.catalog-minimal-order {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.catalog-minimal-order {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 14px 16px 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.catalog-minimal-order button {
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .catalog-minimal-page {
+    padding: 18px 12px 32px;
+  }
+
+  .catalog-minimal-shell {
+    gap: 18px;
+  }
+
+  .catalog-minimal-search {
+    padding-top: 54px;
+  }
+
+  .catalog-minimal-search h1 {
+    text-align: left;
+    font-size: clamp(34px, 12vw, 48px);
+  }
+
+  .catalog-minimal-form {
+    grid-template-columns: auto minmax(0, 1fr);
+    border-radius: 24px;
+    padding: 16px;
+  }
+
+  .catalog-minimal-form button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .catalog-minimal-offer > button {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .catalog-minimal-offer > button > span:last-child {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .catalog-minimal-order {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .catalog-minimal-order button {
+    width: 100%;
+  }
+}
