@@ -119,7 +119,7 @@ export function getManifest(): ServiceManifest {
         method: "POST",
         path: "/v1/quotes",
         description:
-          "Return the best non-browser price quote for an order request without creating an order. Uses manual price fields, deterministic direct Amazon product-page scraping, configured supplier APIs, configured JLC pricing models, then retroactive billing fallback.",
+          "Return the best non-browser price quote for an order request without creating an order. Uses manual price fields, deterministic direct Amazon product-page scraping, curated McMaster-Carr/DigiKey estimate catalogs, configured supplier APIs, configured JLC pricing models, then retroactive billing fallback.",
         params: {
           Authorization: { type: "string", required: true, description: "Bearer private key." },
           task_prompt: {
@@ -130,7 +130,7 @@ export function getManifest(): ServiceManifest {
           store: {
             type: "string",
             required: false,
-            description: "Store or platform, such as amazon, mouser, ebay, jlcpcb, or manual.",
+            description: "Store or platform, such as amazon, digikey, mcmaster, mouser, ebay, jlcpcb, or manual.",
           },
           store_url: {
             type: "string",

@@ -102,7 +102,7 @@ curl -s -X POST ${baseUrl}/v1/quotes \\
   }'
 \`\`\`
 
-Quotes never open a browser and never create an order. OttoAuth tries explicit/manual price fields, direct Amazon product-page scraping, configured supplier APIs such as Mouser/eBay, configured local pricing models such as \`OTTOAUTH_JLCPCB_PRICE_MODEL_JSON\`, then \`retroactive_after_fulfillment\` when no non-browser price source is available. Order creation stores the same result in \`order.quote\` and \`price_quote\`.
+Quotes never open a browser and never create an order. OttoAuth tries explicit/manual price fields, direct Amazon product-page scraping, curated McMaster-Carr/DigiKey estimate catalogs, configured supplier APIs such as Mouser/eBay, configured local pricing models such as \`OTTOAUTH_JLCPCB_PRICE_MODEL_JSON\`, then \`retroactive_after_fulfillment\` when no non-browser price source is available. Order creation stores the same result in \`order.quote\` and \`price_quote\`.
 
 ## Orders With Files
 

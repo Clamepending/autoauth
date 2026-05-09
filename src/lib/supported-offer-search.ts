@@ -2,10 +2,14 @@ import {
   resolveNonBrowserPriceQuote,
   type NonBrowserPriceQuote,
 } from "@/lib/non-browser-price-quotes";
+import { searchDigiKeyCatalog } from "@/lib/digikey-catalog";
+import { searchMcMasterCatalog } from "@/lib/mcmaster-catalog";
 
 export type SupportedOfferPlatform =
   | "amazon"
+  | "digikey"
   | "mouser"
+  | "mcmaster"
   | "ebay"
   | "jlcpcb"
   | "ottoauth";
@@ -93,8 +97,19 @@ function positiveInteger(value: unknown) {
 function normalizePlatform(value: unknown): SupportedOfferPlatform | "all" | null {
   const raw = stringValue(value, 80)?.toLowerCase();
   if (!raw || raw === "all") return raw === "all" ? "all" : null;
-  if (raw === "amazon" || raw === "mouser" || raw === "ebay" || raw === "jlcpcb") {
+  if (
+    raw === "amazon" ||
+    raw === "digikey" ||
+    raw === "mouser" ||
+    raw === "mcmaster" ||
+    raw === "ebay" ||
+    raw === "jlcpcb"
+  ) {
     return raw;
+  }
+  if (raw === "digi-key" || raw === "digi key") return "digikey";
+  if (raw === "mcmaster-carr" || raw === "mcmaster carr" || raw === "mcmaster_carr") {
+    return "mcmaster";
   }
   if (raw === "jlc" || raw === "jlc pcb") return "jlcpcb";
   if (raw === "ottoauth" || raw === "agent" || raw === "manual") return "ottoauth";
@@ -115,7 +130,7 @@ function normalizeUrl(value: unknown) {
 
 function firstUrlFromText(text: string) {
   const match = text.match(
-    /\b((?:https?:\/\/|www\.)[^\s<>"']+|(?:amazon|ebay|mouser|jlcpcb)\.com\/[^\s<>"']+)/i,
+    /\b((?:https?:\/\/|www\.)[^\s<>"']+|(?:amazon|ebay|mouser|digikey|mcmaster|jlcpcb)\.com\/[^\s<>"']+)/i,
   );
   return normalizeUrl(match?.[1]);
 }
@@ -128,7 +143,9 @@ function platformFromUrl(url: string | null): SupportedOfferPlatform | null {
       return "amazon";
     }
     if (host === "ebay.com" || host.endsWith(".ebay.com")) return "ebay";
+    if (host === "digikey.com" || host.endsWith(".digikey.com")) return "digikey";
     if (host === "mouser.com" || host.endsWith(".mouser.com")) return "mouser";
+    if (host === "mcmaster.com" || host.endsWith(".mcmaster.com")) return "mcmaster";
     if (host === "jlcpcb.com" || host.endsWith(".jlcpcb.com")) return "jlcpcb";
   } catch {
     return null;
@@ -138,6 +155,16 @@ function platformFromUrl(url: string | null): SupportedOfferPlatform | null {
 
 function includesPlatform(platform: SupportedOfferPlatform | "all" | null, candidate: SupportedOfferPlatform) {
   return !platform || platform === "all" || platform === candidate;
+}
+
+function merchantForPlatform(platform: SupportedOfferPlatform) {
+  if (platform === "jlcpcb") return "JLCPCB";
+  if (platform === "digikey") return "DigiKey";
+  if (platform === "mcmaster") return "McMaster-Carr";
+  if (platform === "mouser") return "Mouser";
+  if (platform === "ebay") return "eBay";
+  if (platform === "amazon") return "Amazon";
+  return "OttoAuth";
 }
 
 function stableOfferId(parts: Array<string | number | null | undefined>) {
@@ -495,6 +522,20 @@ function sourceStatus(platform: SupportedOfferPlatform): SupportedOfferSearchRes
           : "fallback",
     };
   }
+  if (platform === "digikey") {
+    return {
+      platform,
+      label: "DigiKey curated catalog",
+      status: "configured",
+    };
+  }
+  if (platform === "mcmaster") {
+    return {
+      platform,
+      label: "McMaster-Carr curated catalog",
+      status: "configured",
+    };
+  }
   if (platform === "jlcpcb") {
     return {
       platform,
@@ -554,7 +595,9 @@ export async function searchSupportedOffers(
   const explicitUrlPlatform =
     platformFromUrl(explicitUrl) ??
     (platform === "amazon" ||
+    platform === "digikey" ||
     platform === "mouser" ||
+    platform === "mcmaster" ||
     platform === "ebay" ||
     platform === "jlcpcb"
       ? platform
@@ -587,14 +630,7 @@ export async function searchSupportedOffers(
         quote,
         query,
         platform: explicitUrlPlatform,
-        merchant:
-          explicitUrlPlatform === "jlcpcb"
-            ? "JLCPCB"
-            : explicitUrlPlatform === "mouser"
-              ? "Mouser"
-              : explicitUrlPlatform === "ebay"
-                ? "eBay"
-                : "Amazon",
+        merchant: merchantForPlatform(explicitUrlPlatform),
         fallbackTitle: query,
         description: "Direct supported product URL with order-time quote revalidation.",
         url: explicitUrl,
@@ -602,6 +638,128 @@ export async function searchSupportedOffers(
         tags: ["direct url", "quote checked", "revalidated"],
       }),
     );
+  }
+
+  if (includesPlatform(platform, "digikey") && query && offers.length < limit) {
+    const items = searchDigiKeyCatalog(query, limit - offers.length);
+    for (const item of items) {
+      const quote = await resolveNonBrowserPriceQuote({
+        payload: {
+          task: `Order ${item.manufacturerPartNumber} from DigiKey.`,
+          platform_hint: "digikey",
+          merchant_name: "DigiKey",
+          part_number: item.manufacturerPartNumber,
+          manufacturer_part_number: item.manufacturerPartNumber,
+          quantity,
+        },
+        rawTask: query,
+        taskPrompt: query,
+        websiteUrl: item.url,
+        merchantName: "DigiKey",
+        platformHint: "digikey",
+        requestJson: {
+          task: query,
+          platform_hint: "digikey",
+          part_number: item.manufacturerPartNumber,
+        },
+      });
+      offers.push(
+        quoteToOffer({
+          quote,
+          query,
+          platform: "digikey",
+          merchant: "DigiKey",
+          fallbackTitle: item.title,
+          description:
+            "DigiKey catalog estimate from common prototype/electronics SKUs. Shipping, tax, and stock are rechecked at order time.",
+          url: item.url,
+          quantity,
+          tags: ["electronics", "catalog estimate", "revalidated"],
+        }),
+      );
+    }
+    if (
+      items.length === 0 &&
+      (platform === "digikey" ||
+        normalizedQuery.includes("digikey") ||
+        normalizedQuery.includes("digi key") ||
+        normalizedQuery.includes("digi-key"))
+    ) {
+      offers.push(
+        fallbackOffer({
+          query,
+          platform: "digikey",
+          merchant: "DigiKey",
+          title: `Find DigiKey parts for "${query}"`,
+          description:
+            "DigiKey catalog estimates work best with a manufacturer part number or common prototype component name.",
+          source: "digikey_catalog_no_match",
+          sourceLabel: "DigiKey catalog lookup",
+          tags: ["electronics", "needs part number"],
+          quantity,
+        }),
+      );
+    }
+  }
+
+  if (includesPlatform(platform, "mcmaster") && query && offers.length < limit) {
+    const items = searchMcMasterCatalog(query, limit - offers.length);
+    for (const item of items) {
+      const quote = await resolveNonBrowserPriceQuote({
+        payload: {
+          task: `Order ${item.partNumber} from McMaster-Carr.`,
+          platform_hint: "mcmaster",
+          merchant_name: "McMaster-Carr",
+          part_number: item.partNumber,
+          quantity,
+        },
+        rawTask: query,
+        taskPrompt: query,
+        websiteUrl: item.url,
+        merchantName: "McMaster-Carr",
+        platformHint: "mcmaster",
+        requestJson: {
+          task: query,
+          platform_hint: "mcmaster",
+          part_number: item.partNumber,
+        },
+      });
+      offers.push(
+        quoteToOffer({
+          quote,
+          query,
+          platform: "mcmaster",
+          merchant: "McMaster-Carr",
+          fallbackTitle: item.title,
+          description:
+            "McMaster-Carr catalog estimate from common fasteners and shop hardware. Shipping and tax are rechecked at order time.",
+          url: item.url,
+          quantity,
+          tags: ["hardware", "catalog estimate", "revalidated"],
+        }),
+      );
+    }
+    if (
+      items.length === 0 &&
+      (platform === "mcmaster" ||
+        normalizedQuery.includes("mcmaster") ||
+        normalizedQuery.includes("mc master"))
+    ) {
+      offers.push(
+        fallbackOffer({
+          query,
+          platform: "mcmaster",
+          merchant: "McMaster-Carr",
+          title: `Find McMaster-Carr hardware for "${query}"`,
+          description:
+            "McMaster estimates work best with exact McMaster part numbers or common metric fastener descriptions.",
+          source: "mcmaster_catalog_no_match",
+          sourceLabel: "McMaster-Carr catalog lookup",
+          tags: ["hardware", "needs part number"],
+          quantity,
+        }),
+      );
+    }
   }
 
   if (includesPlatform(platform, "ebay") && query && offers.length < limit) {
@@ -771,7 +929,9 @@ export async function searchSupportedOffers(
     searched_at: new Date().toISOString(),
     supported_sources: [
       sourceStatus("amazon"),
+      sourceStatus("digikey"),
       sourceStatus("mouser"),
+      sourceStatus("mcmaster"),
       sourceStatus("ebay"),
       sourceStatus("jlcpcb"),
       sourceStatus("ottoauth"),

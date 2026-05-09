@@ -1,4 +1,14 @@
 import { scrapeAmazonPrice } from "@/services/amazon/scraper";
+import {
+  digikeyPartNumberFromText,
+  findDigiKeyCatalogItem,
+  priceDigiKeyCatalogItem,
+} from "@/lib/digikey-catalog";
+import {
+  findMcMasterCatalogItem,
+  mcmasterPartNumberFromText,
+  priceMcMasterCatalogItem,
+} from "@/lib/mcmaster-catalog";
 
 export type NonBrowserPriceQuoteStatus = "priced" | "estimated" | "unavailable";
 
@@ -481,6 +491,108 @@ function isMouserContext(input: NonBrowserPriceQuoteInput) {
   return text.includes("mouser") || text.includes("mouser.com");
 }
 
+function isMcMasterContext(input: NonBrowserPriceQuoteInput) {
+  const text = contextText(input);
+  return (
+    text.includes("mcmaster") ||
+    text.includes("mc master") ||
+    text.includes("mcmaster.com") ||
+    text.includes("mcmaster_carr")
+  );
+}
+
+function mcmasterCatalogQuote(input: NonBrowserPriceQuoteInput) {
+  const text = contextText(input);
+  const partNumber =
+    mcmasterPartNumberFromText(explicitPartNumber(input)) ??
+    mcmasterPartNumberFromText(input.websiteUrl) ??
+    mcmasterPartNumberFromText(text);
+  const item = findMcMasterCatalogItem({
+    partNumber,
+    query: text,
+    url: input.websiteUrl,
+  });
+  if (!item || (!isMcMasterContext(input) && !partNumber)) return null;
+
+  const priced = priceMcMasterCatalogItem(item, quantityFromInput(input.payload));
+  return quoteBase({
+    status: "estimated",
+    source: "mcmaster_curated_catalog",
+    sourceLabel: "McMaster-Carr curated catalog",
+    confidence: "medium",
+    billingMode: "estimated_then_reconciled",
+    billedRetroactively: true,
+    currency: "usd",
+    goodsCents: priced.totalCents,
+    totalCents: priced.totalCents,
+    productTitle: item.title,
+    productUrl: item.url,
+    lineItems: [
+      {
+        label: `${item.partNumber} ${item.unitOfMeasure}`,
+        amount_cents: priced.totalCents,
+        quantity: priced.packageCount,
+        unit_cents: priced.packagePriceCents,
+      },
+    ],
+    includedComponents: ["catalog_item_price", "catalog_stock_snapshot", "safety_margin"],
+    missingComponents: ["shipping", "tax", "final_checkout_total"],
+    message:
+      `Estimated from a curated McMaster-Carr catalog snapshot (${item.sourcePriceDisplay}) with a safety margin. Shipping, tax, and final checkout total are revalidated before purchase.`,
+  });
+}
+
+function isDigiKeyContext(input: NonBrowserPriceQuoteInput) {
+  const text = contextText(input);
+  return (
+    text.includes("digikey") ||
+    text.includes("digi key") ||
+    text.includes("digi-key") ||
+    text.includes("digikey.com")
+  );
+}
+
+function digikeyCatalogQuote(input: NonBrowserPriceQuoteInput) {
+  const text = contextText(input);
+  const partNumber =
+    explicitPartNumber(input) ??
+    digikeyPartNumberFromText(input.websiteUrl) ??
+    digikeyPartNumberFromText(text);
+  const item = findDigiKeyCatalogItem({
+    partNumber,
+    query: text,
+    url: input.websiteUrl,
+  });
+  if (!item || (!isDigiKeyContext(input) && !partNumber)) return null;
+
+  const priced = priceDigiKeyCatalogItem(item, quantityFromInput(input.payload));
+  return quoteBase({
+    status: "estimated",
+    source: "digikey_curated_catalog",
+    sourceLabel: "DigiKey curated catalog",
+    confidence: item.stockStatus === "limited" ? "low" : "medium",
+    billingMode: "estimated_then_reconciled",
+    billedRetroactively: true,
+    currency: "usd",
+    goodsCents: priced.totalCents,
+    totalCents: priced.totalCents,
+    productTitle: item.title,
+    productUrl: item.url,
+    lineItems: [
+      {
+        label: `${item.manufacturerPartNumber} ${item.packaging}`,
+        amount_cents: priced.totalCents,
+        quantity: priced.requestedQuantity,
+        unit_cents: Math.max(1, Math.round(priced.selectedBreak.unitPriceMicros / 10_000)),
+      },
+    ],
+    includedComponents: ["catalog_item_price", "catalog_stock_snapshot", "safety_margin"],
+    missingComponents: ["shipping", "tax", "final_checkout_total"],
+    message:
+      `Estimated from a curated DigiKey catalog snapshot (${item.sourcePriceDisplay}) with a safety margin. Shipping, tax, and final checkout total are revalidated before purchase.`,
+  });
+}
+
 function parseMouserPrice(value: unknown) {
   if (typeof value === "number") return centsFromUsdField(value);
   if (typeof value === "string") return centsFromUsdField(value);
@@ -837,6 +949,12 @@ export async function resolveNonBrowserPriceQuote(
 
   const amazon = await amazonQuote(input);
   if (amazon) return amazon;
+
+  const mcmaster = mcmasterCatalogQuote(input);
+  if (mcmaster) return mcmaster;
+
+  const digikey = digikeyCatalogQuote(input);
+  if (digikey) return digikey;
 
   const mouser = await mouserQuote(input);
   if (mouser) return mouser;

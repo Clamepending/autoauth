@@ -35,7 +35,7 @@ service:
 - `POST /v1/quotes` to get the best non-browser price quote without creating an order
 - `GET /v1/orders/<orderId>` to poll status
 
-`/v1/quotes` and order creation use manual price fields, deterministic direct Amazon product-page scraping, configured supplier APIs such as Mouser/eBay, configured local pricing models such as `OTTOAUTH_JLCPCB_PRICE_MODEL_JSON`, then `retroactive_after_fulfillment` when no non-browser source can price the order.
+`/v1/quotes` and order creation use manual price fields, deterministic direct Amazon product-page scraping, curated McMaster-Carr/DigiKey estimate catalogs, configured supplier APIs such as Mouser/eBay, configured local pricing models such as `OTTOAUTH_JLCPCB_PRICE_MODEL_JSON`, then `retroactive_after_fulfillment` when no non-browser source can price the order.
 
 ## Current flow
 

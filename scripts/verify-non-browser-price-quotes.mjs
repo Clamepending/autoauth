@@ -152,6 +152,55 @@ async function main() {
     assert(amazonSearchRes.data.offers[0].source === 'amazon_product_page_scrape', `Expected Amazon scrape offer, got ${amazonSearchRes.text}`);
     assert(amazonSearchRes.data.offers[0].estimated_total_cents === 4217, `Expected search offer total 4217, got ${amazonSearchRes.text}`);
 
+    const mcmasterQuoteRes = await request('/v1/quotes', {
+      headers: { authorization: `Bearer ${privateKey}` },
+      json: {
+        task: 'Quote McMaster part 91292A113.',
+        store: 'mcmaster',
+        part_number: '91292A113',
+        quantity: 1,
+      },
+    });
+    assert(mcmasterQuoteRes.response.ok, `McMaster quote failed: ${mcmasterQuoteRes.text}`);
+    assert(mcmasterQuoteRes.data.quote.source === 'mcmaster_curated_catalog', `Expected McMaster catalog source, got ${mcmasterQuoteRes.text}`);
+    assert(mcmasterQuoteRes.data.quote.total_cents === 687, `Expected McMaster 5% margin total 687, got ${mcmasterQuoteRes.text}`);
+
+    const mcmasterSearchRes = await request('/v1/search', {
+      headers: { authorization: `Bearer ${privateKey}` },
+      json: {
+        query: 'M3 x 10 socket head screw McMaster',
+        platform: 'mcmaster',
+      },
+    });
+    assert(mcmasterSearchRes.response.ok, `McMaster search failed: ${mcmasterSearchRes.text}`);
+    assert(Array.isArray(mcmasterSearchRes.data.offers), `McMaster search response missing offers: ${mcmasterSearchRes.text}`);
+    assert(mcmasterSearchRes.data.offers.some((offer) => offer.source === 'mcmaster_curated_catalog'), `Expected McMaster catalog offer, got ${mcmasterSearchRes.text}`);
+
+    const digikeyQuoteRes = await request('/v1/quotes', {
+      headers: { authorization: `Bearer ${privateKey}` },
+      json: {
+        task: 'Quote DigiKey LM358P op amp.',
+        store: 'digikey',
+        part_number: 'LM358P',
+        quantity: 1,
+      },
+    });
+    assert(digikeyQuoteRes.response.ok, `DigiKey quote failed: ${digikeyQuoteRes.text}`);
+    assert(digikeyQuoteRes.data.quote.source === 'digikey_curated_catalog', `Expected DigiKey catalog source, got ${digikeyQuoteRes.text}`);
+    assert(digikeyQuoteRes.data.quote.total_cents === 29, `Expected DigiKey 5% margin total 29, got ${digikeyQuoteRes.text}`);
+
+    const digikeySearchRes = await request('/v1/search', {
+      headers: { authorization: `Bearer ${privateKey}` },
+      json: {
+        query: 'DigiKey 10k 0805 resistor',
+        platform: 'digikey',
+        quantity: 100,
+      },
+    });
+    assert(digikeySearchRes.response.ok, `DigiKey search failed: ${digikeySearchRes.text}`);
+    assert(Array.isArray(digikeySearchRes.data.offers), `DigiKey search response missing offers: ${digikeySearchRes.text}`);
+    assert(digikeySearchRes.data.offers.some((offer) => offer.source === 'digikey_curated_catalog'), `Expected DigiKey catalog offer, got ${digikeySearchRes.text}`);
+
     const jlcQuoteRes = await request('/v1/quotes', {
       headers: { authorization: `Bearer ${privateKey}` },
       json: {
@@ -223,6 +272,10 @@ async function main() {
         'manual quote endpoint',
         'Amazon non-browser HTML scrape quote',
         'supported-offer search direct URL quote',
+        'McMaster curated catalog quote',
+        'McMaster supported-offer catalog search',
+        'DigiKey curated catalog quote',
+        'DigiKey supported-offer catalog search',
         hasJlcPricingModel
           ? 'JLC manual pricing model estimate'
           : 'JLC unavailable/retroactive fallback',
