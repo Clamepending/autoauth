@@ -229,7 +229,7 @@
     this.baseUrl = this.baseUrl.replace(/\/+$/, "");
   }
 
-  CheckoutClient.prototype.createSession = async function (options) {
+  CheckoutClient.prototype.buildSessionBody = async function (options) {
     var opts = Object.assign({}, options || {});
     var order = toSnakeOrder(opts.order || opts);
     var files = await normalizeFiles(opts.files || order.files);
@@ -251,6 +251,11 @@
       metadata: Object.assign({}, this.config.metadata || {}, opts.metadata || {}),
       order: order,
     };
+    return body;
+  };
+
+  CheckoutClient.prototype.createSession = async function (options) {
+    var body = await this.buildSessionBody(options);
 
     var response = await fetch(this.baseUrl + "/v1/checkout/sessions", {
       method: "POST",
@@ -270,6 +275,41 @@
     return payload;
   };
 
+  function submitCheckoutHandoff(action, body) {
+    if (!document || !document.createElement) {
+      throw new Error("OttoAuth browser checkout requires a document.");
+    }
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = action;
+    form.enctype = "application/x-www-form-urlencoded";
+    form.acceptCharset = "UTF-8";
+    form.style.display = "none";
+
+    var payload = document.createElement("textarea");
+    payload.name = "payload";
+    payload.value = JSON.stringify(body);
+    form.appendChild(payload);
+
+    (document.body || document.documentElement).appendChild(form);
+    if (window.HTMLFormElement && window.HTMLFormElement.prototype.submit) {
+      window.HTMLFormElement.prototype.submit.call(form);
+    } else {
+      form.submit();
+    }
+
+    return {
+      ok: true,
+      handoff: true,
+      url: action,
+    };
+  }
+
+  CheckoutClient.prototype.handoffToCheckout = async function (options) {
+    var body = await this.buildSessionBody(options);
+    return submitCheckoutHandoff(this.baseUrl + "/checkout/import/browser", body);
+  };
+
   CheckoutClient.prototype.redirectToCheckout = async function (options) {
     var payload = await this.createSession(options);
     var checkoutUrl =
@@ -287,14 +327,22 @@
 
   function buy(options) {
     var normalized = fromShorthand(options);
-    return init({
+    var client = init({
       baseUrl: normalized.baseUrl,
       appId: normalized.appId,
       appName: normalized.appName,
       successUrl: normalized.successUrl,
       cancelUrl: normalized.cancelUrl,
       metadata: normalized.metadata,
-    }).redirectToCheckout(normalized);
+    });
+    if (
+      normalized.redirect === false ||
+      normalized.transport === "fetch" ||
+      normalized.mode === "fetch"
+    ) {
+      return client.redirectToCheckout(normalized);
+    }
+    return client.handoffToCheckout(normalized);
   }
 
   window.OttoAuthCheckout = {

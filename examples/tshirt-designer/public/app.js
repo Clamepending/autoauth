@@ -305,8 +305,9 @@ async function buyWithOttoAuth() {
   }
 
   els.buyButton.disabled = true;
+  let handedOff = false;
   try {
-    showBanner("ok", "Opening OttoAuth", "Creating the hosted checkout with the artwork attached.");
+    showBanner("ok", "Opening OttoAuth", "Handing the artwork and spend cap to hosted checkout.");
     const configuredBaseUrl = String(window.OTTOAUTH_BASE_URL || "");
     const order = buildOrder();
     const session = await window.OttoAuth.buy({
@@ -333,6 +334,10 @@ async function buyWithOttoAuth() {
       },
       files: ["#shirtSvg"],
     });
+    if (session?.handoff) {
+      handedOff = true;
+      return;
+    }
     showResult("ok", {
       checkout_session: session.id || session.session?.id,
       redirecting_to: session.url || session.session?.url,
@@ -345,7 +350,9 @@ async function buyWithOttoAuth() {
     );
     showResult("error", error?.payload || error?.message || "Checkout failed.");
   } finally {
-    els.buyButton.disabled = false;
+    if (!handedOff) {
+      els.buyButton.disabled = false;
+    }
   }
 }
 
