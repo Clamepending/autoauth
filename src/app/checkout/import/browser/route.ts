@@ -70,10 +70,16 @@ function renderImportPage(params: {
         color: #9f1d1d;
       }
       .back-link {
+        background: transparent;
+        border: 0;
         color: #111111;
+        cursor: pointer;
         display: none;
+        font: inherit;
         font-weight: 800;
         margin-top: 18px;
+        padding: 0;
+        text-decoration: underline;
       }
       .back-link.visible {
         display: inline-block;
@@ -86,7 +92,7 @@ function renderImportPage(params: {
       <h1>Preparing Order</h1>
       <section class="panel" aria-live="polite">
         <p class="message" id="message">Loading checkout details...</p>
-        <a class="back-link" id="backLink" href="javascript:history.back()">Back to app</a>
+        <button class="back-link" id="backLink" type="button">Back to app</button>
       </section>
     </main>
     <script>
@@ -95,6 +101,9 @@ function renderImportPage(params: {
         var initialError = ${scriptString(initialError)};
         var message = document.getElementById("message");
         var backLink = document.getElementById("backLink");
+        backLink.addEventListener("click", function () {
+          history.back();
+        });
 
         function fail(text) {
           message.textContent = text || "OttoAuth could not prepare this checkout.";
@@ -213,7 +222,11 @@ export async function POST(request: Request) {
   } catch (error) {
     return renderImportPage({
       initialError:
-        error instanceof Error ? error.message : "Checkout payload is invalid.",
+        error instanceof SyntaxError
+          ? "Checkout payload is invalid."
+          : error instanceof Error
+            ? error.message
+            : "Checkout payload is invalid.",
       status: 400,
     });
   }
