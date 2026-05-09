@@ -6,6 +6,10 @@
     <title>OttoAuth T-Shirt Designer</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23f26d3d' d='M20 8h24l12 8-6 14-6-3v29H20V27l-6 3-6-14z'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/styles.css" />
+    <script>
+      window.OTTOAUTH_BASE_URL = "__OTTOAUTH_BASE_URL__";
+    </script>
+    <script src="__OTTOAUTH_BASE_URL__/checkout.js"></script>
   </head>
   <body>
     <main class="app-shell">
@@ -137,8 +141,8 @@
           <section class="preview-panel">
             <div class="shirt-frame" id="shirtFrame">
               <svg id="shirtSvg" viewBox="0 0 500 600" aria-label="T-shirt preview">
-                <path id="shirtBody" d="M168 68 L211 42 H289 L332 68 L409 103 L372 190 L332 174 V540 H168 V174 L128 190 L91 103 Z" />
-                <path class="seam" d="M211 42 C224 78 276 78 289 42" />
+                <path id="shirtBody" d="M168 68 L211 42 H289 L332 68 L409 103 L372 190 L332 174 V540 H168 V174 L128 190 L91 103 Z" fill="#f2eadf" stroke="#18212a" stroke-width="8" stroke-linejoin="round" />
+                <path class="seam" d="M211 42 C224 78 276 78 289 42" fill="none" stroke="#18212a" stroke-width="8" stroke-linecap="round" />
                 <g id="artLayer" transform="translate(0 36)"></g>
               </svg>
             </div>

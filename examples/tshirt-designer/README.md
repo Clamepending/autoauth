@@ -1,7 +1,7 @@
 # OttoAuth T-Shirt Designer Demo
 
-This is a zero-dependency localhost demo for testing how small an OttoAuth
-checkout button can be in a creative app.
+This is a zero-dependency localhost demo for testing a Stripe-style OttoAuth
+checkout button in a creative app.
 
 ```bash
 cd examples/tshirt-designer
@@ -17,14 +17,41 @@ are developing OttoAuth itself.
 
 The important integration path is intentionally small:
 
-- `POST /api/agent-design` creates a local design JSON object.
-- `POST /api/ottoauth-preview` turns the design into an OttoAuth order payload
-  for local inspection.
-- `POST /api/buy` sends a public hosted-checkout payload with the SVG embedded
-  to `POST /v1/checkout/sessions` and returns the hosted confirmation URL.
+- The page loads `https://ottoauth.vercel.app/checkout.js`.
+- The checkout button calls `OttoAuthCheckout.init(...).redirectToCheckout(...)`.
+- The helper serializes the SVG, creates the hosted checkout session, and
+  redirects the browser to OttoAuth.
 
-The frontend only needs to call the local `/api/buy` helper. The demo does not
-hold an OttoAuth private key, start Connect, store install credentials, or manage
+The demo server only serves static files and injects the OttoAuth base URL for
+local development. It does not hold an OttoAuth private key, start Connect,
+store install credentials, proxy files, create checkout sessions, or manage
 local login state. The browser redirects to OttoAuth, the human signs in or
 creates an account there, confirms the order there, and OttoAuth creates the
 fulfillment order after confirmation.
+
+The shape app developers should see is:
+
+```html
+<script src="https://ottoauth.vercel.app/checkout.js"></script>
+<button id="buy">Buy</button>
+<script>
+  const checkout = OttoAuthCheckout.init({
+    appId: "my-local-app",
+    appName: "My Local App"
+  });
+
+  buy.onclick = () => checkout.redirectToCheckout({
+    order: {
+      task_title: "Custom T-shirt print",
+      task: "Order this shirt with the attached front-print artwork.",
+      merchant: "Custom Ink",
+      max_charge_cents: 2000
+    },
+    files: [{
+      name: "artwork.svg",
+      contentType: "image/svg+xml",
+      svgElement: document.querySelector("#artwork")
+    }]
+  });
+</script>
+```

@@ -1,3 +1,6 @@
+const APP_ID = "ottoauth-tshirt-designer-demo";
+const APP_NAME = "T-Shirt Studio";
+
 const state = {
   prompt: "",
   headline: "LOCAL ROBOTS",
@@ -42,6 +45,7 @@ const els = {
   estimate: document.querySelector("#estimate"),
   shirtBody: document.querySelector("#shirtBody"),
   artLayer: document.querySelector("#artLayer"),
+  shirtSvg: document.querySelector("#shirtSvg"),
   agentButton: document.querySelector("#agentButton"),
   randomizeButton: document.querySelector("#randomizeButton"),
   buyButton: document.querySelector("#buyButton"),
@@ -52,13 +56,74 @@ function money(cents) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function centsFromUsd(value) {
+  const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) : null;
+}
+
 function estimateCents() {
   const quantity = Math.max(1, Number(state.quantity || 1));
   return quantity * 2400;
 }
 
+function uniqueId(prefix) {
+  if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function text(value, max = 36) {
   return String(value || "").slice(0, max);
+}
+
+function hashByte(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash) % 256;
+}
+
+function seededPick(seed, values) {
+  return values[hashByte(seed) % values.length];
+}
+
+function generateLocalDesign(input) {
+  const prompt = String(input.prompt || "").trim();
+  const seed = `${prompt} ${input.vibe || ""} ${input.shirtColor || ""}`;
+  const palettes = {
+    mineral: ["#12355b", "#f26d3d", "#f7d154"],
+    studio: ["#222222", "#f5f0e6", "#55a3a3"],
+    signal: ["#0c2d48", "#f05454", "#f4f0bb"],
+    orchard: ["#2b463c", "#e5b769", "#e05a47"],
+  };
+  const palette = palettes[seededPick(seed, Object.keys(palettes))];
+  const motifs = ["sunburst", "badge", "wave", "orbit", "stack"];
+  const words = prompt
+    .split(/\s+/)
+    .map((word) => word.replace(/[^a-z0-9]/gi, ""))
+    .filter(Boolean);
+  const headline =
+    String(input.headline || "").trim().slice(0, 36) ||
+    words.slice(0, 3).join(" ").toUpperCase() ||
+    "LOCAL DROP";
+  const subline =
+    String(input.subline || "").trim().slice(0, 48) ||
+    seededPick(`${seed}:subline`, [
+      "SMALL BATCH",
+      "MADE ON DEMAND",
+      "STUDIO PROOF",
+      "EDITION ONE",
+    ]);
+
+  return {
+    headline,
+    subline,
+    motif: seededPick(`${seed}:motif`, motifs),
+    inkPrimary: input.inkPrimary || palette[0],
+    inkSecondary: input.inkSecondary || palette[1],
+    inkAccent: input.inkAccent || palette[2],
+  };
 }
 
 function motifMarkup(motif, colors) {
@@ -165,82 +230,115 @@ function showBanner(kind, title, message) {
   els.statusBanner.append(titleEl, messageEl);
 }
 
-async function postJson(path, body) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json().catch(() => null);
-  return { response, payload };
-}
-
-function requestBody() {
+function persistState() {
   syncFromInputs();
   localStorage.setItem("ottoauth_tshirt_state", JSON.stringify(state));
+}
+
+function buildOrder() {
+  persistState();
+  const quantity = Math.max(1, Math.min(200, Number(state.quantity || 1)));
+  const maxChargeCents = centsFromUsd(state.maxSpendUsd) || 7500;
+  const provider = state.provider || "custom_ink";
+  const merchant =
+    provider === "printful" ? "Printful" : provider === "printify" ? "Printify" : "Custom Ink";
+  const itemName = `${quantity} ${state.style}, size ${state.size}, ${state.shirtColorName}`;
+  const estimatedTotalCents = Math.min(maxChargeCents, estimateCents());
+
   return {
-    state: { ...state, design: { ...state.design } },
+    store: provider,
+    merchant,
+    kind: "custom_human_task",
+    order_type: "custom_apparel_order",
+    task_title: "Custom T-shirt print",
+    item_name: itemName,
+    quantity: String(quantity),
+    shipping_address: state.shippingAddress || undefined,
+    max_charge_cents: maxChargeCents,
+    quote: {
+      source: "tshirt_demo_estimate",
+      source_label: "T-shirt demo estimate",
+      confidence: "low",
+      goods_cents: estimatedTotalCents,
+      total_cents: estimatedTotalCents,
+      currency: "usd",
+    },
+    order_details: [
+      "Use the attached SVG as the front print artwork.",
+      `Headline: ${state.design.headline || "LOCAL DROP"}`,
+      `Subline: ${state.design.subline || "MADE ON DEMAND"}`,
+      `Motif: ${state.design.motif || "badge"}`,
+      `Ink colors: ${[state.design.inkPrimary, state.design.inkSecondary, state.design.inkAccent]
+        .filter(Boolean)
+        .join(", ")}`,
+      `Garment: ${itemName}`,
+      "Place the order only if the final total is under max_charge_cents.",
+      "If the provider requires choices that are not specified, ask for clarification instead of guessing.",
+    ].join("\n"),
+    task: `Order a custom printed T-shirt using the attached SVG artwork.\n\nGarment: ${itemName}\nProvider preference: ${provider}\n\nOnly complete fulfillment if the final total is under the spend cap.`,
+    metadata: {
+      source_app: "ottoauth_tshirt_designer_demo",
+      design: state.design,
+    },
   };
 }
 
-async function generateDesign() {
+function generateDesign() {
   syncFromInputs();
-  els.agentButton.disabled = true;
-  try {
-    const { response, payload } = await postJson("/api/agent-design", {
-      prompt: state.prompt,
-      headline: state.headline,
-      subline: state.subline,
-      shirtColor: state.shirtColor,
-      inkPrimary: state.inkPrimary,
-      inkSecondary: state.inkSecondary,
-      inkAccent: state.inkAccent,
-      vibe: `${state.provider} ${state.style}`,
-    });
-    if (!response.ok) throw new Error(payload?.error || "Could not generate design.");
-    applyDesign(payload.design);
-    showResult("ok", { design: payload.design });
-  } catch (error) {
-    showResult("error", error instanceof Error ? error.message : "Design failed.");
-  } finally {
-    els.agentButton.disabled = false;
-  }
-}
-
-async function previewOrder() {
-  try {
-    const { response, payload } = await postJson("/api/ottoauth-preview", requestBody());
-    if (!response.ok) throw new Error(payload?.error || "Preview failed.");
-    els.payloadPreview.textContent = JSON.stringify(payload.orderPayload, null, 2);
-    els.payloadPreview.hidden = false;
-  } catch (error) {
-    showResult("error", error instanceof Error ? error.message : "Preview failed.");
-  }
+  const design = generateLocalDesign({
+    prompt: state.prompt,
+    headline: state.headline,
+    subline: state.subline,
+    shirtColor: state.shirtColor,
+    inkPrimary: state.inkPrimary,
+    inkSecondary: state.inkSecondary,
+    inkAccent: state.inkAccent,
+    vibe: `${state.provider} ${state.style}`,
+  });
+  applyDesign(design);
 }
 
 async function buyWithOttoAuth() {
+  if (!window.OttoAuthCheckout) {
+    showBanner("error", "Checkout unavailable", "OttoAuth checkout.js did not load.");
+    return;
+  }
+
   els.buyButton.disabled = true;
   try {
     showBanner("ok", "Opening OttoAuth", "Creating the hosted checkout with the artwork attached.");
-    const { response, payload } = await postJson("/api/buy", requestBody());
-    els.payloadPreview.textContent = JSON.stringify(payload?.request || {}, null, 2);
-    if (!response.ok) {
-      showResult("error", payload || "OttoAuth order failed.");
-      showBanner("error", "Checkout failed", payload?.error || "OttoAuth could not create the checkout.");
-      return;
-    }
-    const checkoutUrl = payload.checkoutUrl || payload.response?.url || payload.response?.session?.url;
-    if (!checkoutUrl) {
-      showResult("error", payload.response || payload || "Missing checkout URL.");
-      return;
-    }
-    showResult("ok", {
-      checkout_session: payload.response?.id || payload.response?.session?.id,
-      redirecting_to: checkoutUrl,
+    const configuredBaseUrl = String(window.OTTOAUTH_BASE_URL || "");
+    const checkout = window.OttoAuthCheckout.init({
+      baseUrl: configuredBaseUrl.includes("__OTTOAUTH_BASE_URL__")
+        ? undefined
+        : configuredBaseUrl,
+      appId: APP_ID,
+      appName: APP_NAME,
     });
-    window.location.href = checkoutUrl;
+    const session = await checkout.redirectToCheckout({
+      externalId: uniqueId("tshirt"),
+      order: buildOrder(),
+      files: [
+        {
+          name: "ottoauth-shirt-design.svg",
+          contentType: "image/svg+xml",
+          purpose: "front_print_artwork",
+          source: "tshirt_designer_demo",
+          svgElement: els.shirtSvg,
+        },
+      ],
+    });
+    showResult("ok", {
+      checkout_session: session.id || session.session?.id,
+      redirecting_to: session.url || session.session?.url,
+    });
   } catch (error) {
-    showResult("error", error instanceof Error ? error.message : "Buy failed.");
+    showBanner(
+      "error",
+      "Checkout failed",
+      error instanceof Error ? error.message : "OttoAuth could not create the checkout.",
+    );
+    showResult("error", error?.payload || error?.message || "Checkout failed.");
   } finally {
     els.buyButton.disabled = false;
   }
@@ -332,7 +430,4 @@ els.buyButton.addEventListener("click", buyWithOttoAuth);
 
 restoreSavedState();
 render();
-const returnParams = new URLSearchParams(window.location.search);
-if (returnParams.has("ottoauth_checkout")) {
-  showReturnStatus();
-}
+showReturnStatus();
