@@ -2,9 +2,34 @@
 
 Next.js + Turso service for human-linked AI agent fulfillment, human self-serve browser tasks, and extension/browser fulfillers.
 
+## Browser buy button
+
+For apps with a human-facing checkout button, the intended integration is one
+script tag plus one `OttoAuth.buy(...)` call. The app does not need an OttoAuth
+private key, a local upload route, a Connect flow, or account logic.
+
+```html
+<script src="https://ottoauth.vercel.app/checkout.js"></script>
+<button id="buy">Buy</button>
+<script>
+  buy.onclick = () => OttoAuth.buy({
+    task: "Print this T-shirt design on one medium natural cotton tee.",
+    max: 2000,
+    files: ["#shirtSvg"]
+  });
+</script>
+```
+
+`max` is cents. Use `maxUsd: 20` if the app prefers dollars. OttoAuth owns
+sign-in, account creation, checkout confirmation, file upload, and fulfillment
+queueing after the click. Optional fields such as `title`, `merchant`, `item`,
+`quantity`, `shipping`, `quote`, `details`, and `metadata` only improve the
+confirmation page and operator context.
+
 ## General order API
 
-New integrations should use the canonical order service:
+Server-side agents and backend integrations should use the canonical order
+service:
 
 - `POST /api/services/order/submit` or `POST /v1/orders` to create an order
 - `POST /v1/quotes` to get the best non-browser price quote without creating an order

@@ -19,8 +19,9 @@ The important integration path is intentionally small:
 
 - The page loads `https://ottoauth.vercel.app/checkout.js`.
 - The checkout button calls `OttoAuth.buy(...)`.
-- The helper serializes the SVG, creates the hosted checkout session, and
-  redirects the browser to OttoAuth.
+- The helper serializes the SVG and immediately hands the browser to OttoAuth.
+- OttoAuth handles sign-in, account creation, checkout confirmation, file
+  upload, and fulfillment queueing.
 
 The demo server only serves static files and injects the OttoAuth base URL for
 local development. It does not hold an OttoAuth private key, start Connect,
@@ -36,12 +37,14 @@ The shape app developers should see is:
 <button id="buy">Buy</button>
 <script>
   buy.onclick = () => OttoAuth.buy({
-    app: "my-local-app",
-    title: "Custom T-shirt print",
     task: "Order this shirt with the attached front-print artwork.",
-    merchant: "Custom Ink",
     max: 2000,
     files: ["#artwork"]
   });
 </script>
 ```
+
+That is the canonical path. `max` is cents. If the app wants to work in dollars,
+use `maxUsd: 20` instead. Fields such as `title`, `merchant`, `item`, `quantity`,
+`shipping`, `quote`, `details`, and `metadata` are optional display and operator
+context, not required integration surface.

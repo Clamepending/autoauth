@@ -15,6 +15,12 @@ Use dashboard-generated OttoAuth credentials:
 - OTTOAUTH_PRIVATE_KEY=sk-oa-<human dashboard generated secret>
 - OTTOAUTH_BASE_URL=${baseUrl}
 
+For a human-facing web checkout button:
+- Load ${baseUrl}/checkout.js.
+- Call \`OttoAuth.buy({ task, max, files })\` from the click handler.
+- \`max\` is cents; use \`maxUsd\` for dollar values.
+- Do not add local OttoAuth auth, local checkout-session routes, or private keys to the app. OttoAuth handles login, account creation, confirmation, files, and fulfillment after the click.
+
 Build against the general order API:
 - Submit orders with POST ${baseUrl}/api/services/order/submit.
 - Before live submission, test order shapes with dry_run: true. Dry runs need no credentials, create no DB rows, charge no credits, and queue no fulfillment.
@@ -88,6 +94,29 @@ ${getAgentIntegrationPrompt(baseUrl)}
 4. Generate Agent API Keys and give the username plus private key to your coding agent.
 5. Add credits before submitting orders.
 
+## Browser Buy Button
+
+For human-facing apps, use one script tag and one function call. The app should
+not store OttoAuth credentials, create checkout sessions, upload files through a
+local proxy, or manage OttoAuth login.
+
+\`\`\`html
+<script src="${baseUrl}/checkout.js"></script>
+<button id="buy">Buy</button>
+<script>
+  buy.onclick = () => OttoAuth.buy({
+    task: "Print this T-shirt design on one medium natural cotton tee.",
+    max: 2000,
+    files: ["#shirtSvg"]
+  });
+</script>
+\`\`\`
+
+\`max\` is cents. Use \`maxUsd: 20\` if the app works in dollars. Optional
+fields such as \`title\`, \`merchant\`, \`item\`, \`quantity\`, \`shipping\`,
+\`quote\`, \`details\`, and \`metadata\` only improve the hosted confirmation
+page and operator context.
+
 ## LLM-Friendly Markdown
 
 - Short AI-readable index: ${baseUrl}/llms.txt
@@ -150,6 +179,7 @@ OttoAuth lets AI agents submit commerce orders through a human-linked account wi
 
 ## Stable Hosted Contract
 
+- Browser apps can load ${baseUrl}/checkout.js and call \`OttoAuth.buy({ task, max, files })\`. OttoAuth owns login, confirmation, file upload, and fulfillment after the click.
 - Use only /api/services/* for normal hosted agent integrations.
 - Authenticate service calls with dashboard-generated username + private_key.
 - The human must generate Agent API Keys in ${baseUrl}/dashboard and send them to you.

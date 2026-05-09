@@ -10,10 +10,18 @@ type DocsClientProps = {
   agentIntegrationPrompt: string;
 };
 
-type TabId = "start" | "quickstart" | "api" | "files" | "status" | "reference";
+type TabId =
+  | "start"
+  | "button"
+  | "quickstart"
+  | "api"
+  | "files"
+  | "status"
+  | "reference";
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: "start", label: "Start" },
+  { id: "button", label: "Buy Button" },
   { id: "quickstart", label: "Quickstart" },
   { id: "api", label: "API" },
   { id: "files", label: "Files" },
@@ -152,6 +160,29 @@ curl -s ${baseUrl}/skill.md
 curl -s ${baseUrl}/api/services
 curl -s ${baseUrl}/api/services/order/docs`;
 
+  const buyButton = `<script src="${baseUrl}/checkout.js"></script>
+<button id="buy">Buy</button>
+<script>
+  buy.onclick = () => OttoAuth.buy({
+    task: "Print this T-shirt design on one medium natural cotton tee.",
+    max: 2000,
+    files: ["#shirtSvg"]
+  });
+</script>`;
+
+  const buyButtonWithContext = `OttoAuth.buy({
+  task: "Print this T-shirt design on one medium natural cotton tee.",
+  maxUsd: 20,
+  files: ["#shirtSvg"],
+
+  // Optional context for the confirmation page and operator.
+  title: "Custom T-shirt",
+  merchant: "Custom Ink",
+  item: "Medium natural cotton tee",
+  quantity: 1,
+  shipping: "Jane Doe\\n123 Main St\\nSan Francisco, CA 94110"
+});`;
+
   const quickstart = `# 1. Validate. No order is created.
 curl -s -X POST ${baseUrl}/api/services/order/submit \\
   -H 'content-type: application/json' \\
@@ -250,7 +281,17 @@ curl -s -X POST ${baseUrl}/api/services/order/submit \\
   }
 }`;
 
-  return { credentials, agentPreflight, quickstart, apiShape, typescript, files, polling };
+  return {
+    credentials,
+    agentPreflight,
+    buyButton,
+    buyButtonWithContext,
+    quickstart,
+    apiShape,
+    typescript,
+    files,
+    polling,
+  };
 }
 
 export function DocsClient({
@@ -281,6 +322,15 @@ export function DocsClient({
           <div className="docs-minimal-grid">
             <article>
               <span>1</span>
+              <h3>Add a buy button</h3>
+              <p>
+                Load <code>checkout.js</code> and call{" "}
+                <code>OttoAuth.buy</code>. OttoAuth handles sign-in,
+                confirmation, files, and fulfillment after the click.
+              </p>
+            </article>
+            <article>
+              <span>2</span>
               <h3>Give your agent the skill</h3>
               <p>
                 Paste it into Codex, Cursor, Claude Code, or another coding
@@ -288,23 +338,36 @@ export function DocsClient({
               </p>
             </article>
             <article>
-              <span>2</span>
-              <h3>Use dashboard keys</h3>
-              <p>
-                The human generates a username and private key in the dashboard.
-                Retailer passwords and payment details stay out of the app.
-              </p>
-            </article>
-            <article>
               <span>3</span>
-              <h3>Submit one order</h3>
+              <h3>Use API keys for agents</h3>
               <p>
-                Send a compact work order to the general order endpoint. Use
-                dry_run first, then submit the real order with a spend cap.
+                Server-side agents can submit compact work orders to the
+                general order endpoint with dashboard-generated credentials.
               </p>
             </article>
           </div>
+          <CodeBlock label="Browser buy button" code={examples.buyButton} />
           <CodeBlock label="Agent preflight" code={examples.agentPreflight} />
+        </>
+      );
+    }
+
+    if (activeTab === "button") {
+      return (
+        <>
+          <p>
+            For human-facing apps, the canonical integration is one script tag
+            and one <code>OttoAuth.buy(...)</code> call. The local app does not
+            store OttoAuth credentials, create checkout sessions, upload files,
+            or manage OttoAuth login.
+          </p>
+          <CodeBlock label="Minimum" code={examples.buyButton} />
+          <p>
+            <code>max</code> is cents. Use <code>maxUsd</code> when the app
+            works in dollars. Extra fields are optional context for the hosted
+            confirmation page and the fulfillment operator.
+          </p>
+          <CodeBlock label="Optional context" code={examples.buyButtonWithContext} />
         </>
       );
     }
@@ -468,9 +531,9 @@ export function DocsClient({
           <span className="docs-kicker">Minimal docs</span>
           <h1>Submit any order from an app or coding agent.</h1>
           <p>
-            One service endpoint, dashboard-generated credentials, a required
-            spend cap for real orders, and Markdown docs that coding agents can
-            read directly.
+            One buy-button helper for web apps, one service endpoint for
+            server-side agents, a required spend cap for real orders, and
+            Markdown docs that coding agents can read directly.
           </p>
           <div className="docs-hero-actions">
             <span>{callableServices.length} callable services</span>

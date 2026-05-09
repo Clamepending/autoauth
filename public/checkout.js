@@ -17,6 +17,16 @@
     return typeof value === "string" && value.trim() ? value.trim() : "";
   }
 
+  function dollarsToCents(value) {
+    if (value == null || value === "") return undefined;
+    var amount =
+      typeof value === "number"
+        ? value
+        : Number(String(value).replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(amount) || amount <= 0) return undefined;
+    return Math.round(amount * 100);
+  }
+
   function toSnakeOrder(order) {
     var next = Object.assign({}, order || {});
     if (next.maxChargeCents != null && next.max_charge_cents == null) {
@@ -53,6 +63,12 @@
     }
     if (opts.maxCents != null && order.max_charge_cents == null) {
       order.max_charge_cents = opts.maxCents;
+    }
+    if (opts.maxUsd != null && order.max_charge_cents == null) {
+      order.max_charge_cents = dollarsToCents(opts.maxUsd);
+    }
+    if (opts.maxDollars != null && order.max_charge_cents == null) {
+      order.max_charge_cents = dollarsToCents(opts.maxDollars);
     }
     if (opts.merchant != null && order.merchant == null) {
       order.merchant = opts.merchant;
