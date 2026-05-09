@@ -18,7 +18,7 @@ are developing OttoAuth itself.
 The important integration path is intentionally small:
 
 - The page loads `https://ottoauth.vercel.app/checkout.js`.
-- The checkout button calls `OttoAuthCheckout.init(...).redirectToCheckout(...)`.
+- The checkout button calls `OttoAuth.buy(...)`.
 - The helper serializes the SVG, creates the hosted checkout session, and
   redirects the browser to OttoAuth.
 
@@ -35,23 +35,13 @@ The shape app developers should see is:
 <script src="https://ottoauth.vercel.app/checkout.js"></script>
 <button id="buy">Buy</button>
 <script>
-  const checkout = OttoAuthCheckout.init({
-    appId: "my-local-app",
-    appName: "My Local App"
-  });
-
-  buy.onclick = () => checkout.redirectToCheckout({
-    order: {
-      task_title: "Custom T-shirt print",
-      task: "Order this shirt with the attached front-print artwork.",
-      merchant: "Custom Ink",
-      max_charge_cents: 2000
-    },
-    files: [{
-      name: "artwork.svg",
-      contentType: "image/svg+xml",
-      svgElement: document.querySelector("#artwork")
-    }]
+  buy.onclick = () => OttoAuth.buy({
+    app: "my-local-app",
+    title: "Custom T-shirt print",
+    task: "Order this shirt with the attached front-print artwork.",
+    merchant: "Custom Ink",
+    max: 2000,
+    files: ["#artwork"]
   });
 </script>
 ```

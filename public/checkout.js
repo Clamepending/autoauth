@@ -38,6 +38,58 @@
     return next;
   }
 
+  function fromShorthand(options) {
+    var opts = Object.assign({}, options || {});
+    var order = toSnakeOrder(opts.order || {});
+
+    if (opts.title != null && order.task_title == null) {
+      order.task_title = opts.title;
+    }
+    if (opts.task != null && order.task == null) {
+      order.task = opts.task;
+    }
+    if (opts.max != null && order.max_charge_cents == null) {
+      order.max_charge_cents = opts.max;
+    }
+    if (opts.maxCents != null && order.max_charge_cents == null) {
+      order.max_charge_cents = opts.maxCents;
+    }
+    if (opts.merchant != null && order.merchant == null) {
+      order.merchant = opts.merchant;
+    }
+    if (opts.item != null && order.item_name == null) {
+      order.item_name = opts.item;
+    }
+    if (opts.itemName != null && order.item_name == null) {
+      order.item_name = opts.itemName;
+    }
+    if (opts.quantity != null && order.quantity == null) {
+      order.quantity = opts.quantity;
+    }
+    if (opts.shipping != null && order.shipping_address == null) {
+      order.shipping_address = opts.shipping;
+    }
+    if (opts.shippingAddress != null && order.shipping_address == null) {
+      order.shipping_address = opts.shippingAddress;
+    }
+    if (opts.quote != null && order.quote == null) {
+      order.quote = opts.quote;
+    }
+    if (opts.details != null && order.order_details == null) {
+      order.order_details = Array.isArray(opts.details) ? opts.details.join("\n") : opts.details;
+    }
+    if (opts.metadata != null && order.metadata == null) {
+      order.metadata = opts.metadata;
+    }
+
+    return Object.assign({}, opts, {
+      appId: optionalString(opts.appId) || optionalString(opts.app),
+      appName: optionalString(opts.appName) || optionalString(opts.app),
+      maxChargeCents: opts.maxChargeCents == null ? opts.max ?? opts.maxCents : opts.maxChargeCents,
+      order: order,
+    });
+  }
+
   function bytesToBase64(bytes) {
     var binary = "";
     var chunkSize = 0x8000;
@@ -75,6 +127,30 @@
   }
 
   async function normalizeFile(file) {
+    if (typeof file === "string") {
+      var selected = document.querySelector(file);
+      if (selected) {
+        return normalizeFile({
+          name: selected.id ? selected.id + ".svg" : "checkout-file.svg",
+          svgElement: selected,
+          contentType: "image/svg+xml",
+        });
+      }
+      return { url: file };
+    }
+
+    if (typeof Element !== "undefined" && file instanceof Element) {
+      return normalizeFile({
+        name: file.id ? file.id + ".svg" : "checkout-file.svg",
+        svgElement: file,
+        contentType: "image/svg+xml",
+      });
+    }
+
+    if (typeof Blob !== "undefined" && file instanceof Blob) {
+      return normalizeFile({ file: file });
+    }
+
     if (!file || typeof file !== "object") {
       throw new Error("Checkout files must be objects.");
     }
@@ -209,6 +285,18 @@
     return new CheckoutClient(config);
   }
 
+  function buy(options) {
+    var normalized = fromShorthand(options);
+    return init({
+      baseUrl: normalized.baseUrl,
+      appId: normalized.appId,
+      appName: normalized.appName,
+      successUrl: normalized.successUrl,
+      cancelUrl: normalized.cancelUrl,
+      metadata: normalized.metadata,
+    }).redirectToCheckout(normalized);
+  }
+
   window.OttoAuthCheckout = {
     init: init,
     createSession: function (options) {
@@ -216,6 +304,18 @@
     },
     redirectToCheckout: function (options) {
       return init({}).redirectToCheckout(options);
+    },
+  };
+
+  window.OttoAuth = {
+    buy: buy,
+    checkout: buy,
+    init: init,
+    createSession: function (options) {
+      return init({}).createSession(fromShorthand(options));
+    },
+    redirectToCheckout: function (options) {
+      return init({}).redirectToCheckout(fromShorthand(options));
     },
   };
 })();

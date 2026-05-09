@@ -299,7 +299,7 @@ function generateDesign() {
 }
 
 async function buyWithOttoAuth() {
-  if (!window.OttoAuthCheckout) {
+  if (!window.OttoAuth) {
     showBanner("error", "Checkout unavailable", "OttoAuth checkout.js did not load.");
     return;
   }
@@ -308,25 +308,30 @@ async function buyWithOttoAuth() {
   try {
     showBanner("ok", "Opening OttoAuth", "Creating the hosted checkout with the artwork attached.");
     const configuredBaseUrl = String(window.OTTOAUTH_BASE_URL || "");
-    const checkout = window.OttoAuthCheckout.init({
+    const order = buildOrder();
+    const session = await window.OttoAuth.buy({
       baseUrl: configuredBaseUrl.includes("__OTTOAUTH_BASE_URL__")
         ? undefined
         : configuredBaseUrl,
-      appId: APP_ID,
+      app: APP_ID,
       appName: APP_NAME,
-    });
-    const session = await checkout.redirectToCheckout({
       externalId: uniqueId("tshirt"),
-      order: buildOrder(),
-      files: [
-        {
-          name: "ottoauth-shirt-design.svg",
-          contentType: "image/svg+xml",
-          purpose: "front_print_artwork",
-          source: "tshirt_designer_demo",
-          svgElement: els.shirtSvg,
-        },
-      ],
+      title: order.task_title,
+      task: order.task,
+      max: order.max_charge_cents,
+      merchant: order.merchant,
+      item: order.item_name,
+      quantity: order.quantity,
+      shipping: order.shipping_address,
+      quote: order.quote,
+      details: order.order_details,
+      metadata: order.metadata,
+      order: {
+        store: order.store,
+        kind: order.kind,
+        order_type: order.order_type,
+      },
+      files: ["#shirtSvg"],
     });
     showResult("ok", {
       checkout_session: session.id || session.session?.id,
