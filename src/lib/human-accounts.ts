@@ -891,7 +891,159 @@ async function ensureHumanAccountSchemaMigration() {
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_human_referrals_referred ON human_referrals(referred_human_user_id)",
   );
 
+  // vibe_id_user_id — link from a local human_users row to its vibe-id
+  // counterpart. Populated either by the migration script (one-time copy
+  // for existing rows) or by the vibe-id sign-in callback (for new rows
+  // created post-migration). NULL until linked, so pre-migration code
+  // paths that read by humanUserId continue to work.
+  const humanUsersAddedColumns = await client.execute({
+    sql: "PRAGMA table_info(human_users)",
+    args: [],
+  });
+  const humanUsersColumnNames = ((humanUsersAddedColumns.rows ?? []) as unknown as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!humanUsersColumnNames.includes("vibe_id_user_id")) {
+    await client.execute("ALTER TABLE human_users ADD COLUMN vibe_id_user_id INTEGER");
+  }
+  await client.execute(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_human_users_vibe_id_user_id ON human_users(vibe_id_user_id) WHERE vibe_id_user_id IS NOT NULL",
+  );
+
   schemaReady = true;
+}
+
+// ---------------------------------------------------------------------------
+// vibe-id linkage — bridge between local human_users.id and the vibe-id
+// users.id. Phase 1 of the vibe-id migration: every signed-in user has both,
+// linked by this column. See MIGRATION_TO_VIBE_ID.md for the bigger picture.
+// ---------------------------------------------------------------------------
+
+export async function setVibeIdUserIdForHuman(humanUserId: number, vibeIdUserId: number) {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+  await client.execute({
+    sql: "UPDATE human_users SET vibe_id_user_id = ? WHERE id = ?",
+    args: [vibeIdUserId, humanUserId],
+  });
+}
+
+export async function getVibeIdUserIdForHuman(humanUserId: number): Promise<number | null> {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: "SELECT vibe_id_user_id FROM human_users WHERE id = ?",
+    args: [humanUserId],
+  });
+  const row = (result.rows ?? [])[0] as { vibe_id_user_id?: number | bigint | null } | undefined;
+  if (!row || row.vibe_id_user_id == null) return null;
+  return Number(row.vibe_id_user_id);
+}
+
+export async function findHumanByVibeIdUserId(vibeIdUserId: number): Promise<HumanUserRecord | null> {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: `SELECT id, email, email_verified, google_sub, auth_provider, handle_lower, handle_display,
+                 display_name, picture_url, created_at, updated_at
+          FROM human_users WHERE vibe_id_user_id = ?
+          LIMIT 1`,
+    args: [vibeIdUserId],
+  });
+  const row = (result.rows ?? [])[0];
+  return row ? rowToHumanUserRecord(row) : null;
+}
+
+/// Get-or-create a local human_users row for a vibe-id user. Called by the
+/// vibe-id sign-in callback for new users (they have a vibe-id account but
+/// no autoauth row yet) and by the migration script for existing users.
+///
+/// If `humanUserIdHint` is set, link THAT row to the given vibe-id user id
+/// (used by the migration script to preserve existing local ids). Otherwise,
+/// create a fresh local row with starter credits.
+export async function ensureHumanForVibeIdUser(params: {
+  vibeIdUserId: number;
+  email: string;
+  displayName?: string | null;
+  pictureUrl?: string | null;
+  googleSub?: string | null;
+  humanUserIdHint?: number;
+}): Promise<HumanUserRecord> {
+  await ensureHumanAccountSchema();
+  const client = getTursoClient();
+
+  const existingByVibeId = await findHumanByVibeIdUserId(params.vibeIdUserId);
+  if (existingByVibeId) return existingByVibeId;
+
+  if (params.humanUserIdHint != null) {
+    await setVibeIdUserIdForHuman(params.humanUserIdHint, params.vibeIdUserId);
+    const linked = await getHumanUserById(params.humanUserIdHint);
+    if (linked) return linked;
+  }
+
+  // Look up by email — covers the case where the user existed locally
+  // (e.g. signed in via the legacy Google flow) but isn't yet linked.
+  const existingByEmail = await getHumanUserByEmail(params.email);
+  if (existingByEmail) {
+    await setVibeIdUserIdForHuman(existingByEmail.id, params.vibeIdUserId);
+    const refreshed = await getHumanUserById(existingByEmail.id);
+    if (refreshed) return refreshed;
+  }
+
+  // Brand-new user: create a local row + starter credits, link to vibe-id.
+  const now = new Date().toISOString();
+  const transaction = await client.transaction("write");
+  let newHumanUserId = 0;
+  try {
+    const insertResult = await transaction.execute({
+      sql: `INSERT INTO human_users
+            (email, email_verified, google_sub, auth_provider, display_name, picture_url, vibe_id_user_id, created_at, updated_at)
+            VALUES (?, 1, ?, 'vibe-id', ?, ?, ?, ?, ?)`,
+      args: [
+        normalizeEmail(params.email),
+        params.googleSub?.trim() || null,
+        params.displayName?.trim() || null,
+        params.pictureUrl?.trim() || null,
+        params.vibeIdUserId,
+        now,
+        now,
+      ],
+    });
+    const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
+    newHumanUserId = rawId != null ? Number(rawId) : 0;
+    if (!newHumanUserId) throw new Error("Failed to create human row for vibe-id user.");
+
+    // Local starter-credit ledger entry kept for backwards compat with
+    // pre-Phase-2 callers. Phase 2 also writes the equivalent grant to
+    // vibe-id; until then balances may diverge for brand-new users.
+    await addCreditLedgerEntryWithExecutor(transaction, {
+      humanUserId: newHumanUserId,
+      amountCents: STARTER_CREDIT_CENTS,
+      entryType: "starter_credit",
+      description: "Starter credits (vibe-id signup)",
+    });
+    await transaction.commit();
+  } finally {
+    transaction.close();
+  }
+
+  const created = await getHumanUserById(newHumanUserId);
+  if (!created) throw new Error("Failed to load newly-created human row.");
+  return created;
+}
+
+function rowToHumanUserRecord(row: Record<string, unknown>): HumanUserRecord {
+  return {
+    id: Number(row.id),
+    email: String(row.email ?? ""),
+    email_verified: Number(row.email_verified ?? 0),
+    google_sub: row.google_sub ? String(row.google_sub) : null,
+    auth_provider: String(row.auth_provider ?? ""),
+    display_name: row.display_name ? String(row.display_name) : null,
+    picture_url: row.picture_url ? String(row.picture_url) : null,
+    created_at: String(row.created_at ?? ""),
+    updated_at: String(row.updated_at ?? ""),
+  };
 }
 
 export async function getHumanUserById(id: number) {
