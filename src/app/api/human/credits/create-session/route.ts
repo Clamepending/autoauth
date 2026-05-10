@@ -1,12 +1,17 @@
+// Phase 2: credit refills go through vibe-id, not autoauth's local Stripe.
+// This route stays at the same path so the existing /credits/refill UI
+// keeps working with no client change. It just proxies to vibe-id
+// /credits/topup, which creates the Stripe Checkout session against
+// vibe-id's Stripe account (which holds the credit ledger).
+
 import { NextResponse } from "next/server";
-import type Stripe from "stripe";
 import { getBaseUrl } from "@/lib/base-url";
 import {
   parsePositiveInteger,
   validateRefillAmountCents,
 } from "@/lib/credit-refill";
 import { requireCurrentHumanUser } from "@/lib/human-session";
-import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import { createTopupSession } from "@/lib/vibe-id-client";
 
 export async function POST(request: Request) {
   const user = await requireCurrentHumanUser().catch(() => null);
@@ -22,63 +27,26 @@ export async function POST(request: Request) {
   const amountCents = parsePositiveInteger(payload.amount_cents);
   const amountError = validateRefillAmountCents(amountCents);
   if (amountError) {
-    return NextResponse.json(
-      { error: amountError },
-      { status: 400 },
-    );
-  }
-
-  if (!isStripeConfigured()) {
-    return NextResponse.json(
-      { error: "Stripe checkout is not configured." },
-      { status: 503 },
-    );
-  }
-
-  const stripe = getStripe();
-  if (!stripe) {
-    return NextResponse.json(
-      { error: "Stripe checkout is not configured." },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: amountError }, { status: 400 });
   }
 
   const baseUrl = getBaseUrl();
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-    {
-      price_data: {
-        currency: "usd",
-        unit_amount: amountCents,
-        product_data: {
-          name: "OttoAuth credit refill",
-          description: `Add $${(amountCents / 100).toFixed(2)} in OttoAuth credits`,
-        },
-      },
-      quantity: 1,
-    },
-  ];
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: lineItems,
-    success_url: `${baseUrl}/credits/refill/success?amount_cents=${amountCents}`,
-    cancel_url: `${baseUrl}/credits/refill`,
-    customer_email: user.email,
-    client_reference_id: `human:${user.id}`,
-    metadata: {
-      checkout_kind: "credit_refill",
-      human_user_id: String(user.id),
-      refill_cents: String(amountCents),
-      human_email: user.email,
-    },
+  const topupResult = await createTopupSession({
+    amountDollars: Math.floor((amountCents ?? 0) / 100),
+    successUrl: `${baseUrl}/credits/refill/success?amount_cents=${amountCents}`,
+    cancelUrl: `${baseUrl}/credits/refill`,
   });
 
-  if (!session.url) {
+  if (!topupResult.ok) {
+    const message =
+      topupResult.error === "stripe_not_configured"
+        ? "Credit top-up is temporarily unavailable. Please try again shortly."
+        : `Could not start checkout (${topupResult.error}).`;
     return NextResponse.json(
-      { error: "Could not create checkout session." },
-      { status: 500 },
+      { error: message },
+      { status: topupResult.status >= 400 && topupResult.status < 500 ? topupResult.status : 502 },
     );
   }
 
-  return NextResponse.json({ url: session.url });
+  return NextResponse.json({ url: topupResult.checkoutUrl });
 }

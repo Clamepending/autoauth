@@ -1032,6 +1032,40 @@ export async function ensureHumanForVibeIdUser(params: {
   return created;
 }
 
+/// Map a vibe-id ledger entry (from /v1/users/:id/ledger) to autoauth's
+/// CreditLedgerRecord shape so existing callers keep working unchanged.
+/// vibe-id doesn't have reference_type/reference_id/metadata — those are
+/// autoauth-only constructs. We try to recover them from the
+/// `idempotency_key` (which we encode as `autoauth:<entry_type>:<ref_type>:<ref_id>`).
+function mapVibeIdLedgerEntryToAutoauthShape(
+  entry: Record<string, unknown>,
+  humanUserId: number,
+): CreditLedgerRecord {
+  const idempotencyKey = String(entry.idempotency_key ?? "");
+  const idempotencyParts = idempotencyKey.startsWith("autoauth:")
+    ? idempotencyKey.slice("autoauth:".length).split(":")
+    : [];
+  const entryType = String(entry.reason ?? "").split(":")[0] || idempotencyParts[0] || "credit";
+  const referenceType = idempotencyParts[1] ?? null;
+  const referenceId = idempotencyParts[2] ?? null;
+  // vibe-id stores created_at as unix seconds; autoauth uses ISO strings.
+  const createdAtSeconds = Number(entry.created_at ?? 0);
+  const createdAtIso = createdAtSeconds > 0
+    ? new Date(createdAtSeconds * 1000).toISOString()
+    : new Date().toISOString();
+  return {
+    id: Number(entry.id ?? 0),
+    human_user_id: humanUserId,
+    amount_cents: Number(entry.amount ?? 0),
+    entry_type: entryType,
+    description: typeof entry.reason === "string" ? entry.reason : null,
+    reference_type: referenceType,
+    reference_id: referenceId,
+    metadata_json: null,
+    created_at: createdAtIso,
+  };
+}
+
 function rowToHumanUserRecord(row: Record<string, unknown>): HumanUserRecord {
   return {
     id: Number(row.id),
@@ -1315,6 +1349,15 @@ export async function deleteHumanSession(sessionToken: string) {
   });
 }
 
+/// Add a credit ledger entry. Phase 2: writes go to vibe-id (the global
+/// ledger). The local `credit_ledger` row is also written so callers that
+/// use findCreditLedgerEntry for idempotency checks keep working during
+/// the bridge window. Phase 3 removes the local write.
+///
+/// If the human isn't yet linked to a vibe-id user (vibe_id_user_id IS
+/// NULL), we ERROR loudly — that means the migration script hasn't been
+/// run for this user. The fix is to re-run `migrate-balances-to-vibe-id`,
+/// not to silently fall through to a local-only write.
 export async function addCreditLedgerEntry(params: {
   humanUserId: number;
   amountCents: number;
@@ -1326,6 +1369,50 @@ export async function addCreditLedgerEntry(params: {
 }) {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
+
+  const vibeIdUserId = await getVibeIdUserIdForHuman(params.humanUserId);
+  if (vibeIdUserId == null) {
+    throw new Error(
+      `addCreditLedgerEntry: human_user_id=${params.humanUserId} has no vibe_id_user_id. Run scripts/vibe-id-migration/migrate-balances-to-vibe-id.ts --apply before charging this user.`
+    );
+  }
+
+  // Idempotency key: derive from reference if present (most callers have
+  // one — task_charge, referral_bonus, payment_send), else compose from
+  // entryType + humanUserId + amount + description (less precise but
+  // covers starter-credit-style one-shot grants).
+  const idempotencyKey = params.referenceType && params.referenceId
+    ? `autoauth:${params.entryType}:${params.referenceType}:${params.referenceId}`
+    : `autoauth:${params.entryType}:human-${params.humanUserId}:${params.amountCents}:${(params.description ?? "").slice(0, 40)}`;
+  const reason = params.description?.trim() || params.entryType;
+
+  // Lazy import to avoid a circular dep between human-accounts and vibe-id-client
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  if (params.amountCents > 0) {
+    const grantResult = await vibeIdClient.grantCreditsToUser({
+      vibeIdUserId,
+      amountCents: params.amountCents,
+      reason,
+      idempotencyKey,
+    });
+    if (!grantResult.ok) {
+      throw new Error(`vibe-id /v1/grant failed (${grantResult.status}): ${grantResult.error}`);
+    }
+  } else if (params.amountCents < 0) {
+    const chargeResult = await vibeIdClient.chargeCreditsForUserId({
+      vibeIdUserId,
+      amountCents: Math.abs(params.amountCents),
+      reason,
+      idempotencyKey,
+      project: "ottoauth",
+    });
+    if (!chargeResult.ok) {
+      throw new Error(`vibe-id /v1/charge failed (${chargeResult.status}): ${chargeResult.error}`);
+    }
+  } // amount == 0: skip (no-op)
+
+  // Mirror to local ledger for findCreditLedgerEntry idempotency callers
+  // and for audit. Removed in Phase 3 cleanup.
   await addCreditLedgerEntryWithExecutor(client, params);
 }
 
@@ -1353,9 +1440,20 @@ export async function findCreditLedgerEntry(params: {
   return row ? mapLedgerRow(row) : null;
 }
 
+/// Read the user's current credit balance. Phase 2: source of truth is
+/// vibe-id. For users not yet linked (vibe_id_user_id IS NULL — should
+/// only happen for fresh dev users created between migration runs), fall
+/// back to the local ledger.
 export async function getHumanCreditBalance(humanUserId: number) {
   await ensureHumanAccountSchema();
   await expireExpiredHumanCreditClaims();
+  const vibeIdUserId = await getVibeIdUserIdForHuman(humanUserId);
+  if (vibeIdUserId != null) {
+    const vibeIdClient = await import("@/lib/vibe-id-client");
+    const balance = await vibeIdClient.getCreditsBalanceForVibeUser(vibeIdUserId);
+    if (balance.ok) return balance.balanceCents;
+    console.error(`[getHumanCreditBalance] vibe-id read failed for vibe_id_user_id=${vibeIdUserId}: ${balance.status} ${balance.error}; falling back to local`);
+  }
   const client = getTursoClient();
   const result = await client.execute({
     sql: "SELECT COALESCE(SUM(amount_cents), 0) AS balance_cents FROM credit_ledger WHERE human_user_id = ?",
@@ -1365,16 +1463,29 @@ export async function getHumanCreditBalance(humanUserId: number) {
   return row?.balance_cents != null ? Number(row.balance_cents) : 0;
 }
 
+/// List recent ledger entries. Phase 2: returns vibe-id entries when the
+/// user is linked, mapped to autoauth's CreditLedgerRecord shape; falls
+/// back to local for unlinked users.
 export async function listCreditLedgerEntries(humanUserId: number, limit = 25) {
   await ensureHumanAccountSchema();
   await expireExpiredHumanCreditClaims();
+  const cappedLimit = Math.max(1, Math.min(limit, 200));
+  const vibeIdUserId = await getVibeIdUserIdForHuman(humanUserId);
+  if (vibeIdUserId != null) {
+    const vibeIdClient = await import("@/lib/vibe-id-client");
+    const ledger = await vibeIdClient.listCreditsLedgerForVibeUser(vibeIdUserId, cappedLimit);
+    if (ledger.ok) {
+      return ledger.entries.map((rawEntry) => mapVibeIdLedgerEntryToAutoauthShape(rawEntry as Record<string, unknown>, humanUserId));
+    }
+    console.error(`[listCreditLedgerEntries] vibe-id read failed for vibe_id_user_id=${vibeIdUserId}: ${ledger.status} ${ledger.error}; falling back to local`);
+  }
   const client = getTursoClient();
   const result = await client.execute({
     sql: `SELECT * FROM credit_ledger
           WHERE human_user_id = ?
           ORDER BY created_at DESC
           LIMIT ?`,
-    args: [humanUserId, Math.max(1, Math.min(limit, 200))],
+    args: [humanUserId, cappedLimit],
   });
   return ((result.rows ?? []) as Record<string, unknown>[]).map(mapLedgerRow);
 }

@@ -288,6 +288,73 @@ export async function grantCreditsToUser(params: {
   return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
 }
 
+/// Internal charge — debit a specific user's credits without their bearer
+/// token. Used when autoauth charges a user for a server-side action
+/// (e.g. enqueueing a task) where the request might come from a webhook
+/// or a background job rather than the user's own browser.
+export async function chargeCreditsForUserId(params: {
+  vibeIdUserId: number;
+  amountCents: number;
+  reason: string;
+  idempotencyKey: string;
+  project?: string;
+}): Promise<{ ok: true; balance: number; alreadyCharged: boolean } | { ok: false; status: number; error: string; balance?: number }> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/charge`, {
+    method: "POST",
+    headers: { "x-internal-key": vibeIdInternalKey(), "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: params.vibeIdUserId,
+      amount: params.amountCents,
+      reason: params.reason,
+      idempotency_key: params.idempotencyKey,
+      project: params.project,
+    }),
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (response.ok) {
+    return {
+      ok: true,
+      balance: typeof body.balance === "number" ? body.balance : 0,
+      alreadyCharged: Boolean(body.already_charged),
+    };
+  }
+  return {
+    ok: false,
+    status: response.status,
+    error: typeof body.error === "string" ? body.error : `status_${response.status}`,
+    balance: typeof body.balance === "number" ? body.balance : undefined,
+  };
+}
+
+/// Read a specific user's balance by vibe-id user_id (server-side only —
+/// uses the internal key, not the user's bearer token). For "show me
+/// some other user's balance" callers like dashboards.
+export async function getCreditsBalanceForVibeUser(vibeIdUserId: number): Promise<{ ok: true; balanceCents: number } | { ok: false; status: number; error: string }> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/users/${vibeIdUserId}/credits`, {
+    method: "GET",
+    headers: { "x-internal-key": vibeIdInternalKey() },
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (response.ok) {
+    return { ok: true, balanceCents: typeof body.balance === "number" ? body.balance : 0 };
+  }
+  return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
+}
+
+/// List ledger entries for a specific user. Returns the raw entries from
+/// vibe-id; callers can map to their preferred shape.
+export async function listCreditsLedgerForVibeUser(vibeIdUserId: number, limit = 50): Promise<{ ok: true; entries: unknown[] } | { ok: false; status: number; error: string }> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/users/${vibeIdUserId}/ledger?limit=${limit}`, {
+    method: "GET",
+    headers: { "x-internal-key": vibeIdInternalKey() },
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (response.ok) {
+    return { ok: true, entries: Array.isArray(body.entries) ? body.entries : [] };
+  }
+  return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
+}
+
 /// Atomic P2P credit transfer. Used by autoauth's "send credits" feature.
 export async function transferCreditsBetweenUsers(params: {
   fromVibeIdUserId: number;
