@@ -944,14 +944,11 @@ export async function findHumanByVibeIdUserId(vibeIdUserId: number): Promise<Hum
   await ensureHumanAccountSchema();
   const client = getTursoClient();
   const result = await client.execute({
-    sql: `SELECT id, email, email_verified, google_sub, auth_provider, handle_lower, handle_display,
-                 display_name, picture_url, created_at, updated_at
-          FROM human_users WHERE vibe_id_user_id = ?
-          LIMIT 1`,
+    sql: "SELECT * FROM human_users WHERE vibe_id_user_id = ? LIMIT 1",
     args: [vibeIdUserId],
   });
-  const row = (result.rows ?? [])[0];
-  return row ? rowToHumanUserRecord(row) : null;
+  const row = result.rows?.[0] as Record<string, unknown> | undefined;
+  return row ? mapHumanUser(row) : null;
 }
 
 /// Get-or-create a local human_users row for a vibe-id user. Called by the
@@ -1063,20 +1060,6 @@ function mapVibeIdLedgerEntryToAutoauthShape(
     reference_id: referenceId,
     metadata_json: null,
     created_at: createdAtIso,
-  };
-}
-
-function rowToHumanUserRecord(row: Record<string, unknown>): HumanUserRecord {
-  return {
-    id: Number(row.id),
-    email: String(row.email ?? ""),
-    email_verified: Number(row.email_verified ?? 0),
-    google_sub: row.google_sub ? String(row.google_sub) : null,
-    auth_provider: String(row.auth_provider ?? ""),
-    display_name: row.display_name ? String(row.display_name) : null,
-    picture_url: row.picture_url ? String(row.picture_url) : null,
-    created_at: String(row.created_at ?? ""),
-    updated_at: String(row.updated_at ?? ""),
   };
 }
 
