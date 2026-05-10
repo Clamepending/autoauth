@@ -1,4 +1,5 @@
 import { getTursoClient } from "@/lib/turso";
+import { notifyAdminAmazonOrderSubmitted } from "@/lib/admin-order-notifications";
 import { ensureAmazonSchema } from "./schema";
 
 export type AmazonOrderStatus =
@@ -90,6 +91,12 @@ export async function createOrder(params: {
 
   const row = await getOrderById(id);
   if (!row) throw new Error("Amazon order creation failed.");
+  await notifyAdminAmazonOrderSubmitted(row).catch((error) => {
+    console.error(
+      `[amazon-orders] Failed to notify admin about submitted order ${row.id}:`,
+      error,
+    );
+  });
   return row;
 }
 

@@ -1,4 +1,5 @@
 import { getTursoClient } from "@/lib/turso";
+import { notifyAdminSnackpassOrderSubmitted } from "@/lib/admin-order-notifications";
 import { ensureSnackpassSchema } from "@/services/snackpass/schema";
 
 export type SnackpassOrderRecord = {
@@ -84,6 +85,12 @@ export async function createSnackpassOrder(params: {
 
   const row = await getSnackpassOrderById(id);
   if (!row) throw new Error("Snackpass order creation failed.");
+  await notifyAdminSnackpassOrderSubmitted(row).catch((error) => {
+    console.error(
+      `[snackpass-orders] Failed to notify admin about submitted order ${row.id}:`,
+      error,
+    );
+  });
   return row;
 }
 

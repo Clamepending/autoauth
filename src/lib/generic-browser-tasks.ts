@@ -14,6 +14,7 @@ import { sendOrderConfirmationEmail } from "@/lib/order-confirmation-email";
 import { runSerializedSchemaMigration } from "@/lib/schema-lock";
 import { getTursoClient } from "@/lib/turso";
 import { makeAgentClarificationDeadline } from "@/lib/computeruse-agent-clarification-config";
+import { notifyAdminGenericOrderSubmitted } from "@/lib/admin-order-notifications";
 import {
   classifyFulfillmentFailure,
   extractFulfillmentFailureClassification,
@@ -980,6 +981,12 @@ export async function createGenericBrowserTask(params: {
   })().catch((error) => {
     console.error(
       `[generic-browser-tasks] Failed to send confirmation email for task ${created.id}:`,
+      error,
+    );
+  });
+  await notifyAdminGenericOrderSubmitted(created).catch((error) => {
+    console.error(
+      `[generic-browser-tasks] Failed to notify admin about submitted task ${created.id}:`,
       error,
     );
   });

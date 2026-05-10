@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { sendAdminOrderSms } from "@/lib/admin-sms-notifications";
+import { notifyAdminOttoAuthOrderSubmitted } from "@/lib/admin-order-notifications";
 import { addCreditLedgerEntry, getHumanCreditBalance } from "@/lib/human-accounts";
 import { estimateOrderPricing } from "@/lib/order-pricing";
 import { PLATFORM_CATALOG, type PlatformCatalogEntry } from "@/lib/platform-catalog";
@@ -1392,20 +1392,12 @@ export async function createOrchestratedOrder(params: {
       pricing,
     },
   });
-  void sendAdminOrderSms(order)
-    .then((result) => {
-      if (result.ok || result.skipped === "status_not_configured" || result.skipped === "missing_recipients") {
-        return;
-      }
-      console.warn(
-        `[admin-sms] Order ${order.public_id} SMS notification was not sent: ${
-          result.error || result.skipped || "unknown_error"
-        }`,
-      );
-    })
-    .catch((error) => {
-      console.error(`[admin-sms] Order ${order.public_id} SMS notification failed:`, error);
-    });
+  await notifyAdminOttoAuthOrderSubmitted(order).catch((error) => {
+    console.error(
+      `[admin-order-notifications] Order ${order.public_id} submitted notification failed:`,
+      error,
+    );
+  });
   return { order, reused: false };
 }
 
