@@ -72,42 +72,15 @@ export async function POST(request: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     const kind = parseCheckoutKind(session);
     if (kind === "credit_refill") {
-      const humanUserId = parsePositiveInteger(session.metadata?.human_user_id);
-      const refillCents =
-        parsePositiveInteger(session.metadata?.refill_cents) ??
-        (session.amount_total != null ? Number(session.amount_total) : null);
-
-      if (humanUserId && refillCents && session.id) {
-        const existingEntry = await findCreditLedgerEntry({
-          humanUserId,
-          entryType: "credit_refill",
-          referenceType: "stripe_checkout_session",
-          referenceId: session.id,
-        });
-
-        if (!existingEntry) {
-          await addCreditLedgerEntry({
-            humanUserId,
-            amountCents: refillCents,
-            entryType: "credit_refill",
-            description: `Credit refill via Stripe (${toUsd(refillCents)})`,
-            referenceType: "stripe_checkout_session",
-            referenceId: session.id,
-            metadata: {
-              amount_cents: refillCents,
-              amount_total: session.amount_total ?? refillCents,
-              payment_intent: session.payment_intent,
-              customer_email: session.customer_details?.email ?? null,
-            },
-          });
-        }
-
-        await qualifyHumanReferralAfterDeposit({
-          referredHumanUserId: humanUserId,
-          qualifyingReferenceType: "stripe_checkout_session",
-          qualifyingReferenceId: session.id,
-        });
-      }
+      // Phase 2: vibe-id's webhook (https://api.accounts.vibe-research.net/webhooks/stripe)
+      // handles credit_refill events now. Stripe should be configured to
+      // send webhook events to BOTH this URL and vibe-id's. This handler
+      // explicitly ignores credit_refill so the grant happens exactly
+      // once (in vibe-id). Order-payment kinds (amazon, snackpass) are
+      // still autoauth's responsibility — those flow through the else
+      // branch below.
+      console.log(`[stripe webhook] ignoring credit_refill checkout (handled by vibe-id): session=${session.id}`);
+      return NextResponse.json({ ok: true, ignored: "credit_refill_handled_by_vibe_id" });
     } else {
       const orderId = parseOrderId(session);
       if (orderId) {

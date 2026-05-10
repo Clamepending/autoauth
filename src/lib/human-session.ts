@@ -4,10 +4,13 @@ import { NextResponse } from "next/server";
 import {
   createHumanSession,
   deleteHumanSession,
+  ensureHumanForVibeIdUser,
+  findHumanByVibeIdUserId,
   getHumanUserBySessionToken,
   parseHumanReferralCode,
   type HumanUserRecord,
 } from "@/lib/human-accounts";
+import { getCurrentVibeUser } from "@/lib/vibe-id-client";
 
 const SESSION_COOKIE_NAME = "ottoauth_human_session";
 const GOOGLE_STATE_COOKIE_NAME = "ottoauth_google_state";
@@ -65,11 +68,42 @@ export function getGoogleRedirectUri() {
   return `${baseUrlFromEnv()}/api/auth/google/callback`;
 }
 
-export async function getCurrentHumanUser() {
+/// Returns the signed-in human (or null). Two cookie shapes are supported
+/// during the vibe-id migration window:
+///   1. vibe_id_session — the new vibe-id install token (preferred). We
+///      ask vibe-id /auth/me, then look up the local human row by
+///      vibe_id_user_id, creating it on first sign-in.
+///   2. ottoauth_human_session — the legacy autoauth-issued cookie. Still
+///      honored so users with an active legacy session don't get logged
+///      out by the migration. Read path is unchanged.
+/// New sign-ins go through vibe-id; the legacy path will be removed in a
+/// follow-up cleanup once all sessions have rolled over (~30 days).
+export async function getCurrentHumanUser(): Promise<HumanUserRecord | null> {
+  const vibeIdLinkedHumanUser = await tryGetCurrentHumanUserViaVibeId();
+  if (vibeIdLinkedHumanUser) return vibeIdLinkedHumanUser;
+
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value?.trim() ?? "";
-  if (!sessionToken) return null;
-  return getHumanUserBySessionToken(sessionToken);
+  const legacySessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value?.trim() ?? "";
+  if (!legacySessionToken) return null;
+  return getHumanUserBySessionToken(legacySessionToken);
+}
+
+async function tryGetCurrentHumanUserViaVibeId(): Promise<HumanUserRecord | null> {
+  const vibeIdMe = await getCurrentVibeUser();
+  if (!vibeIdMe) return null;
+
+  const linkedHumanUser = await findHumanByVibeIdUserId(vibeIdMe.user.id);
+  if (linkedHumanUser) return linkedHumanUser;
+
+  // First time this vibe-id user has signed in to autoauth — create or
+  // claim the local row. ensureHumanForVibeIdUser handles the "user
+  // existed locally with same email but wasn't yet linked" case too.
+  return ensureHumanForVibeIdUser({
+    vibeIdUserId: vibeIdMe.user.id,
+    email: vibeIdMe.user.email,
+    displayName: vibeIdMe.user.display_name,
+    pictureUrl: vibeIdMe.user.picture_url,
+  });
 }
 
 export async function requireCurrentHumanUser() {

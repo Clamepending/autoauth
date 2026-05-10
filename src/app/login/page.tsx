@@ -1,25 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { parseHumanReferralCode } from "@/lib/human-accounts";
-import {
-  getCurrentHumanUser,
-  isDevHumanLoginEnabled,
-  isGoogleAuthConfigured,
-} from "@/lib/human-session";
-import { DevLoginForm } from "./login-client";
+import { getCurrentHumanUser } from "@/lib/human-session";
 
 export const dynamic = "force-dynamic";
 
 function errorMessage(error: string) {
   switch (error) {
-    case "invalid_google_state":
-      return "Your Google sign-in session expired. Please try again.";
-    case "missing_google_code":
-      return "Google did not return a valid authorization code.";
-    case "access_denied":
-      return "Google sign-in was cancelled.";
+    case "missing_code":
+      return "Vibe Research sign-in didn't return a valid code. Please try again.";
+    case "device_id_cookie_missing":
+      return "Sign-in session expired. Please try again.";
     default:
-      return error ? decodeURIComponent(error) : null;
+      return error?.startsWith("exchange_failed_")
+        ? "Vibe Research sign-in failed during the token exchange. Please try again."
+        : (error ? decodeURIComponent(error) : null);
   }
 }
 
@@ -44,19 +39,19 @@ export default async function LoginPage({
     redirect(returnTo);
   }
 
-  const error =
-    typeof params.error === "string" ? errorMessage(params.error) : null;
+  const errorParam = typeof params.vibe_id_error === "string"
+    ? params.vibe_id_error
+    : (typeof params.error === "string" ? params.error : null);
+  const error = errorParam ? errorMessage(errorParam) : null;
   const referralCode =
     typeof params.ref === "string"
       ? parseHumanReferralCode(params.ref)
       : null;
-  const googleEnabled = isGoogleAuthConfigured();
-  const devLoginEnabled = isDevHumanLoginEnabled();
-  const googleLoginParams = new URLSearchParams({ returnTo });
-  if (referralCode) googleLoginParams.set("ref", String(referralCode));
-  const googleLoginHref = `/api/auth/google/login?${googleLoginParams.toString()}`;
   const isConnectLogin = returnTo.startsWith("/connect/");
   const isCheckoutLogin = returnTo.startsWith("/checkout/");
+  const vibeIdLoginParams = new URLSearchParams({ return_to: returnTo });
+  if (referralCode) vibeIdLoginParams.set("ref", String(referralCode));
+  const vibeIdLoginHref = `/api/auth/vibe-id/login?${vibeIdLoginParams.toString()}`;
 
   return (
     <main className="auth-page">
@@ -84,26 +79,16 @@ export default async function LoginPage({
         {error && <div className="auth-error">{error}</div>}
 
         <div className="auth-actions">
-          {googleEnabled ? (
-            <a className="auth-button primary" href={googleLoginHref}>
-              Continue with Google
-            </a>
-          ) : (
-            <div className="auth-disabled">
-              Google sign-in is not configured yet. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-            </div>
-          )}
+          <a className="auth-button primary" href={vibeIdLoginHref}>
+            Sign in with Vibe Research
+          </a>
         </div>
 
-        {devLoginEnabled && (
-          <div className="dev-login-block">
-            <div className="supported-accounts-title">Developer Login</div>
-            <DevLoginForm
-              referralCode={referralCode ? String(referralCode) : null}
-              returnTo={returnTo}
-            />
-          </div>
-        )}
+        <p className="dashboard-muted" style={{ marginTop: 12 }}>
+          Vibe Research is the shared identity for ottoauth, dot, and other Vibe
+          Research projects. Your credit balance is global — top up once, spend
+          across everything.
+        </p>
 
         <p className="auth-footer">
           <Link href="/">Back to OttoAuth home</Link>
