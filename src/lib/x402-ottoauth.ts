@@ -19,10 +19,7 @@ import type {
 } from "@x402/core/types";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 
-import {
-  addCreditLedgerEntry,
-  findCreditLedgerEntry,
-} from "@/lib/human-accounts";
+import { addCreditLedgerEntry } from "@/lib/human-accounts";
 
 const DEFAULT_X402_NETWORK = "eip155:84532";
 const DEFAULT_X402_FACILITATOR_URL = "https://x402.org/facilitator";
@@ -339,31 +336,26 @@ export async function requireX402Funding(params: X402FundingResource): Promise<X
     }
 
     const referenceId = settlementReference(settlement, paymentPayload);
-    const existingEntry = await findCreditLedgerEntry({
+    // vibe-id idempotency-keys the grant on (entryType, referenceType,
+    // referenceId), so calling addCreditLedgerEntry twice with the same
+    // settlement reference is a no-op on the second call.
+    await addCreditLedgerEntry({
       humanUserId: params.humanUserId,
+      amountCents,
       entryType: "x402_refill",
+      description: `x402 OttoAuth funding (${formatUsd(amountCents)})`,
       referenceType: "x402_payment",
       referenceId,
+      metadata: {
+        reason: params.reason,
+        amount_cents: amountCents,
+        network: settlement.network,
+        transaction: settlement.transaction,
+        payer: settlement.payer ?? verification.payer ?? null,
+        agent_username_lower: params.agentUsernameLower ?? null,
+        ...params.metadata,
+      },
     });
-    if (!existingEntry) {
-      await addCreditLedgerEntry({
-        humanUserId: params.humanUserId,
-        amountCents,
-        entryType: "x402_refill",
-        description: `x402 OttoAuth funding (${formatUsd(amountCents)})`,
-        referenceType: "x402_payment",
-        referenceId,
-        metadata: {
-          reason: params.reason,
-          amount_cents: amountCents,
-          network: settlement.network,
-          transaction: settlement.transaction,
-          payer: settlement.payer ?? verification.payer ?? null,
-          agent_username_lower: params.agentUsernameLower ?? null,
-          ...params.metadata,
-        },
-      });
-    }
 
     const responseHeaders = new Headers({
       "PAYMENT-RESPONSE": encodePaymentResponseHeader(settlement),
@@ -372,7 +364,7 @@ export async function requireX402Funding(params: X402FundingResource): Promise<X
       ok: true,
       settlement,
       responseHeaders,
-      alreadyRecorded: Boolean(existingEntry),
+      alreadyRecorded: false,
     };
   } catch (error) {
     return { ok: false, response: facilitatorUnavailableResponse(amountCents, error) };

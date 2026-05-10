@@ -2,11 +2,6 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getBaseUrl } from "@/lib/base-url";
-import {
-  addCreditLedgerEntry,
-  findCreditLedgerEntry,
-  qualifyHumanReferralAfterDeposit,
-} from "@/lib/human-accounts";
 import { notifySlackAmazonFulfillment, notifySlackSnackpassFulfillment } from "@/lib/slack";
 import { getOrderById, updateOrderStatus } from "@/services/amazon/orders";
 import { getSnackpassOrderById, updateSnackpassOrderStatus } from "@/services/snackpass/orders";

@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { Client, Transaction } from "@libsql/client";
 import { generatePrivateKey, normalizePairingKey } from "@/lib/agent-auth";
 import {
@@ -22,15 +22,6 @@ export type HumanUserRecord = {
   handle_display: string;
   display_name: string | null;
   picture_url: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type HumanSessionRecord = {
-  id: number;
-  human_user_id: number;
-  session_token_hash: string;
-  expires_at: string;
   created_at: string;
   updated_at: string;
 };
@@ -115,7 +106,6 @@ export type HumanReferralStats = {
 let schemaReady = false;
 let schemaPromise: Promise<void> | null = null;
 
-const STARTER_CREDIT_CENTS = 2000;
 export const REFERRAL_BONUS_CENTS = 500;
 export const MAX_CREDIT_TRANSFER_CENTS = 50000;
 export const MAX_CREDIT_TRANSFER_NOTE_LENGTH = 280;
@@ -237,10 +227,6 @@ function normalizeGeneratedAgentUsernameBase(value: string, humanUserId: number)
   return base.slice(0, 21).replace(/^[_-]+|[_-]+$/g, "") || `agent_${humanUserId}`;
 }
 
-function hashSessionToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
-
 function fallbackHumanHandle(row: Record<string, unknown>) {
   return `user_${Number(row.id) || 0}`;
 }
@@ -266,35 +252,6 @@ function mapHumanUser(row: Record<string, unknown>): HumanUserRecord {
     picture_url: row.picture_url == null ? null : String(row.picture_url),
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
-  };
-}
-
-function mapLedgerRow(row: Record<string, unknown>): CreditLedgerRecord {
-  return {
-    id: Number(row.id),
-    human_user_id: Number(row.human_user_id),
-    amount_cents: Number(row.amount_cents),
-    entry_type: String(row.entry_type),
-    description: row.description == null ? null : String(row.description),
-    reference_type: row.reference_type == null ? null : String(row.reference_type),
-    reference_id: row.reference_id == null ? null : String(row.reference_id),
-    metadata_json: row.metadata_json == null ? null : String(row.metadata_json),
-    created_at: String(row.created_at),
-  };
-}
-
-function mapHumanCreditTransferRow(
-  row: Record<string, unknown>,
-): HumanCreditTransferRecord {
-  return {
-    id: Number(row.id),
-    transfer_public_id: String(row.transfer_public_id),
-    sender_human_user_id: Number(row.sender_human_user_id),
-    recipient_human_user_id: Number(row.recipient_human_user_id),
-    amount_cents: Number(row.amount_cents),
-    note: String(row.note),
-    status: String(row.status),
-    created_at: String(row.created_at),
   };
 }
 
@@ -439,75 +396,6 @@ export function parseHumanReferralCode(
   return Number(normalized);
 }
 
-async function addCreditLedgerEntryWithExecutor(
-  executor: SqlExecutor,
-  params: {
-    humanUserId: number;
-    amountCents: number;
-    entryType: string;
-    description?: string | null;
-    referenceType?: string | null;
-    referenceId?: string | null;
-    metadata?: Record<string, unknown> | null;
-  },
-) {
-  const now = new Date().toISOString();
-  await executor.execute({
-    sql: `INSERT INTO credit_ledger
-          (human_user_id, amount_cents, entry_type, description, reference_type, reference_id, metadata_json, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      params.humanUserId,
-      Math.trunc(params.amountCents),
-      params.entryType.trim(),
-      params.description ?? null,
-      params.referenceType ?? null,
-      params.referenceId ?? null,
-      params.metadata ? JSON.stringify(params.metadata) : null,
-      now,
-    ],
-  });
-}
-
-async function createPendingReferralWithExecutor(
-  executor: SqlExecutor,
-  params: {
-    referrerHumanUserId: number | null;
-    referredHumanUserId: number;
-  },
-) {
-  if (
-    !params.referrerHumanUserId ||
-    params.referrerHumanUserId === params.referredHumanUserId
-  ) {
-    return;
-  }
-
-  const referrerResult = await executor.execute({
-    sql: `SELECT id
-          FROM human_users
-          WHERE id = ?
-          LIMIT 1`,
-    args: [params.referrerHumanUserId],
-  });
-  if (!referrerResult.rows?.[0]) {
-    return;
-  }
-
-  await executor.execute({
-    sql: `INSERT OR IGNORE INTO human_referrals
-          (referrer_human_user_id, referred_human_user_id, referrer_reward_cents, referred_reward_cents, created_at, qualified_at, qualifying_reference_type, qualifying_reference_id)
-          VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)`,
-    args: [
-      params.referrerHumanUserId,
-      params.referredHumanUserId,
-      REFERRAL_BONUS_CENTS,
-      REFERRAL_BONUS_CENTS,
-      new Date().toISOString(),
-    ],
-  });
-}
-
 export async function qualifyHumanReferralAfterDeposit(params: {
   referredHumanUserId: number;
   qualifyingReferenceType: string;
@@ -515,98 +403,71 @@ export async function qualifyHumanReferralAfterDeposit(params: {
 }) {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
-  const transaction = await client.transaction("write");
 
-  try {
-    const referralResult = await transaction.execute({
-      sql: `SELECT
-              r.id,
-              r.referrer_human_user_id,
-              r.referred_human_user_id,
-              r.referrer_reward_cents,
-              r.referred_reward_cents,
-              r.created_at,
-              r.qualified_at,
-              u.email,
-              u.display_name
-            FROM human_referrals r
-            JOIN human_users u ON u.id = r.referred_human_user_id
-            WHERE r.referred_human_user_id = ?
-            LIMIT 1`,
-      args: [params.referredHumanUserId],
-    });
-    const row = referralResult.rows?.[0] as Record<string, unknown> | undefined;
-    if (!row) {
-      await transaction.commit();
-      return { status: "no_referral" as const };
-    }
+  const referralResult = await client.execute({
+    sql: `SELECT
+            r.id,
+            r.referrer_human_user_id,
+            r.referred_human_user_id,
+            r.referrer_reward_cents,
+            r.referred_reward_cents,
+            r.qualified_at,
+            u.email,
+            u.display_name
+          FROM human_referrals r
+          JOIN human_users u ON u.id = r.referred_human_user_id
+          WHERE r.referred_human_user_id = ?
+          LIMIT 1`,
+    args: [params.referredHumanUserId],
+  });
+  const row = referralResult.rows?.[0] as Record<string, unknown> | undefined;
+  if (!row) return { status: "no_referral" as const };
+  if (row.qualified_at != null) return { status: "already_qualified" as const };
 
-    if (row.qualified_at != null) {
-      await transaction.commit();
-      return { status: "already_qualified" as const };
-    }
+  const referralId = Number(row.id);
+  const referrerHumanUserId = Number(row.referrer_human_user_id);
+  const referredHumanUserId = Number(row.referred_human_user_id);
+  const referrerRewardCents = Number(row.referrer_reward_cents);
+  const referredRewardCents = Number(row.referred_reward_cents);
+  const referredLabel =
+    (row.display_name == null ? "" : String(row.display_name).trim()) ||
+    String(row.email);
 
-    const referralId = Number(row.id);
-    const referrerHumanUserId = Number(row.referrer_human_user_id);
-    const referredHumanUserId = Number(row.referred_human_user_id);
-    const referrerRewardCents = Number(row.referrer_reward_cents);
-    const referredRewardCents = Number(row.referred_reward_cents);
-    const qualifiedAt = new Date().toISOString();
-    const referredLabel =
-      (row.display_name == null ? "" : String(row.display_name).trim()) ||
-      String(row.email);
+  // Issue grants via vibe-id BEFORE marking qualified. If the qualified_at
+  // write fails after grants succeed, the next call will re-enter, re-issue
+  // the same idempotent grants (vibe-id dedupes), and succeed at the
+  // qualified_at write.
+  await addCreditLedgerEntry({
+    humanUserId: referrerHumanUserId,
+    amountCents: referrerRewardCents,
+    entryType: "referral_bonus",
+    description: `Referral bonus after ${referredLabel}'s first deposit`,
+    referenceType: "human_referral",
+    referenceId: String(referredHumanUserId),
+  });
+  await addCreditLedgerEntry({
+    humanUserId: referredHumanUserId,
+    amountCents: referredRewardCents,
+    entryType: "referred_deposit_bonus",
+    description: "Referral bonus after your first deposit",
+    referenceType: "human_referral",
+    referenceId: String(referredHumanUserId),
+  });
 
-    const updateResult = await transaction.execute({
-      sql: `UPDATE human_referrals
-            SET qualified_at = ?, qualifying_reference_type = ?, qualifying_reference_id = ?
-            WHERE id = ?
-              AND qualified_at IS NULL`,
-      args: [
-        qualifiedAt,
-        params.qualifyingReferenceType,
-        params.qualifyingReferenceId,
-        referralId,
-      ],
-    });
+  await client.execute({
+    sql: `UPDATE human_referrals
+          SET qualified_at = ?, qualifying_reference_type = ?, qualifying_reference_id = ?
+          WHERE id = ?
+            AND qualified_at IS NULL`,
+    args: [
+      new Date().toISOString(),
+      params.qualifyingReferenceType,
+      params.qualifyingReferenceId,
+      referralId,
+    ],
+  });
 
-    if (updateResult.rowsAffected === 0) {
-      await transaction.commit();
-      return { status: "already_qualified" as const };
-    }
-
-    await addCreditLedgerEntryWithExecutor(transaction, {
-      humanUserId: referrerHumanUserId,
-      amountCents: referrerRewardCents,
-      entryType: "referral_bonus",
-      description: `Referral bonus after ${referredLabel}'s first deposit`,
-      referenceType: "human_referral",
-      referenceId: String(referredHumanUserId),
-      metadata: {
-        referred_human_user_id: referredHumanUserId,
-        qualifying_reference_type: params.qualifyingReferenceType,
-        qualifying_reference_id: params.qualifyingReferenceId,
-      },
-    });
-
-    await addCreditLedgerEntryWithExecutor(transaction, {
-      humanUserId: referredHumanUserId,
-      amountCents: referredRewardCents,
-      entryType: "referred_deposit_bonus",
-      description: "Referral bonus after your first deposit",
-      referenceType: "human_referral",
-      referenceId: String(referredHumanUserId),
-      metadata: {
-        referrer_human_user_id: referrerHumanUserId,
-        qualifying_reference_type: params.qualifyingReferenceType,
-        qualifying_reference_id: params.qualifyingReferenceId,
-      },
-    });
-
-    await transaction.commit();
-    return { status: "qualified" as const };
-  } finally {
-    transaction.close();
-  }
+  return { status: "qualified" as const };
 }
 
 export async function ensureHumanAccountSchema() {
@@ -661,23 +522,6 @@ async function ensureHumanAccountSchemaMigration() {
   await backfillHumanHandles(client);
   await client.execute(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_human_users_handle_lower ON human_users(handle_lower)",
-  );
-
-  await client.execute(
-    `CREATE TABLE IF NOT EXISTS human_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      human_user_id INTEGER NOT NULL,
-      session_token_hash TEXT NOT NULL UNIQUE,
-      expires_at TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`,
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_human_sessions_user_id ON human_sessions(human_user_id)",
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_human_sessions_expires_at ON human_sessions(expires_at)",
   );
 
   await client.execute(
@@ -750,45 +594,6 @@ async function ensureHumanAccountSchemaMigration() {
   );
   await client.execute(
     "CREATE INDEX IF NOT EXISTS idx_human_device_pairing_codes_human_id ON human_device_pairing_codes(human_user_id)",
-  );
-
-  await client.execute(
-    `CREATE TABLE IF NOT EXISTS credit_ledger (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      human_user_id INTEGER NOT NULL,
-      amount_cents INTEGER NOT NULL,
-      entry_type TEXT NOT NULL,
-      description TEXT,
-      reference_type TEXT,
-      reference_id TEXT,
-      metadata_json TEXT,
-      created_at TEXT NOT NULL
-    )`,
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_credit_ledger_human_id ON credit_ledger(human_user_id)",
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_credit_ledger_reference ON credit_ledger(reference_type, reference_id)",
-  );
-
-  await client.execute(
-    `CREATE TABLE IF NOT EXISTS human_credit_transfers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      transfer_public_id TEXT NOT NULL UNIQUE,
-      sender_human_user_id INTEGER NOT NULL,
-      recipient_human_user_id INTEGER NOT NULL,
-      amount_cents INTEGER NOT NULL,
-      note TEXT NOT NULL,
-      status TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    )`,
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_human_credit_transfers_sender ON human_credit_transfers(sender_human_user_id, created_at)",
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_human_credit_transfers_recipient ON human_credit_transfers(recipient_human_user_id, created_at)",
   );
 
   await client.execute(
@@ -987,45 +792,39 @@ export async function ensureHumanForVibeIdUser(params: {
     if (refreshed) return refreshed;
   }
 
-  // Brand-new user: create a local row + starter credits, link to vibe-id.
+  // Brand-new user: create a local row linked to vibe-id. Credit grants
+  // (signup bonuses etc.) are vibe-id's responsibility.
   const now = new Date().toISOString();
-  const transaction = await client.transaction("write");
-  let newHumanUserId = 0;
-  try {
-    const insertResult = await transaction.execute({
-      sql: `INSERT INTO human_users
-            (email, email_verified, google_sub, auth_provider, display_name, picture_url, vibe_id_user_id, created_at, updated_at)
-            VALUES (?, 1, ?, 'vibe-id', ?, ?, ?, ?, ?)`,
-      args: [
-        normalizeEmail(params.email),
-        params.googleSub?.trim() || null,
-        params.displayName?.trim() || null,
-        params.pictureUrl?.trim() || null,
-        params.vibeIdUserId,
-        now,
-        now,
-      ],
-    });
-    const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
-    newHumanUserId = rawId != null ? Number(rawId) : 0;
-    if (!newHumanUserId) throw new Error("Failed to create human row for vibe-id user.");
-
-    // Local starter-credit ledger entry kept for backwards compat with
-    // pre-Phase-2 callers. Phase 2 also writes the equivalent grant to
-    // vibe-id; until then balances may diverge for brand-new users.
-    await addCreditLedgerEntryWithExecutor(transaction, {
-      humanUserId: newHumanUserId,
-      amountCents: STARTER_CREDIT_CENTS,
-      entryType: "starter_credit",
-      description: "Starter credits (vibe-id signup)",
-    });
-    await transaction.commit();
-  } finally {
-    transaction.close();
-  }
+  const insertResult = await client.execute({
+    sql: `INSERT INTO human_users
+          (email, email_verified, google_sub, auth_provider, display_name, picture_url, vibe_id_user_id, created_at, updated_at)
+          VALUES (?, 1, ?, 'vibe-id', ?, ?, ?, ?, ?)`,
+    args: [
+      normalizeEmail(params.email),
+      params.googleSub?.trim() || null,
+      params.displayName?.trim() || null,
+      params.pictureUrl?.trim() || null,
+      params.vibeIdUserId,
+      now,
+      now,
+    ],
+  });
+  const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
+  const newHumanUserId = rawId != null ? Number(rawId) : 0;
+  if (!newHumanUserId) throw new Error("Failed to create human row for vibe-id user.");
 
   const created = await getHumanUserById(newHumanUserId);
   if (!created) throw new Error("Failed to load newly-created human row.");
+
+  // Pull in any pending email-claim credits this email was promised
+  // before they signed up.
+  await claimPendingHumanCreditClaimsForUser(created.id).catch((error) => {
+    console.error(
+      `[ensureHumanForVibeIdUser] claimPendingHumanCreditClaimsForUser failed for human ${created.id}:`,
+      error,
+    );
+  });
+
   return created;
 }
 
@@ -1121,226 +920,13 @@ export async function ensureOttoAuthInternalHumanUser() {
   return user;
 }
 
-export async function upsertHumanUserFromGoogle(params: {
-  email: string;
-  googleSub: string;
-  emailVerified?: boolean;
-  displayName?: string | null;
-  pictureUrl?: string | null;
-  referralCode?: string | number | null;
-}) {
-  await ensureHumanAccountSchema();
-  const client = getTursoClient();
-  const email = normalizeEmail(params.email);
-  const now = new Date().toISOString();
-
-  const existingResult = await client.execute({
-    sql: `SELECT * FROM human_users
-          WHERE google_sub = ? OR email = ?
-          LIMIT 1`,
-    args: [params.googleSub.trim(), email],
-  });
-  const existingRow = existingResult.rows?.[0] as Record<string, unknown> | undefined;
-
-  if (existingRow) {
-    const existing = mapHumanUser(existingRow);
-    await client.execute({
-      sql: `UPDATE human_users
-            SET email = ?, email_verified = ?, google_sub = ?, auth_provider = 'google',
-                display_name = ?, picture_url = ?, updated_at = ?
-            WHERE id = ?`,
-      args: [
-        email,
-        params.emailVerified ? 1 : 0,
-        params.googleSub.trim(),
-        params.displayName?.trim() || existing.display_name,
-        params.pictureUrl?.trim() || existing.picture_url,
-        now,
-        existing.id,
-      ],
-    });
-    const user = await getHumanUserById(existing.id);
-    if (!user) throw new Error("Failed to update human user.");
-    await claimPendingHumanCreditClaimsForUser(user.id);
-    return { user, created: false as const };
-  }
-
-  const transaction = await client.transaction("write");
-  let userId = 0;
-  try {
-    const insertResult = await transaction.execute({
-      sql: `INSERT INTO human_users
-            (email, email_verified, google_sub, auth_provider, display_name, picture_url, created_at, updated_at)
-            VALUES (?, ?, ?, 'google', ?, ?, ?, ?)`,
-      args: [
-        email,
-        params.emailVerified ? 1 : 0,
-        params.googleSub.trim(),
-        params.displayName?.trim() || null,
-        params.pictureUrl?.trim() || null,
-        now,
-        now,
-      ],
-    });
-    const rawId = (insertResult as { lastInsertRowid?: bigint | number })
-      .lastInsertRowid;
-    userId = rawId != null ? Number(rawId) : 0;
-    if (!userId) throw new Error("Failed to create human user.");
-    await ensureHumanHandleWithExecutor(transaction, {
-      humanUserId: userId,
-      email,
-      displayName: params.displayName,
-    });
-    await addCreditLedgerEntryWithExecutor(transaction, {
-      humanUserId: userId,
-      amountCents: STARTER_CREDIT_CENTS,
-      entryType: "starter_credit",
-      description: "Starter credits",
-    });
-    await createPendingReferralWithExecutor(transaction, {
-      referrerHumanUserId: parseHumanReferralCode(params.referralCode),
-      referredHumanUserId: userId,
-    });
-    await transaction.commit();
-  } finally {
-    transaction.close();
-  }
-
-  const user = await getHumanUserById(userId);
-  if (!user) throw new Error("Failed to load created human user.");
-  await claimPendingHumanCreditClaimsForUser(user.id);
-  return { user, created: true as const };
-}
-
-export async function upsertHumanUserDev(params: {
-  email: string;
-  displayName?: string | null;
-  referralCode?: string | number | null;
-}) {
-  await ensureHumanAccountSchema();
-  const client = getTursoClient();
-  const email = normalizeEmail(params.email);
-  const now = new Date().toISOString();
-  const existing = await getHumanUserByEmail(email);
-  if (existing) {
-    await client.execute({
-      sql: `UPDATE human_users
-            SET display_name = ?, auth_provider = 'dev', updated_at = ?
-            WHERE id = ?`,
-      args: [params.displayName?.trim() || existing.display_name, now, existing.id],
-    });
-    const user = await getHumanUserById(existing.id);
-    if (!user) throw new Error("Failed to update dev user.");
-    await claimPendingHumanCreditClaimsForUser(user.id);
-    return { user, created: false as const };
-  }
-
-  const transaction = await client.transaction("write");
-  let userId = 0;
-  try {
-    const insertResult = await transaction.execute({
-      sql: `INSERT INTO human_users
-            (email, email_verified, google_sub, auth_provider, display_name, picture_url, created_at, updated_at)
-            VALUES (?, 1, NULL, 'dev', ?, NULL, ?, ?)`,
-      args: [email, params.displayName?.trim() || email, now, now],
-    });
-    const rawId = (insertResult as { lastInsertRowid?: bigint | number })
-      .lastInsertRowid;
-    userId = rawId != null ? Number(rawId) : 0;
-    if (!userId) throw new Error("Failed to create dev user.");
-    await ensureHumanHandleWithExecutor(transaction, {
-      humanUserId: userId,
-      email,
-      displayName: params.displayName,
-    });
-    await addCreditLedgerEntryWithExecutor(transaction, {
-      humanUserId: userId,
-      amountCents: STARTER_CREDIT_CENTS,
-      entryType: "starter_credit",
-      description: "Starter credits",
-    });
-    await createPendingReferralWithExecutor(transaction, {
-      referrerHumanUserId: parseHumanReferralCode(params.referralCode),
-      referredHumanUserId: userId,
-    });
-    await transaction.commit();
-  } finally {
-    transaction.close();
-  }
-
-  const user = await getHumanUserById(userId);
-  if (!user) throw new Error("Failed to load created dev user.");
-  await claimPendingHumanCreditClaimsForUser(user.id);
-  return { user, created: true as const };
-}
-
-export async function createHumanSession(params: {
-  humanUserId: number;
-  ttlDays?: number;
-}) {
-  await ensureHumanAccountSchema();
-  const client = getTursoClient();
-  const now = new Date();
-  const expires = new Date(now.getTime() + (params.ttlDays ?? 30) * 24 * 60 * 60 * 1000);
-  const sessionToken = randomBytes(32).toString("hex");
-  const tokenHash = hashSessionToken(sessionToken);
-  const nowIso = now.toISOString();
-
-  await client.execute({
-    sql: `INSERT INTO human_sessions
-          (human_user_id, session_token_hash, expires_at, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?)`,
-    args: [params.humanUserId, tokenHash, expires.toISOString(), nowIso, nowIso],
-  });
-
-  return {
-    sessionToken,
-    expiresAt: expires.toISOString(),
-  };
-}
-
-export async function getHumanUserBySessionToken(sessionToken: string) {
-  await ensureHumanAccountSchema();
-  const client = getTursoClient();
-  const result = await client.execute({
-    sql: `SELECT
-            s.id AS session_id,
-            s.expires_at,
-            u.*
-          FROM human_sessions s
-          JOIN human_users u ON u.id = s.human_user_id
-          WHERE s.session_token_hash = ?
-          LIMIT 1`,
-    args: [hashSessionToken(sessionToken)],
-  });
-  const row = result.rows?.[0] as Record<string, unknown> | undefined;
-  if (!row) return null;
-  const expiresAt = String(row.expires_at);
-  if (new Date(expiresAt).getTime() <= Date.now()) {
-    await deleteHumanSession(sessionToken);
-    return null;
-  }
-  return mapHumanUser(row);
-}
-
-export async function deleteHumanSession(sessionToken: string) {
-  await ensureHumanAccountSchema();
-  const client = getTursoClient();
-  await client.execute({
-    sql: "DELETE FROM human_sessions WHERE session_token_hash = ?",
-    args: [hashSessionToken(sessionToken)],
-  });
-}
-
-/// Add a credit ledger entry. Phase 2: writes go to vibe-id (the global
-/// ledger). The local `credit_ledger` row is also written so callers that
-/// use findCreditLedgerEntry for idempotency checks keep working during
-/// the bridge window. Phase 3 removes the local write.
+/// Add a credit ledger entry. Writes go to vibe-id (the global ledger,
+/// the source of truth). Idempotency key is derived from the reference
+/// when present so retries are safe.
 ///
-/// If the human isn't yet linked to a vibe-id user (vibe_id_user_id IS
-/// NULL), we ERROR loudly — that means the migration script hasn't been
-/// run for this user. The fix is to re-run `migrate-balances-to-vibe-id`,
-/// not to silently fall through to a local-only write.
+/// Throws if the human is not linked to a vibe-id user — that's a
+/// migration gap and we want it to fail loudly rather than silently
+/// drop the credit movement.
 export async function addCreditLedgerEntry(params: {
   humanUserId: number;
   amountCents: number;
@@ -1351,25 +937,19 @@ export async function addCreditLedgerEntry(params: {
   metadata?: Record<string, unknown> | null;
 }) {
   await ensureHumanAccountSchema();
-  const client = getTursoClient();
 
   const vibeIdUserId = await getVibeIdUserIdForHuman(params.humanUserId);
   if (vibeIdUserId == null) {
     throw new Error(
-      `addCreditLedgerEntry: human_user_id=${params.humanUserId} has no vibe_id_user_id. Run scripts/vibe-id-migration/migrate-balances-to-vibe-id.ts --apply before charging this user.`
+      `addCreditLedgerEntry: human_user_id=${params.humanUserId} has no vibe_id_user_id. Run scripts/vibe-id-migration/migrate-balances-to-vibe-id.ts --apply before charging this user.`,
     );
   }
 
-  // Idempotency key: derive from reference if present (most callers have
-  // one — task_charge, referral_bonus, payment_send), else compose from
-  // entryType + humanUserId + amount + description (less precise but
-  // covers starter-credit-style one-shot grants).
   const idempotencyKey = params.referenceType && params.referenceId
     ? `autoauth:${params.entryType}:${params.referenceType}:${params.referenceId}`
     : `autoauth:${params.entryType}:human-${params.humanUserId}:${params.amountCents}:${(params.description ?? "").slice(0, 40)}`;
   const reason = params.description?.trim() || params.entryType;
 
-  // Lazy import to avoid a circular dep between human-accounts and vibe-id-client
   const vibeIdClient = await import("@/lib/vibe-id-client");
   if (params.amountCents > 0) {
     const grantResult = await vibeIdClient.grantCreditsToUser({
@@ -1393,84 +973,47 @@ export async function addCreditLedgerEntry(params: {
       throw new Error(`vibe-id /v1/charge failed (${chargeResult.status}): ${chargeResult.error}`);
     }
   } // amount == 0: skip (no-op)
-
-  // Mirror to local ledger for findCreditLedgerEntry idempotency callers
-  // and for audit. Removed in Phase 3 cleanup.
-  await addCreditLedgerEntryWithExecutor(client, params);
 }
 
-export async function findCreditLedgerEntry(params: {
-  humanUserId: number;
-  entryType?: string | null;
-  referenceType: string;
-  referenceId: string;
-}) {
-  await ensureHumanAccountSchema();
-  const client = getTursoClient();
-  const result = await client.execute({
-    sql: `SELECT * FROM credit_ledger
-          WHERE human_user_id = ?
-            AND reference_type = ?
-            AND reference_id = ?
-            ${params.entryType ? "AND entry_type = ?" : ""}
-          ORDER BY created_at DESC
-          LIMIT 1`,
-    args: params.entryType
-      ? [params.humanUserId, params.referenceType, params.referenceId, params.entryType]
-      : [params.humanUserId, params.referenceType, params.referenceId],
-  });
-  const row = result.rows?.[0] as Record<string, unknown> | undefined;
-  return row ? mapLedgerRow(row) : null;
-}
-
-/// Read the user's current credit balance. Phase 2: source of truth is
-/// vibe-id. For users not yet linked (vibe_id_user_id IS NULL — should
-/// only happen for fresh dev users created between migration runs), fall
-/// back to the local ledger.
+/// Read the user's current credit balance from vibe-id. Throws if the
+/// user isn't linked to vibe-id or if vibe-id is unreachable.
 export async function getHumanCreditBalance(humanUserId: number) {
   await ensureHumanAccountSchema();
   await expireExpiredHumanCreditClaims();
   const vibeIdUserId = await getVibeIdUserIdForHuman(humanUserId);
-  if (vibeIdUserId != null) {
-    const vibeIdClient = await import("@/lib/vibe-id-client");
-    const balance = await vibeIdClient.getCreditsBalanceForVibeUser(vibeIdUserId);
-    if (balance.ok) return balance.balanceCents;
-    console.error(`[getHumanCreditBalance] vibe-id read failed for vibe_id_user_id=${vibeIdUserId}: ${balance.status} ${balance.error}; falling back to local`);
+  if (vibeIdUserId == null) {
+    throw new Error(
+      `getHumanCreditBalance: human_user_id=${humanUserId} has no vibe_id_user_id. Run the vibe-id migration for this user.`,
+    );
   }
-  const client = getTursoClient();
-  const result = await client.execute({
-    sql: "SELECT COALESCE(SUM(amount_cents), 0) AS balance_cents FROM credit_ledger WHERE human_user_id = ?",
-    args: [humanUserId],
-  });
-  const row = result.rows?.[0] as { balance_cents?: number | bigint | string } | undefined;
-  return row?.balance_cents != null ? Number(row.balance_cents) : 0;
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  const balance = await vibeIdClient.getCreditsBalanceForVibeUser(vibeIdUserId);
+  if (!balance.ok) {
+    throw new Error(`vibe-id /v1/users/${vibeIdUserId}/credits failed: ${balance.status} ${balance.error}`);
+  }
+  return balance.balanceCents;
 }
 
-/// List recent ledger entries. Phase 2: returns vibe-id entries when the
-/// user is linked, mapped to autoauth's CreditLedgerRecord shape; falls
-/// back to local for unlinked users.
+/// List recent ledger entries from vibe-id, mapped to autoauth's
+/// CreditLedgerRecord shape so existing callers don't change.
 export async function listCreditLedgerEntries(humanUserId: number, limit = 25) {
   await ensureHumanAccountSchema();
   await expireExpiredHumanCreditClaims();
   const cappedLimit = Math.max(1, Math.min(limit, 200));
   const vibeIdUserId = await getVibeIdUserIdForHuman(humanUserId);
-  if (vibeIdUserId != null) {
-    const vibeIdClient = await import("@/lib/vibe-id-client");
-    const ledger = await vibeIdClient.listCreditsLedgerForVibeUser(vibeIdUserId, cappedLimit);
-    if (ledger.ok) {
-      return ledger.entries.map((rawEntry) => mapVibeIdLedgerEntryToAutoauthShape(rawEntry as Record<string, unknown>, humanUserId));
-    }
-    console.error(`[listCreditLedgerEntries] vibe-id read failed for vibe_id_user_id=${vibeIdUserId}: ${ledger.status} ${ledger.error}; falling back to local`);
+  if (vibeIdUserId == null) {
+    throw new Error(
+      `listCreditLedgerEntries: human_user_id=${humanUserId} has no vibe_id_user_id. Run the vibe-id migration for this user.`,
+    );
   }
-  const client = getTursoClient();
-  const result = await client.execute({
-    sql: `SELECT * FROM credit_ledger
-          WHERE human_user_id = ?
-          ORDER BY created_at DESC
-          LIMIT ?`,
-    args: [humanUserId, cappedLimit],
-  });
-  return ((result.rows ?? []) as Record<string, unknown>[]).map(mapLedgerRow);
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  const ledger = await vibeIdClient.listCreditsLedgerForVibeUser(vibeIdUserId, cappedLimit);
+  if (!ledger.ok) {
+    throw new Error(`vibe-id /v1/users/${vibeIdUserId}/ledger failed: ${ledger.status} ${ledger.error}`);
+  }
+  return ledger.entries.map((rawEntry) =>
+    mapVibeIdLedgerEntryToAutoauthShape(rawEntry as Record<string, unknown>, humanUserId),
+  );
 }
 
 export async function getHumanUserByHandle(handle: string) {
@@ -1618,118 +1161,58 @@ export async function sendHumanCreditTransfer(params: {
     throw new Error("Choose a different OttoAuth account to pay.");
   }
 
-  const client = getTursoClient();
-  const transaction = await client.transaction("write");
+  const sender = await getHumanUserById(params.senderHumanUserId);
+  if (!sender) throw new Error("Sender account not found.");
+  const recipient = await getHumanUserById(params.recipientHumanUserId);
+  if (!recipient) throw new Error("Recipient account not found.");
 
-  try {
-    const senderResult = await transaction.execute({
-      sql: "SELECT * FROM human_users WHERE id = ? LIMIT 1",
-      args: [params.senderHumanUserId],
-    });
-    const recipientResult = await transaction.execute({
-      sql: "SELECT * FROM human_users WHERE id = ? LIMIT 1",
-      args: [params.recipientHumanUserId],
-    });
-    const balanceResult = await transaction.execute({
-      sql: "SELECT COALESCE(SUM(amount_cents), 0) AS balance_cents FROM credit_ledger WHERE human_user_id = ?",
-      args: [params.senderHumanUserId],
-    });
-    const senderRow = senderResult.rows?.[0] as Record<string, unknown> | undefined;
-    const recipientRow = recipientResult.rows?.[0] as
-      | Record<string, unknown>
-      | undefined;
-    if (!senderRow) throw new Error("Sender account not found.");
-    if (!recipientRow) throw new Error("Recipient account not found.");
-
-    const sender = mapHumanUser(senderRow);
-    const recipient = mapHumanUser(recipientRow);
-    const balanceRow = balanceResult.rows?.[0] as
-      | { balance_cents?: number | bigint | string }
-      | undefined;
-    const senderBalanceCents =
-      balanceRow?.balance_cents != null ? Number(balanceRow.balance_cents) : 0;
-    if (senderBalanceCents < amountCents) {
-      throw new Error(
-        `This transfer exceeds your current credit balance ($${(senderBalanceCents / 100).toFixed(2)} available).`,
-      );
-    }
-
-    const transferPublicId = `tr_${randomUUID()}`;
-    const createdAt = new Date().toISOString();
-    const insertResult = await transaction.execute({
-      sql: `INSERT INTO human_credit_transfers
-            (transfer_public_id, sender_human_user_id, recipient_human_user_id, amount_cents, note, status, created_at)
-            VALUES (?, ?, ?, ?, ?, 'completed', ?)`,
-      args: [
-        transferPublicId,
-        sender.id,
-        recipient.id,
-        amountCents,
-        note,
-        createdAt,
-      ],
-    });
-    const rawId = (insertResult as { lastInsertRowid?: bigint | number })
-      .lastInsertRowid;
-    let transferId = rawId != null ? Number(rawId) : 0;
-    if (!transferId) {
-      const fallback = await transaction.execute({
-        sql: "SELECT id FROM human_credit_transfers WHERE transfer_public_id = ? LIMIT 1",
-        args: [transferPublicId],
-      });
-      transferId = Number(
-        (fallback.rows?.[0] as Record<string, unknown> | undefined)?.id ?? 0,
-      );
-    }
-    if (!transferId) throw new Error("Credit transfer creation failed.");
-
-    const metadata = {
-      note,
-      sender_human_user_id: sender.id,
-      sender_handle: sender.handle_lower,
-      recipient_human_user_id: recipient.id,
-      recipient_handle: recipient.handle_lower,
-      transfer_public_id: transferPublicId,
-    };
-
-    await addCreditLedgerEntryWithExecutor(transaction, {
-      humanUserId: sender.id,
-      amountCents: -amountCents,
-      entryType: "credit_transfer_sent",
-      description: `Sent credits to @${recipient.handle_display}`,
-      referenceType: "human_credit_transfer",
-      referenceId: transferPublicId,
-      metadata,
-    });
-    await addCreditLedgerEntryWithExecutor(transaction, {
-      humanUserId: recipient.id,
-      amountCents,
-      entryType: "credit_transfer_received",
-      description: `Received credits from @${sender.handle_display}`,
-      referenceType: "human_credit_transfer",
-      referenceId: transferPublicId,
-      metadata,
-    });
-
-    const transferResult = await transaction.execute({
-      sql: "SELECT * FROM human_credit_transfers WHERE id = ? LIMIT 1",
-      args: [transferId],
-    });
-    const transferRow = transferResult.rows?.[0] as
-      | Record<string, unknown>
-      | undefined;
-    if (!transferRow) throw new Error("Credit transfer creation failed.");
-
-    await transaction.commit();
-    return {
-      transfer: mapHumanCreditTransferRow(transferRow),
-      sender,
-      recipient,
-      senderBalanceCents: senderBalanceCents - amountCents,
-    };
-  } finally {
-    transaction.close();
+  const senderVibeId = await getVibeIdUserIdForHuman(sender.id);
+  if (senderVibeId == null) {
+    throw new Error("Sender is not linked to vibe-id; sign out and back in to relink.");
   }
+  const recipientVibeId = await getVibeIdUserIdForHuman(recipient.id);
+  if (recipientVibeId == null) {
+    throw new Error("Recipient is not linked to vibe-id yet.");
+  }
+
+  const transferPublicId = `tr_${randomUUID()}`;
+  const createdAt = new Date().toISOString();
+  const reason = note
+    ? `Sent to @${recipient.handle_display}: ${note}`
+    : `Sent to @${recipient.handle_display}`;
+
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  const transferResult = await vibeIdClient.transferCreditsBetweenUsers({
+    fromVibeIdUserId: senderVibeId,
+    toVibeIdUserId: recipientVibeId,
+    amountCents,
+    reason,
+    idempotencyKey: `autoauth:transfer:${transferPublicId}`,
+  });
+  if (!transferResult.ok) {
+    if (transferResult.error.includes("insufficient")) {
+      throw new Error(
+        "This transfer exceeds your current credit balance.",
+      );
+    }
+    throw new Error(`vibe-id /v1/transfer failed (${transferResult.status}): ${transferResult.error}`);
+  }
+
+  return {
+    transfer: {
+      id: 0,
+      transfer_public_id: transferPublicId,
+      sender_human_user_id: sender.id,
+      recipient_human_user_id: recipient.id,
+      amount_cents: amountCents,
+      note,
+      status: "completed",
+      created_at: createdAt,
+    } satisfies HumanCreditTransferRecord,
+    sender,
+    recipient,
+    senderBalanceCents: transferResult.fromBalance,
+  };
 }
 
 export async function createPendingHumanCreditClaim(params: {
@@ -1751,110 +1234,94 @@ export async function createPendingHumanCreditClaim(params: {
     throw new Error("Enter a valid recipient email.");
   }
 
+  const sender = await getHumanUserById(params.senderHumanUserId);
+  if (!sender) throw new Error("Sender account not found.");
+  if (normalizeEmail(sender.email) === recipientEmail) {
+    throw new Error("Choose a different email address to pay.");
+  }
+
+  const existingRecipient = await getHumanUserByEmail(recipientEmail);
+  if (existingRecipient) {
+    throw new Error("That email already has an OttoAuth account.");
+  }
+
+  const senderVibeId = await getVibeIdUserIdForHuman(sender.id);
+  if (senderVibeId == null) {
+    throw new Error("Sender is not linked to vibe-id; sign out and back in to relink.");
+  }
+
+  // Insert the claim row first so we have a stable claim_public_id to
+  // use as the vibe-id idempotency key. If the vibe-id charge fails, we
+  // delete the row so the sender can retry without an orphan claim.
+  const claimPublicId = `claim_${randomUUID()}`;
+  const createdAt = new Date().toISOString();
+  const expiresAt = new Date(
+    Date.now() + CREDIT_CLAIM_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
   const client = getTursoClient();
-  const transaction = await client.transaction("write");
+  const insertResult = await client.execute({
+    sql: `INSERT INTO human_credit_claims
+          (claim_public_id, sender_human_user_id, recipient_email, amount_cents, note, status, claimed_human_user_id, claimed_at, expires_at, created_at)
+          VALUES (?, ?, ?, ?, ?, 'pending', NULL, NULL, ?, ?)`,
+    args: [
+      claimPublicId,
+      sender.id,
+      recipientEmail,
+      amountCents,
+      note,
+      expiresAt,
+      createdAt,
+    ],
+  });
+  const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
+  const claimId = rawId != null ? Number(rawId) : 0;
+  if (!claimId) throw new Error("Credit claim creation failed.");
 
-  try {
-    const senderResult = await transaction.execute({
-      sql: "SELECT * FROM human_users WHERE id = ? LIMIT 1",
-      args: [params.senderHumanUserId],
-    });
-    const senderRow = senderResult.rows?.[0] as Record<string, unknown> | undefined;
-    if (!senderRow) throw new Error("Sender account not found.");
-    const sender = mapHumanUser(senderRow);
-    if (normalizeEmail(sender.email) === recipientEmail) {
-      throw new Error("Choose a different email address to pay.");
-    }
-
-    const existingRecipient = await transaction.execute({
-      sql: "SELECT id FROM human_users WHERE email = ? LIMIT 1",
-      args: [recipientEmail],
-    });
-    if (existingRecipient.rows?.[0]) {
-      throw new Error("That email already has an OttoAuth account.");
-    }
-
-    const balanceResult = await transaction.execute({
-      sql: "SELECT COALESCE(SUM(amount_cents), 0) AS balance_cents FROM credit_ledger WHERE human_user_id = ?",
-      args: [sender.id],
-    });
-    const balanceRow = balanceResult.rows?.[0] as
-      | { balance_cents?: number | bigint | string }
-      | undefined;
-    const senderBalanceCents =
-      balanceRow?.balance_cents != null ? Number(balanceRow.balance_cents) : 0;
-    if (senderBalanceCents < amountCents) {
-      throw new Error(
-        `This transfer exceeds your current credit balance ($${(senderBalanceCents / 100).toFixed(2)} available).`,
-      );
-    }
-
-    const claimPublicId = `claim_${randomUUID()}`;
-    const createdAt = new Date().toISOString();
-    const expiresAt = new Date(
-      Date.now() + CREDIT_CLAIM_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
-    ).toISOString();
-    const insertResult = await transaction.execute({
-      sql: `INSERT INTO human_credit_claims
-            (claim_public_id, sender_human_user_id, recipient_email, amount_cents, note, status, claimed_human_user_id, claimed_at, expires_at, created_at)
-            VALUES (?, ?, ?, ?, ?, 'pending', NULL, NULL, ?, ?)`,
-      args: [
-        claimPublicId,
-        sender.id,
-        recipientEmail,
-        amountCents,
-        note,
-        expiresAt,
-        createdAt,
-      ],
-    });
-    const rawId = (insertResult as { lastInsertRowid?: bigint | number })
-      .lastInsertRowid;
-    let claimId = rawId != null ? Number(rawId) : 0;
-    if (!claimId) {
-      const fallback = await transaction.execute({
-        sql: "SELECT id FROM human_credit_claims WHERE claim_public_id = ? LIMIT 1",
-        args: [claimPublicId],
-      });
-      claimId = Number(
-        (fallback.rows?.[0] as Record<string, unknown> | undefined)?.id ?? 0,
-      );
-    }
-    if (!claimId) throw new Error("Credit claim creation failed.");
-
-    await addCreditLedgerEntryWithExecutor(transaction, {
-      humanUserId: sender.id,
-      amountCents: -amountCents,
-      entryType: "credit_claim_sent",
-      description: `Sent credits to ${recipientEmail} (pending claim)`,
-      referenceType: "human_credit_claim",
-      referenceId: claimPublicId,
-      metadata: {
-        note,
-        sender_human_user_id: sender.id,
-        sender_handle: sender.handle_lower,
-        recipient_email: recipientEmail,
-        claim_public_id: claimPublicId,
-        expires_at: expiresAt,
-      },
-    });
-
-    const claimResult = await transaction.execute({
-      sql: "SELECT * FROM human_credit_claims WHERE id = ? LIMIT 1",
+  const reason = note
+    ? `Pending claim to ${recipientEmail}: ${note}`
+    : `Pending claim to ${recipientEmail}`;
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  const chargeResult = await vibeIdClient.chargeCreditsForUserId({
+    vibeIdUserId: senderVibeId,
+    amountCents,
+    reason,
+    idempotencyKey: `autoauth:claim_sent:${claimPublicId}`,
+    project: "ottoauth",
+  });
+  if (!chargeResult.ok) {
+    // Roll back the orphan claim row so the sender can retry.
+    await client.execute({
+      sql: "DELETE FROM human_credit_claims WHERE id = ?",
       args: [claimId],
     });
-    const claimRow = claimResult.rows?.[0] as Record<string, unknown> | undefined;
-    if (!claimRow) throw new Error("Credit claim creation failed.");
-
-    await transaction.commit();
-    return {
-      claim: mapHumanCreditClaimRow(claimRow),
-      sender,
-      senderBalanceCents: senderBalanceCents - amountCents,
-    };
-  } finally {
-    transaction.close();
+    if (chargeResult.status === 402 || chargeResult.error.includes("insufficient")) {
+      const balanceUsd = chargeResult.balance != null
+        ? `($${(chargeResult.balance / 100).toFixed(2)} available)`
+        : "";
+      throw new Error(
+        `This transfer exceeds your current credit balance ${balanceUsd}.`.trim(),
+      );
+    }
+    throw new Error(`vibe-id /v1/charge failed (${chargeResult.status}): ${chargeResult.error}`);
   }
+
+  return {
+    claim: {
+      id: claimId,
+      claim_public_id: claimPublicId,
+      sender_human_user_id: sender.id,
+      recipient_email: recipientEmail,
+      amount_cents: amountCents,
+      note,
+      status: "pending",
+      claimed_human_user_id: null,
+      claimed_at: null,
+      expires_at: expiresAt,
+      created_at: createdAt,
+    } satisfies HumanCreditClaimRecord,
+    sender,
+    senderBalanceCents: chargeResult.balance,
+  };
 }
 
 type ExpiredHumanCreditClaimsResult = {
@@ -1874,64 +1341,69 @@ export async function expireExpiredHumanCreditClaims() {
 async function expireExpiredHumanCreditClaimsNow(): Promise<ExpiredHumanCreditClaimsResult> {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
-  const transaction = await client.transaction("write");
   const expired: HumanCreditClaimRecord[] = [];
 
-  try {
-    const now = new Date().toISOString();
-    const result = await transaction.execute({
-      sql: `SELECT *
-            FROM human_credit_claims
-            WHERE status = 'pending'
-              AND expires_at <= ?
-            ORDER BY expires_at ASC
-            LIMIT 100`,
-      args: [now],
-    });
+  const now = new Date().toISOString();
+  const result = await client.execute({
+    sql: `SELECT *
+          FROM human_credit_claims
+          WHERE status = 'pending'
+            AND expires_at <= ?
+          ORDER BY expires_at ASC
+          LIMIT 100`,
+    args: [now],
+  });
 
-    for (const row of (result.rows ?? []) as Record<string, unknown>[]) {
-      const claim = mapHumanCreditClaimRow(row);
-      const updateResult = await transaction.execute({
-        sql: `UPDATE human_credit_claims
-              SET status = 'expired'
-              WHERE id = ?
-                AND status = 'pending'
-                AND expires_at <= ?`,
-        args: [claim.id, now],
-      });
-      if (updateResult.rowsAffected === 0) continue;
+  const vibeIdClient = await import("@/lib/vibe-id-client");
 
-      await addCreditLedgerEntryWithExecutor(transaction, {
-        humanUserId: claim.sender_human_user_id,
-        amountCents: claim.amount_cents,
-        entryType: "credit_claim_expired_refund",
-        description: `Expired claim refunded from ${claim.recipient_email}`,
-        referenceType: "human_credit_claim",
-        referenceId: claim.claim_public_id,
-        metadata: {
-          note: claim.note,
-          recipient_email: claim.recipient_email,
-          claim_public_id: claim.claim_public_id,
-          expires_at: claim.expires_at,
-        },
-      });
-      expired.push({
-        ...claim,
-        status: "expired",
-      });
+  for (const row of (result.rows ?? []) as Record<string, unknown>[]) {
+    const claim = mapHumanCreditClaimRow(row);
+
+    // Refund the sender via vibe-id BEFORE flipping the claim status.
+    // If the grant succeeds and the status flip fails, the next run will
+    // re-enter here, re-issue the same idempotent grant (vibe-id dedupes),
+    // then succeed at the status flip.
+    const senderVibeId = await getVibeIdUserIdForHuman(claim.sender_human_user_id);
+    if (senderVibeId == null) {
+      console.error(
+        `[expireExpiredHumanCreditClaims] sender ${claim.sender_human_user_id} not linked to vibe-id; skipping refund of claim ${claim.claim_public_id}`,
+      );
+      continue;
     }
 
-    await transaction.commit();
-    return {
-      expired,
-      totalRefundedCents: expired.reduce(
-        (total, claim) => total + claim.amount_cents,
-        0,
-      ),
-    };
-  } finally {
-    transaction.close();
+    const refundResult = await vibeIdClient.grantCreditsToUser({
+      vibeIdUserId: senderVibeId,
+      amountCents: claim.amount_cents,
+      reason: `Expired claim refund (${claim.recipient_email})`,
+      idempotencyKey: `autoauth:claim_expired_refund:${claim.claim_public_id}`,
+    });
+    if (!refundResult.ok) {
+      console.error(
+        `[expireExpiredHumanCreditClaims] refund failed for claim ${claim.claim_public_id}: ${refundResult.status} ${refundResult.error}`,
+      );
+      continue;
+    }
+
+    const updateResult = await client.execute({
+      sql: `UPDATE human_credit_claims
+            SET status = 'expired'
+            WHERE id = ?
+              AND status = 'pending'
+              AND expires_at <= ?`,
+      args: [claim.id, now],
+    });
+    if (updateResult.rowsAffected > 0) {
+      expired.push({ ...claim, status: "expired" });
+    }
   }
+
+  return {
+    expired,
+    totalRefundedCents: expired.reduce(
+      (total, claim) => total + claim.amount_cents,
+      0,
+    ),
+  };
 }
 
 export async function claimPendingHumanCreditClaimsForUser(humanUserId: number) {
@@ -1940,62 +1412,57 @@ export async function claimPendingHumanCreditClaimsForUser(humanUserId: number) 
   const user = await getHumanUserById(humanUserId);
   if (!user) throw new Error("Human account not found.");
   const recipientEmail = normalizeEmail(user.email);
+  const recipientVibeId = await getVibeIdUserIdForHuman(user.id);
+  if (recipientVibeId == null) {
+    // Recipient hasn't been linked yet — they'll claim on next sign-in.
+    return { claimed: [], totalClaimedCents: 0 };
+  }
+
   const client = getTursoClient();
-  const transaction = await client.transaction("write");
   const claimed: HumanCreditClaimRecord[] = [];
+  const now = new Date().toISOString();
+  const pendingResult = await client.execute({
+    sql: `SELECT *
+          FROM human_credit_claims
+          WHERE recipient_email = ?
+            AND status = 'pending'
+            AND expires_at > ?
+          ORDER BY created_at ASC`,
+    args: [recipientEmail, now],
+  });
 
-  try {
-    const now = new Date().toISOString();
-    const result = await transaction.execute({
-      sql: `SELECT *
-            FROM human_credit_claims
-            WHERE recipient_email = ?
-              AND status = 'pending'
-              AND expires_at > ?
-            ORDER BY created_at ASC`,
-      args: [recipientEmail, now],
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+
+  for (const row of (pendingResult.rows ?? []) as Record<string, unknown>[]) {
+    const claim = mapHumanCreditClaimRow(row);
+    const sender = await getHumanUserById(claim.sender_human_user_id);
+
+    // Grant via vibe-id BEFORE flipping status. Idempotent on retry.
+    const grantResult = await vibeIdClient.grantCreditsToUser({
+      vibeIdUserId: recipientVibeId,
+      amountCents: claim.amount_cents,
+      reason: sender
+        ? `Claimed credits from @${sender.handle_display}`
+        : "Claimed OttoAuth credits",
+      idempotencyKey: `autoauth:claim_received:${claim.claim_public_id}`,
     });
+    if (!grantResult.ok) {
+      console.error(
+        `[claimPendingHumanCreditClaimsForUser] grant failed for claim ${claim.claim_public_id}: ${grantResult.status} ${grantResult.error}`,
+      );
+      continue;
+    }
 
-    for (const row of (result.rows ?? []) as Record<string, unknown>[]) {
-      const claim = mapHumanCreditClaimRow(row);
-      const claimedAt = new Date().toISOString();
-      const updateResult = await transaction.execute({
-        sql: `UPDATE human_credit_claims
-              SET status = 'claimed', claimed_human_user_id = ?, claimed_at = ?
-              WHERE id = ?
-                AND status = 'pending'
-                AND expires_at > ?`,
-        args: [user.id, claimedAt, claim.id, claimedAt],
-      });
-      if (updateResult.rowsAffected === 0) continue;
-
-      const senderResult = await transaction.execute({
-        sql: "SELECT * FROM human_users WHERE id = ? LIMIT 1",
-        args: [claim.sender_human_user_id],
-      });
-      const senderRow = senderResult.rows?.[0] as
-        | Record<string, unknown>
-        | undefined;
-      const sender = senderRow ? mapHumanUser(senderRow) : null;
-
-      await addCreditLedgerEntryWithExecutor(transaction, {
-        humanUserId: user.id,
-        amountCents: claim.amount_cents,
-        entryType: "credit_claim_received",
-        description: sender
-          ? `Claimed credits from @${sender.handle_display}`
-          : "Claimed OttoAuth credits",
-        referenceType: "human_credit_claim",
-        referenceId: claim.claim_public_id,
-        metadata: {
-          note: claim.note,
-          sender_human_user_id: claim.sender_human_user_id,
-          sender_handle: sender?.handle_lower ?? null,
-          recipient_email: recipientEmail,
-          claimed_human_user_id: user.id,
-          claim_public_id: claim.claim_public_id,
-        },
-      });
+    const claimedAt = new Date().toISOString();
+    const updateResult = await client.execute({
+      sql: `UPDATE human_credit_claims
+            SET status = 'claimed', claimed_human_user_id = ?, claimed_at = ?
+            WHERE id = ?
+              AND status = 'pending'
+              AND expires_at > ?`,
+      args: [user.id, claimedAt, claim.id, claimedAt],
+    });
+    if (updateResult.rowsAffected > 0) {
       claimed.push({
         ...claim,
         status: "claimed",
@@ -2003,18 +1470,15 @@ export async function claimPendingHumanCreditClaimsForUser(humanUserId: number) 
         claimed_at: claimedAt,
       });
     }
-
-    await transaction.commit();
-    return {
-      claimed,
-      totalClaimedCents: claimed.reduce(
-        (total, claim) => total + claim.amount_cents,
-        0,
-      ),
-    };
-  } finally {
-    transaction.close();
   }
+
+  return {
+    claimed,
+    totalClaimedCents: claimed.reduce(
+      (total, claim) => total + claim.amount_cents,
+      0,
+    ),
+  };
 }
 
 export async function getHumanReferralStats(
