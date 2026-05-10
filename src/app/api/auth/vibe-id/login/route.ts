@@ -5,7 +5,10 @@
 // then redirects back to /api/auth/vibe-id/callback where we exchange
 // the auth code for an install token.
 //
-// The user can pass ?return_to=/some/path to be sent there after sign-in.
+// Query params:
+//   return_to=/path   — where to send the user after sign-in (default /dashboard)
+//   ref=<id|@handle>  — optional referral code; forwarded to vibe-id so the
+//                       referral row is created if this is a brand-new signup
 
 import { startSignInRedirect } from "@/lib/vibe-id-client";
 
@@ -14,5 +17,6 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request): Promise<Response> {
   const requestUrl = new URL(request.url);
   const returnTo = requestUrl.searchParams.get("return_to") ?? "/dashboard";
-  return startSignInRedirect(returnTo);
+  const ref = requestUrl.searchParams.get("ref")?.trim() ?? null;
+  return startSignInRedirect(returnTo, ref);
 }

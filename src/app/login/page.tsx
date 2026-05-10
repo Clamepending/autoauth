@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { parseHumanReferralCode } from "@/lib/human-accounts";
 import { getCurrentHumanUser } from "@/lib/human-session";
 
 export const dynamic = "force-dynamic";
@@ -43,14 +42,15 @@ export default async function LoginPage({
     ? params.vibe_id_error
     : (typeof params.error === "string" ? params.error : null);
   const error = errorParam ? errorMessage(errorParam) : null;
+  // Accept any non-empty ref — vibe-id is the source of truth and
+  // validates it (numeric user_id or @handle). Invalid refs are silently
+  // ignored on the vibe-id side.
   const referralCode =
-    typeof params.ref === "string"
-      ? parseHumanReferralCode(params.ref)
-      : null;
+    typeof params.ref === "string" && params.ref.trim() ? params.ref.trim() : null;
   const isConnectLogin = returnTo.startsWith("/connect/");
   const isCheckoutLogin = returnTo.startsWith("/checkout/");
   const vibeIdLoginParams = new URLSearchParams({ return_to: returnTo });
-  if (referralCode) vibeIdLoginParams.set("ref", String(referralCode));
+  if (referralCode) vibeIdLoginParams.set("ref", referralCode);
   const vibeIdLoginHref = `/api/auth/vibe-id/login?${vibeIdLoginParams.toString()}`;
 
   return (

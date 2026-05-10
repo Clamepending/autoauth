@@ -16,12 +16,16 @@ export async function getCurrentHumanUser(): Promise<HumanUserRecord | null> {
 
   // First time this vibe-id user has signed in to autoauth — create or
   // claim the local row. ensureHumanForVibeIdUser handles the "user
-  // existed locally with the same email but wasn't yet linked" case too.
+  // existed locally with the same email but wasn't yet linked" case too,
+  // and syncs vibe-id-owned profile fields (display name, picture, handle)
+  // into the local cache row on every call.
   return ensureHumanForVibeIdUser({
     vibeIdUserId: vibeIdMe.user.id,
     email: vibeIdMe.user.email,
     displayName: vibeIdMe.user.display_name,
     pictureUrl: vibeIdMe.user.picture_url,
+    handleLower: vibeIdMe.user.handle_lower,
+    handleDisplay: vibeIdMe.user.handle_display,
   });
 }
 
