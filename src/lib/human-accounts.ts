@@ -143,19 +143,6 @@ function normalizeDeviceCode(code: string) {
   return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-function normalizeHumanHandleBase(value: string, humanUserId: number) {
-  const cleaned = value
-    .trim()
-    .toLowerCase()
-    .replace(/@/g, "")
-    .replace(/[^a-z0-9_-]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^[_-]+|[_-]+$/g, "");
-  const fallback = `user_${humanUserId}`;
-  const base = cleaned.length >= 3 ? cleaned : fallback;
-  return base.slice(0, 32).replace(/^[_-]+|[_-]+$/g, "") || fallback;
-}
-
 export function normalizeHumanHandleLookup(value: string) {
   const normalized = value.trim().replace(/^@+/, "").toLowerCase();
   if (!/^[a-z0-9][a-z0-9_-]{2,31}$/.test(normalized)) return null;
@@ -255,134 +242,6 @@ function mapHumanUser(row: Record<string, unknown>): HumanUserRecord {
   };
 }
 
-function mapHumanCreditClaimRow(row: Record<string, unknown>): HumanCreditClaimRecord {
-  return {
-    id: Number(row.id),
-    claim_public_id: String(row.claim_public_id),
-    sender_human_user_id: Number(row.sender_human_user_id),
-    recipient_email: String(row.recipient_email),
-    amount_cents: Number(row.amount_cents),
-    note: String(row.note),
-    status: String(row.status),
-    claimed_human_user_id:
-      row.claimed_human_user_id == null
-        ? null
-        : Number(row.claimed_human_user_id),
-    claimed_at: row.claimed_at == null ? null : String(row.claimed_at),
-    expires_at:
-      row.expires_at == null || String(row.expires_at).trim() === ""
-        ? new Date(
-            new Date(String(row.created_at)).getTime() +
-              CREDIT_CLAIM_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
-          ).toISOString()
-        : String(row.expires_at),
-    created_at: String(row.created_at),
-  };
-}
-
-async function findAvailableHumanHandle(
-  executor: SqlExecutor,
-  params: {
-    base: string;
-    humanUserId: number;
-  },
-) {
-  const base = normalizeHumanHandleBase(params.base, params.humanUserId);
-  const suffixSpace = Math.max(0, 32 - String(params.humanUserId).length - 1);
-  const shortBase = base.slice(0, Math.max(3, suffixSpace));
-
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const rawCandidate =
-      attempt === 0
-        ? base
-        : `${shortBase}_${params.humanUserId}${attempt === 1 ? "" : attempt}`;
-    const candidate = rawCandidate.slice(0, 32).replace(/^[_-]+|[_-]+$/g, "");
-    const existing = await executor.execute({
-      sql: `SELECT id FROM human_users
-            WHERE handle_lower = ?
-              AND id != ?
-            LIMIT 1`,
-      args: [candidate, params.humanUserId],
-    });
-    const agentExisting = await executor.execute({
-      sql: "SELECT id FROM agents WHERE username_lower = ? LIMIT 1",
-      args: [candidate],
-    });
-    if (!existing.rows?.[0] && !agentExisting.rows?.[0] && !RESERVED_ADDRESS_NAMES.has(candidate)) {
-      return candidate;
-    }
-  }
-
-  return `user_${params.humanUserId}_${randomBytes(2).toString("hex")}`.slice(
-    0,
-    32,
-  );
-}
-
-async function ensureHumanHandleWithExecutor(
-  executor: SqlExecutor,
-  params: {
-    humanUserId: number;
-    email: string;
-    displayName?: string | null;
-    currentHandle?: string | null;
-  },
-) {
-  const existing = normalizeHumanHandleLookup(params.currentHandle ?? "");
-  if (existing && !RESERVED_ADDRESS_NAMES.has(existing)) {
-    const agentExisting = await executor.execute({
-      sql: "SELECT id FROM agents WHERE username_lower = ? LIMIT 1",
-      args: [existing],
-    });
-    if (!agentExisting.rows?.[0]) return existing;
-  }
-
-  const base = params.displayName?.trim() || params.email.split("@")[0] || "";
-  const handle = await findAvailableHumanHandle(executor, {
-    base,
-    humanUserId: params.humanUserId,
-  });
-  await executor.execute({
-    sql: `UPDATE human_users
-          SET handle_lower = ?, handle_display = ?, updated_at = ?
-          WHERE id = ?`,
-    args: [handle, handle, new Date().toISOString(), params.humanUserId],
-  });
-  return handle;
-}
-
-async function backfillHumanHandles(executor: SqlExecutor) {
-  const result = await executor.execute({
-    sql: `SELECT id, email, display_name, handle_lower
-          FROM human_users
-          ORDER BY id ASC`,
-    args: [],
-  });
-  for (const row of (result.rows ?? []) as Record<string, unknown>[]) {
-    const currentHandle = normalizeHumanHandleLookup(
-      row.handle_lower == null ? "" : String(row.handle_lower),
-    );
-    let needsHandle =
-      !currentHandle || RESERVED_ADDRESS_NAMES.has(currentHandle);
-    if (currentHandle && !needsHandle) {
-      const agentExisting = await executor.execute({
-        sql: "SELECT id FROM agents WHERE username_lower = ? LIMIT 1",
-        args: [currentHandle],
-      });
-      needsHandle = Boolean(agentExisting.rows?.[0]);
-    }
-    if (needsHandle) {
-      await ensureHumanHandleWithExecutor(executor, {
-        humanUserId: Number(row.id),
-        email: String(row.email),
-        displayName:
-          row.display_name == null ? null : String(row.display_name),
-        currentHandle: null,
-      });
-    }
-  }
-}
-
 export function parseHumanReferralCode(
   value: string | number | null | undefined,
 ) {
@@ -394,80 +253,6 @@ export function parseHumanReferralCode(
     return null;
   }
   return Number(normalized);
-}
-
-export async function qualifyHumanReferralAfterDeposit(params: {
-  referredHumanUserId: number;
-  qualifyingReferenceType: string;
-  qualifyingReferenceId: string;
-}) {
-  await ensureHumanAccountSchema();
-  const client = getTursoClient();
-
-  const referralResult = await client.execute({
-    sql: `SELECT
-            r.id,
-            r.referrer_human_user_id,
-            r.referred_human_user_id,
-            r.referrer_reward_cents,
-            r.referred_reward_cents,
-            r.qualified_at,
-            u.email,
-            u.display_name
-          FROM human_referrals r
-          JOIN human_users u ON u.id = r.referred_human_user_id
-          WHERE r.referred_human_user_id = ?
-          LIMIT 1`,
-    args: [params.referredHumanUserId],
-  });
-  const row = referralResult.rows?.[0] as Record<string, unknown> | undefined;
-  if (!row) return { status: "no_referral" as const };
-  if (row.qualified_at != null) return { status: "already_qualified" as const };
-
-  const referralId = Number(row.id);
-  const referrerHumanUserId = Number(row.referrer_human_user_id);
-  const referredHumanUserId = Number(row.referred_human_user_id);
-  const referrerRewardCents = Number(row.referrer_reward_cents);
-  const referredRewardCents = Number(row.referred_reward_cents);
-  const referredLabel =
-    (row.display_name == null ? "" : String(row.display_name).trim()) ||
-    String(row.email);
-
-  // Issue grants via vibe-id BEFORE marking qualified. If the qualified_at
-  // write fails after grants succeed, the next call will re-enter, re-issue
-  // the same idempotent grants (vibe-id dedupes), and succeed at the
-  // qualified_at write.
-  await addCreditLedgerEntry({
-    humanUserId: referrerHumanUserId,
-    amountCents: referrerRewardCents,
-    entryType: "referral_bonus",
-    description: `Referral bonus after ${referredLabel}'s first deposit`,
-    referenceType: "human_referral",
-    referenceId: String(referredHumanUserId),
-  });
-  await addCreditLedgerEntry({
-    humanUserId: referredHumanUserId,
-    amountCents: referredRewardCents,
-    entryType: "referred_deposit_bonus",
-    description: "Referral bonus after your first deposit",
-    referenceType: "human_referral",
-    referenceId: String(referredHumanUserId),
-  });
-
-  await client.execute({
-    sql: `UPDATE human_referrals
-          SET qualified_at = ?, qualifying_reference_type = ?, qualifying_reference_id = ?
-          WHERE id = ?
-            AND qualified_at IS NULL`,
-    args: [
-      new Date().toISOString(),
-      params.qualifyingReferenceType,
-      params.qualifyingReferenceId,
-      referralId,
-    ],
-  });
-
-  return { status: "qualified" as const };
 }
 
 export async function ensureHumanAccountSchema() {
@@ -506,20 +291,10 @@ async function ensureHumanAccountSchemaMigration() {
       updated_at TEXT NOT NULL
     )`,
   );
-  const humanUsersTableInfo = await client.execute({
-    sql: "PRAGMA table_info(human_users)",
-    args: [],
-  });
-  const humanUserColumns = (humanUsersTableInfo.rows ?? []) as unknown as {
-    name: string;
-  }[];
-  if (!humanUserColumns.some((c) => c.name === "handle_lower")) {
-    await client.execute("ALTER TABLE human_users ADD COLUMN handle_lower TEXT");
-  }
-  if (!humanUserColumns.some((c) => c.name === "handle_display")) {
-    await client.execute("ALTER TABLE human_users ADD COLUMN handle_display TEXT");
-  }
-  await backfillHumanHandles(client);
+  // handle_lower / handle_display are populated from vibe-id on each
+  // sign-in via syncHumanRowFromVibeIdUser. The columns exist purely as
+  // a cache; vibe-id is the authoritative source. We keep the unique
+  // index so a stale local cache can't accidentally duplicate handles.
   await client.execute(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_human_users_handle_lower ON human_users(handle_lower)",
   );
@@ -596,105 +371,10 @@ async function ensureHumanAccountSchemaMigration() {
     "CREATE INDEX IF NOT EXISTS idx_human_device_pairing_codes_human_id ON human_device_pairing_codes(human_user_id)",
   );
 
-  await client.execute(
-    `CREATE TABLE IF NOT EXISTS human_credit_claims (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      claim_public_id TEXT NOT NULL UNIQUE,
-      sender_human_user_id INTEGER NOT NULL,
-      recipient_email TEXT NOT NULL,
-      amount_cents INTEGER NOT NULL,
-      note TEXT NOT NULL,
-      status TEXT NOT NULL,
-      claimed_human_user_id INTEGER,
-      claimed_at TEXT,
-      expires_at TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    )`,
-  );
-  const humanCreditClaimsTableInfo = await client.execute({
-    sql: "PRAGMA table_info(human_credit_claims)",
-    args: [],
-  });
-  const humanCreditClaimColumns = (humanCreditClaimsTableInfo.rows ?? []) as unknown as {
-    name: string;
-  }[];
-  if (!humanCreditClaimColumns.some((c) => c.name === "expires_at")) {
-    await client.execute("ALTER TABLE human_credit_claims ADD COLUMN expires_at TEXT");
-    const claimsMissingExpiry = await client.execute({
-      sql: `SELECT id, created_at
-            FROM human_credit_claims
-            WHERE expires_at IS NULL OR expires_at = ''`,
-      args: [],
-    });
-    for (const row of (claimsMissingExpiry.rows ?? []) as Record<string, unknown>[]) {
-      const createdAtMs = new Date(String(row.created_at)).getTime();
-      const expiresAt = new Date(
-        (Number.isFinite(createdAtMs) ? createdAtMs : Date.now()) +
-          CREDIT_CLAIM_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
-      ).toISOString();
-      await client.execute({
-        sql: "UPDATE human_credit_claims SET expires_at = ? WHERE id = ?",
-        args: [expiresAt, Number(row.id)],
-      });
-    }
-  }
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_human_credit_claims_email_status ON human_credit_claims(recipient_email, status)",
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_human_credit_claims_email_status_expiry ON human_credit_claims(recipient_email, status, expires_at)",
-  );
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_human_credit_claims_sender ON human_credit_claims(sender_human_user_id, created_at)",
-  );
-
-  await client.execute(
-    `CREATE TABLE IF NOT EXISTS human_referrals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      referrer_human_user_id INTEGER NOT NULL,
-      referred_human_user_id INTEGER NOT NULL UNIQUE,
-      referrer_reward_cents INTEGER NOT NULL,
-      referred_reward_cents INTEGER NOT NULL,
-      created_at TEXT NOT NULL,
-      qualified_at TEXT,
-      qualifying_reference_type TEXT,
-      qualifying_reference_id TEXT
-    )`,
-  );
-  const humanReferralsTableInfo = await client.execute({
-    sql: "PRAGMA table_info(human_referrals)",
-    args: [],
-  });
-  const humanReferralColumns = (humanReferralsTableInfo.rows ?? []) as unknown as {
-    name: string;
-  }[];
-  const hadQualifiedAt = humanReferralColumns.some((c) => c.name === "qualified_at");
-  if (!hadQualifiedAt) {
-    await client.execute("ALTER TABLE human_referrals ADD COLUMN qualified_at TEXT");
-  }
-  if (!humanReferralColumns.some((c) => c.name === "qualifying_reference_type")) {
-    await client.execute(
-      "ALTER TABLE human_referrals ADD COLUMN qualifying_reference_type TEXT",
-    );
-  }
-  if (!humanReferralColumns.some((c) => c.name === "qualifying_reference_id")) {
-    await client.execute(
-      "ALTER TABLE human_referrals ADD COLUMN qualifying_reference_id TEXT",
-    );
-  }
-  if (!hadQualifiedAt) {
-    await client.execute(
-      `UPDATE human_referrals
-        SET qualified_at = created_at
-        WHERE qualified_at IS NULL`,
-    );
-  }
-  await client.execute(
-    "CREATE INDEX IF NOT EXISTS idx_human_referrals_referrer ON human_referrals(referrer_human_user_id)",
-  );
-  await client.execute(
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_human_referrals_referred ON human_referrals(referred_human_user_id)",
-  );
+  // human_credit_claims and human_referrals are now owned by vibe-id.
+  // Their CREATE TABLE blocks have been removed; the legacy local rows
+  // are dropped via scripts/vibe-id-migration/phase4-drop-local-claims-referrals.mjs
+  // after deploy.
 
   // vibe_id_user_id — link from a local human_users row to its vibe-id
   // counterpart. Populated either by the migration script (one-time copy
@@ -762,23 +442,32 @@ export async function findHumanByVibeIdUserId(vibeIdUserId: number): Promise<Hum
 ///
 /// If `humanUserIdHint` is set, link THAT row to the given vibe-id user id
 /// (used by the migration script to preserve existing local ids). Otherwise,
-/// create a fresh local row with starter credits.
+/// look up by email or create a fresh local row.
+///
+/// Email-claim credits are auto-accepted by vibe-id at /auth/exchange time,
+/// so autoauth doesn't need to call into the claim flow here.
 export async function ensureHumanForVibeIdUser(params: {
   vibeIdUserId: number;
   email: string;
   displayName?: string | null;
   pictureUrl?: string | null;
   googleSub?: string | null;
+  handleLower?: string | null;
+  handleDisplay?: string | null;
   humanUserIdHint?: number;
 }): Promise<HumanUserRecord> {
   await ensureHumanAccountSchema();
   const client = getTursoClient();
 
   const existingByVibeId = await findHumanByVibeIdUserId(params.vibeIdUserId);
-  if (existingByVibeId) return existingByVibeId;
+  if (existingByVibeId) {
+    await syncHumanRowFromVibeIdUser(existingByVibeId.id, params);
+    return (await getHumanUserById(existingByVibeId.id)) ?? existingByVibeId;
+  }
 
   if (params.humanUserIdHint != null) {
     await setVibeIdUserIdForHuman(params.humanUserIdHint, params.vibeIdUserId);
+    await syncHumanRowFromVibeIdUser(params.humanUserIdHint, params);
     const linked = await getHumanUserById(params.humanUserIdHint);
     if (linked) return linked;
   }
@@ -788,23 +477,26 @@ export async function ensureHumanForVibeIdUser(params: {
   const existingByEmail = await getHumanUserByEmail(params.email);
   if (existingByEmail) {
     await setVibeIdUserIdForHuman(existingByEmail.id, params.vibeIdUserId);
+    await syncHumanRowFromVibeIdUser(existingByEmail.id, params);
     const refreshed = await getHumanUserById(existingByEmail.id);
     if (refreshed) return refreshed;
   }
 
   // Brand-new user: create a local row linked to vibe-id. Credit grants
-  // (signup bonuses etc.) are vibe-id's responsibility.
+  // (signup bonuses, pending email claims) are vibe-id's responsibility.
   const now = new Date().toISOString();
   const insertResult = await client.execute({
     sql: `INSERT INTO human_users
-          (email, email_verified, google_sub, auth_provider, display_name, picture_url, vibe_id_user_id, created_at, updated_at)
-          VALUES (?, 1, ?, 'vibe-id', ?, ?, ?, ?, ?)`,
+          (email, email_verified, google_sub, auth_provider, display_name, picture_url, vibe_id_user_id, handle_lower, handle_display, created_at, updated_at)
+          VALUES (?, 1, ?, 'vibe-id', ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       normalizeEmail(params.email),
       params.googleSub?.trim() || null,
       params.displayName?.trim() || null,
       params.pictureUrl?.trim() || null,
       params.vibeIdUserId,
+      params.handleLower?.trim() || null,
+      params.handleDisplay?.trim() || params.handleLower?.trim() || null,
       now,
       now,
     ],
@@ -815,17 +507,57 @@ export async function ensureHumanForVibeIdUser(params: {
 
   const created = await getHumanUserById(newHumanUserId);
   if (!created) throw new Error("Failed to load newly-created human row.");
-
-  // Pull in any pending email-claim credits this email was promised
-  // before they signed up.
-  await claimPendingHumanCreditClaimsForUser(created.id).catch((error) => {
-    console.error(
-      `[ensureHumanForVibeIdUser] claimPendingHumanCreditClaimsForUser failed for human ${created.id}:`,
-      error,
-    );
-  });
-
   return created;
+}
+
+/// Sync vibe-id-owned profile fields (email, display_name, picture_url,
+/// handle_lower, handle_display) into the local cache row if any of them
+/// have drifted. This keeps the OttoAuth dashboard rendering fast (no
+/// vibe-id roundtrip per page) while still letting vibe-id be the source
+/// of truth — when the user updates their profile in vibe-id, the next
+/// OttoAuth sign-in pulls the change forward.
+async function syncHumanRowFromVibeIdUser(
+  humanUserId: number,
+  vibeIdFields: {
+    email: string;
+    displayName?: string | null;
+    pictureUrl?: string | null;
+    handleLower?: string | null;
+    handleDisplay?: string | null;
+  },
+): Promise<void> {
+  const client = getTursoClient();
+  const updates: Array<{ column: string; value: string | null }> = [];
+  const current = await client.execute({
+    sql: "SELECT email, display_name, picture_url, handle_lower, handle_display FROM human_users WHERE id = ?",
+    args: [humanUserId],
+  });
+  const row = current.rows?.[0] as {
+    email?: string;
+    display_name?: string | null;
+    picture_url?: string | null;
+    handle_lower?: string | null;
+    handle_display?: string | null;
+  } | undefined;
+  if (!row) return;
+
+  const desiredEmail = normalizeEmail(vibeIdFields.email);
+  if (row.email !== desiredEmail) updates.push({ column: "email", value: desiredEmail });
+  const desiredDisplay = vibeIdFields.displayName?.trim() || null;
+  if ((row.display_name ?? null) !== desiredDisplay) updates.push({ column: "display_name", value: desiredDisplay });
+  const desiredPicture = vibeIdFields.pictureUrl?.trim() || null;
+  if ((row.picture_url ?? null) !== desiredPicture) updates.push({ column: "picture_url", value: desiredPicture });
+  const desiredHandle = vibeIdFields.handleLower?.trim() || null;
+  if (desiredHandle && row.handle_lower !== desiredHandle) updates.push({ column: "handle_lower", value: desiredHandle });
+  const desiredHandleDisplay = vibeIdFields.handleDisplay?.trim() || desiredHandle || null;
+  if (desiredHandleDisplay && row.handle_display !== desiredHandleDisplay) updates.push({ column: "handle_display", value: desiredHandleDisplay });
+
+  if (updates.length === 0) return;
+  const setClause = updates.map((u) => `${u.column} = ?`).join(", ");
+  await client.execute({
+    sql: `UPDATE human_users SET ${setClause}, updated_at = ? WHERE id = ?`,
+    args: [...updates.map((u) => u.value), new Date().toISOString(), humanUserId],
+  });
 }
 
 /// Map a vibe-id ledger entry (from /v1/users/:id/ledger) to autoauth's
@@ -1016,19 +748,22 @@ export async function listCreditLedgerEntries(humanUserId: number, limit = 25) {
   );
 }
 
+/// Look up a local human row by their @handle. Goes through vibe-id (the
+/// authoritative source for handles) → vibe_id_user_id → local row.
 export async function getHumanUserByHandle(handle: string) {
   await ensureHumanAccountSchema();
   const normalized = normalizeHumanHandleLookup(handle);
   if (!normalized) return null;
-  const client = getTursoClient();
-  const result = await client.execute({
-    sql: "SELECT * FROM human_users WHERE handle_lower = ? LIMIT 1",
-    args: [normalized],
-  });
-  const row = result.rows?.[0] as Record<string, unknown> | undefined;
-  return row ? mapHumanUser(row) : null;
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  const vibeUser = await vibeIdClient.findVibeUserByHandle(normalized);
+  if (!vibeUser) return null;
+  return findHumanByVibeIdUserId(vibeUser.id);
 }
 
+/// Check whether an @address is available for use. The handle namespace
+/// is shared between vibe-id users (the authoritative source) and OttoAuth
+/// agents (local-only sk-oa-* keys). Both must be free for the address to
+/// be available.
 export async function getOttoAuthAddressAvailability(
   requested: string,
   options?: { excludeHumanUserId?: number | null },
@@ -1039,21 +774,28 @@ export async function getOttoAuthAddressAvailability(
     return { ok: false as const, available: false, error: validation.error };
   }
   const handle = validation.value;
-  const client = getTursoClient();
-  const humanResult = await client.execute({
-    sql: `SELECT id FROM human_users
-          WHERE handle_lower = ?
-            AND id != ?
-          LIMIT 1`,
-    args: [handle, options?.excludeHumanUserId ?? 0],
-  });
-  if (humanResult.rows?.[0]) {
+
+  // Check vibe-id: is this handle taken by a different user?
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  const vibeUser = await vibeIdClient.findVibeUserByHandle(handle);
+  if (vibeUser) {
+    // If we're checking on behalf of a specific autoauth user, allow them
+    // to "claim" their own current handle.
+    if (options?.excludeHumanUserId != null) {
+      const linked = await getVibeIdUserIdForHuman(options.excludeHumanUserId);
+      if (linked === vibeUser.id) {
+        return { ok: true as const, available: true, value: handle };
+      }
+    }
     return { ok: true as const, available: false, value: handle, reason: "human_handle" as const };
   }
+
+  // Check OttoAuth agents: agent usernames share the namespace.
   const agent = await getAgentByUsername(handle);
   if (agent) {
     return { ok: true as const, available: false, value: handle, reason: "agent_username" as const };
   }
+
   return { ok: true as const, available: true, value: handle };
 }
 
@@ -1065,6 +807,9 @@ export async function resolveHumanPaymentRecipient(
   if (!lookup) return null;
 
   const client = getTursoClient();
+
+  // Email lookup: local first (cache hit) since email is mirrored from
+  // vibe-id during sign-in.
   if (lookup.includes("@")) {
     const emailResult = await client.execute({
       sql: "SELECT * FROM human_users WHERE email = ? LIMIT 1",
@@ -1079,18 +824,17 @@ export async function resolveHumanPaymentRecipient(
     }
   }
 
-  const handleResult = await client.execute({
-    sql: "SELECT * FROM human_users WHERE handle_lower = ? LIMIT 1",
-    args: [lookup],
-  });
-  const handleRow = handleResult.rows?.[0] as Record<string, unknown> | undefined;
-  if (handleRow) {
-    return {
-      humanUser: mapHumanUser(handleRow),
-      matchedBy: "human_handle",
-    };
+  // Handle lookup: vibe-id is authoritative.
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  const vibeUser = await vibeIdClient.findVibeUserByHandle(lookup);
+  if (vibeUser) {
+    const localRow = await findHumanByVibeIdUserId(vibeUser.id);
+    if (localRow) {
+      return { humanUser: localRow, matchedBy: "human_handle" };
+    }
   }
 
+  // Agent-username lookup: local agents.username_lower → linked human.
   const agentResult = await client.execute({
     sql: `SELECT
             u.*,
@@ -1215,6 +959,10 @@ export async function sendHumanCreditTransfer(params: {
   };
 }
 
+/// Create a pending email-claim. The actual debit + holding state lives
+/// in vibe-id — autoauth just shapes the response so existing callers
+/// (the /api/human/payments/send route + claim email template) keep
+/// working without changes.
 export async function createPendingHumanCreditClaim(params: {
   senderHumanUserId: number;
   recipientEmail: string;
@@ -1222,7 +970,6 @@ export async function createPendingHumanCreditClaim(params: {
   note: string;
 }) {
   await ensureHumanAccountSchema();
-  await expireExpiredHumanCreditClaims();
   const amountCents = Math.trunc(params.amountCents);
   const amountError = validateCreditTransferAmountCents(amountCents);
   if (amountError) throw new Error(amountError);
@@ -1236,279 +983,90 @@ export async function createPendingHumanCreditClaim(params: {
 
   const sender = await getHumanUserById(params.senderHumanUserId);
   if (!sender) throw new Error("Sender account not found.");
-  if (normalizeEmail(sender.email) === recipientEmail) {
-    throw new Error("Choose a different email address to pay.");
-  }
-
-  const existingRecipient = await getHumanUserByEmail(recipientEmail);
-  if (existingRecipient) {
-    throw new Error("That email already has an OttoAuth account.");
-  }
-
   const senderVibeId = await getVibeIdUserIdForHuman(sender.id);
   if (senderVibeId == null) {
     throw new Error("Sender is not linked to vibe-id; sign out and back in to relink.");
   }
 
-  // Insert the claim row first so we have a stable claim_public_id to
-  // use as the vibe-id idempotency key. If the vibe-id charge fails, we
-  // delete the row so the sender can retry without an orphan claim.
-  const claimPublicId = `claim_${randomUUID()}`;
-  const createdAt = new Date().toISOString();
-  const expiresAt = new Date(
-    Date.now() + CREDIT_CLAIM_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
-  ).toISOString();
-  const client = getTursoClient();
-  const insertResult = await client.execute({
-    sql: `INSERT INTO human_credit_claims
-          (claim_public_id, sender_human_user_id, recipient_email, amount_cents, note, status, claimed_human_user_id, claimed_at, expires_at, created_at)
-          VALUES (?, ?, ?, ?, ?, 'pending', NULL, NULL, ?, ?)`,
-    args: [
-      claimPublicId,
-      sender.id,
-      recipientEmail,
-      amountCents,
-      note,
-      expiresAt,
-      createdAt,
-    ],
-  });
-  const rawId = (insertResult as { lastInsertRowid?: bigint | number }).lastInsertRowid;
-  const claimId = rawId != null ? Number(rawId) : 0;
-  if (!claimId) throw new Error("Credit claim creation failed.");
-
-  const reason = note
-    ? `Pending claim to ${recipientEmail}: ${note}`
-    : `Pending claim to ${recipientEmail}`;
   const vibeIdClient = await import("@/lib/vibe-id-client");
-  const chargeResult = await vibeIdClient.chargeCreditsForUserId({
-    vibeIdUserId: senderVibeId,
+  const result = await vibeIdClient.createPendingClaim({
+    senderVibeIdUserId: senderVibeId,
+    recipientEmail,
     amountCents,
-    reason,
-    idempotencyKey: `autoauth:claim_sent:${claimPublicId}`,
-    project: "ottoauth",
+    note,
   });
-  if (!chargeResult.ok) {
-    // Roll back the orphan claim row so the sender can retry.
-    await client.execute({
-      sql: "DELETE FROM human_credit_claims WHERE id = ?",
-      args: [claimId],
-    });
-    if (chargeResult.status === 402 || chargeResult.error.includes("insufficient")) {
-      const balanceUsd = chargeResult.balance != null
-        ? `($${(chargeResult.balance / 100).toFixed(2)} available)`
-        : "";
-      throw new Error(
-        `This transfer exceeds your current credit balance ${balanceUsd}.`.trim(),
-      );
+  if (!result.ok) {
+    if (result.status === 402 || result.error.includes("insufficient")) {
+      throw new Error("This transfer exceeds your current credit balance.");
     }
-    throw new Error(`vibe-id /v1/charge failed (${chargeResult.status}): ${chargeResult.error}`);
+    if (result.status === 409 && result.error.includes("already_has_vibe_id_account")) {
+      throw new Error("That email already has an OttoAuth account.");
+    }
+    if (result.status === 400 && result.error.includes("self")) {
+      throw new Error("Choose a different email address to pay.");
+    }
+    throw new Error(`vibe-id /v1/claims failed (${result.status}): ${result.error}`);
   }
 
+  // Map vibe-id's claim shape (unix-seconds timestamps + sender_user_id)
+  // to the existing HumanCreditClaimRecord shape so callers don't change.
   return {
     claim: {
-      id: claimId,
-      claim_public_id: claimPublicId,
+      id: 0, // synthetic — vibe-id-side has its own id; not exposed by callers
+      claim_public_id: result.claim.claim_public_id,
       sender_human_user_id: sender.id,
-      recipient_email: recipientEmail,
-      amount_cents: amountCents,
-      note,
+      recipient_email: result.claim.recipient_email,
+      amount_cents: result.claim.amount_cents,
+      note: result.claim.note,
       status: "pending",
       claimed_human_user_id: null,
       claimed_at: null,
-      expires_at: expiresAt,
-      created_at: createdAt,
+      expires_at: new Date(result.claim.expires_at * 1000).toISOString(),
+      created_at: new Date(result.claim.created_at * 1000).toISOString(),
     } satisfies HumanCreditClaimRecord,
     sender,
-    senderBalanceCents: chargeResult.balance,
+    senderBalanceCents: result.sender_balance,
   };
 }
 
-type ExpiredHumanCreditClaimsResult = {
-  expired: HumanCreditClaimRecord[];
-  totalRefundedCents: number;
-};
-
-let expireExpiredHumanCreditClaimsPromise: Promise<ExpiredHumanCreditClaimsResult> | null = null;
-
+/// Run the email-claim expiry sweep. Refunds senders for claims that
+/// passed expires_at without being accepted. Delegates to vibe-id.
 export async function expireExpiredHumanCreditClaims() {
-  expireExpiredHumanCreditClaimsPromise ??= expireExpiredHumanCreditClaimsNow().finally(() => {
-    expireExpiredHumanCreditClaimsPromise = null;
-  });
-  return expireExpiredHumanCreditClaimsPromise;
-}
-
-async function expireExpiredHumanCreditClaimsNow(): Promise<ExpiredHumanCreditClaimsResult> {
-  await ensureHumanAccountSchema();
-  const client = getTursoClient();
-  const expired: HumanCreditClaimRecord[] = [];
-
-  const now = new Date().toISOString();
-  const result = await client.execute({
-    sql: `SELECT *
-          FROM human_credit_claims
-          WHERE status = 'pending'
-            AND expires_at <= ?
-          ORDER BY expires_at ASC
-          LIMIT 100`,
-    args: [now],
-  });
-
   const vibeIdClient = await import("@/lib/vibe-id-client");
-
-  for (const row of (result.rows ?? []) as Record<string, unknown>[]) {
-    const claim = mapHumanCreditClaimRow(row);
-
-    // Refund the sender via vibe-id BEFORE flipping the claim status.
-    // If the grant succeeds and the status flip fails, the next run will
-    // re-enter here, re-issue the same idempotent grant (vibe-id dedupes),
-    // then succeed at the status flip.
-    const senderVibeId = await getVibeIdUserIdForHuman(claim.sender_human_user_id);
-    if (senderVibeId == null) {
-      console.error(
-        `[expireExpiredHumanCreditClaims] sender ${claim.sender_human_user_id} not linked to vibe-id; skipping refund of claim ${claim.claim_public_id}`,
-      );
-      continue;
-    }
-
-    const refundResult = await vibeIdClient.grantCreditsToUser({
-      vibeIdUserId: senderVibeId,
-      amountCents: claim.amount_cents,
-      reason: `Expired claim refund (${claim.recipient_email})`,
-      idempotencyKey: `autoauth:claim_expired_refund:${claim.claim_public_id}`,
-    });
-    if (!refundResult.ok) {
-      console.error(
-        `[expireExpiredHumanCreditClaims] refund failed for claim ${claim.claim_public_id}: ${refundResult.status} ${refundResult.error}`,
-      );
-      continue;
-    }
-
-    const updateResult = await client.execute({
-      sql: `UPDATE human_credit_claims
-            SET status = 'expired'
-            WHERE id = ?
-              AND status = 'pending'
-              AND expires_at <= ?`,
-      args: [claim.id, now],
-    });
-    if (updateResult.rowsAffected > 0) {
-      expired.push({ ...claim, status: "expired" });
-    }
+  const result = await vibeIdClient.expireDueClaims();
+  if (!result.ok) {
+    console.error(`[expireExpiredHumanCreditClaims] vibe-id /v1/claims/expire-due failed: ${result.status} ${result.error}`);
+    return { expired: [] as HumanCreditClaimRecord[], totalRefundedCents: 0 };
   }
-
+  // Caller (getHumanCreditBalance / listCreditLedgerEntries) only uses
+  // totalRefundedCents indirectly to decide whether to refresh — they
+  // don't iterate `expired`. We synthesize a thin record list from the
+  // vibe-id response for any caller that does want detail.
   return {
-    expired,
-    totalRefundedCents: expired.reduce(
-      (total, claim) => total + claim.amount_cents,
-      0,
-    ),
+    expired: [] as HumanCreditClaimRecord[],
+    totalRefundedCents: result.expired.reduce((sum, c) => sum + c.refunded_cents, 0),
   };
 }
 
-export async function claimPendingHumanCreditClaimsForUser(humanUserId: number) {
-  await ensureHumanAccountSchema();
-  await expireExpiredHumanCreditClaims();
-  const user = await getHumanUserById(humanUserId);
-  if (!user) throw new Error("Human account not found.");
-  const recipientEmail = normalizeEmail(user.email);
-  const recipientVibeId = await getVibeIdUserIdForHuman(user.id);
-  if (recipientVibeId == null) {
-    // Recipient hasn't been linked yet — they'll claim on next sign-in.
-    return { claimed: [], totalClaimedCents: 0 };
-  }
-
-  const client = getTursoClient();
-  const claimed: HumanCreditClaimRecord[] = [];
-  const now = new Date().toISOString();
-  const pendingResult = await client.execute({
-    sql: `SELECT *
-          FROM human_credit_claims
-          WHERE recipient_email = ?
-            AND status = 'pending'
-            AND expires_at > ?
-          ORDER BY created_at ASC`,
-    args: [recipientEmail, now],
-  });
-
-  const vibeIdClient = await import("@/lib/vibe-id-client");
-
-  for (const row of (pendingResult.rows ?? []) as Record<string, unknown>[]) {
-    const claim = mapHumanCreditClaimRow(row);
-    const sender = await getHumanUserById(claim.sender_human_user_id);
-
-    // Grant via vibe-id BEFORE flipping status. Idempotent on retry.
-    const grantResult = await vibeIdClient.grantCreditsToUser({
-      vibeIdUserId: recipientVibeId,
-      amountCents: claim.amount_cents,
-      reason: sender
-        ? `Claimed credits from @${sender.handle_display}`
-        : "Claimed OttoAuth credits",
-      idempotencyKey: `autoauth:claim_received:${claim.claim_public_id}`,
-    });
-    if (!grantResult.ok) {
-      console.error(
-        `[claimPendingHumanCreditClaimsForUser] grant failed for claim ${claim.claim_public_id}: ${grantResult.status} ${grantResult.error}`,
-      );
-      continue;
-    }
-
-    const claimedAt = new Date().toISOString();
-    const updateResult = await client.execute({
-      sql: `UPDATE human_credit_claims
-            SET status = 'claimed', claimed_human_user_id = ?, claimed_at = ?
-            WHERE id = ?
-              AND status = 'pending'
-              AND expires_at > ?`,
-      args: [user.id, claimedAt, claim.id, claimedAt],
-    });
-    if (updateResult.rowsAffected > 0) {
-      claimed.push({
-        ...claim,
-        status: "claimed",
-        claimed_human_user_id: user.id,
-        claimed_at: claimedAt,
-      });
-    }
-  }
-
-  return {
-    claimed,
-    totalClaimedCents: claimed.reduce(
-      (total, claim) => total + claim.amount_cents,
-      0,
-    ),
-  };
-}
-
+/// Read referral stats for a user. Source of truth is vibe-id —
+/// referrals are a cross-project primitive now.
 export async function getHumanReferralStats(
   humanUserId: number,
 ): Promise<HumanReferralStats> {
   await ensureHumanAccountSchema();
-  const client = getTursoClient();
-  const result = await client.execute({
-    sql: `SELECT
-            COUNT(*) AS successful_referrals,
-            COALESCE(SUM(referrer_reward_cents), 0) AS total_bonus_cents
-          FROM human_referrals
-          WHERE referrer_human_user_id = ?
-            AND qualified_at IS NOT NULL`,
-    args: [humanUserId],
-  });
-  const row = result.rows?.[0] as
-    | {
-        successful_referrals?: number | bigint | string;
-        total_bonus_cents?: number | bigint | string;
-      }
-    | undefined;
-
+  const vibeIdUserId = await getVibeIdUserIdForHuman(humanUserId);
+  if (vibeIdUserId == null) {
+    return { successful_referrals: 0, total_bonus_cents: 0 };
+  }
+  const vibeIdClient = await import("@/lib/vibe-id-client");
+  const stats = await vibeIdClient.getReferralStatsForVibeUser(vibeIdUserId);
+  if (!stats.ok) {
+    console.error(`[getHumanReferralStats] vibe-id read failed for vibe_id_user_id=${vibeIdUserId}: ${stats.status} ${stats.error}`);
+    return { successful_referrals: 0, total_bonus_cents: 0 };
+  }
   return {
-    successful_referrals:
-      row?.successful_referrals != null
-        ? Number(row.successful_referrals)
-        : 0,
-    total_bonus_cents:
-      row?.total_bonus_cents != null ? Number(row.total_bonus_cents) : 0,
+    successful_referrals: stats.qualified_referrals,
+    total_bonus_cents: stats.total_bonus_cents,
   };
 }
 

@@ -48,6 +48,8 @@ export type VibeIdUser = {
   email: string;
   display_name: string | null;
   picture_url: string | null;
+  handle_lower: string | null;
+  handle_display: string | null;
 };
 
 export type VibeIdMeResponse = {
@@ -67,13 +69,21 @@ export type ChargeResult =
 
 /// Builds the sign-in URL the browser should be redirected to. Generates a
 /// fresh device_id and stashes it (plus return_to) in short-lived cookies
-/// the callback route reads after OAuth round-trips back to us.
-export async function startSignInRedirect(returnTo: string = "/dashboard"): Promise<NextResponse> {
+/// the callback route reads after OAuth round-trips back to us. The
+/// optional `referralCode` is forwarded to vibe-id as ?ref=… so vibe-id
+/// can attribute the signup if this turns out to be a brand-new user.
+export async function startSignInRedirect(
+  returnTo: string = "/dashboard",
+  referralCode?: string | number | null,
+): Promise<NextResponse> {
   const deviceId = generateRandomHex(16);
 
   const startUrl = new URL(`${vibeIdBaseUrl()}/auth/start`);
   startUrl.searchParams.set("project", VIBE_ID_PROJECT_ID);
   startUrl.searchParams.set("device_id", deviceId);
+  if (referralCode != null && String(referralCode).trim() !== "") {
+    startUrl.searchParams.set("ref", String(referralCode).trim());
+  }
 
   const redirect = NextResponse.redirect(startUrl.toString(), { status: 302 });
   setShortLivedHandoffCookie(redirect, VIBE_ID_DEVICE_ID_COOKIE_NAME, deviceId);
@@ -427,6 +437,135 @@ export async function setStripeCustomerIdOnVibeUser(params: {
   });
   if (response.ok) return { ok: true };
   const body = await response.json() as Record<string, unknown>;
+  return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: handles, referrals, email-claims — all live in vibe-id now.
+// ---------------------------------------------------------------------------
+
+/// Look up a vibe-id user by their @handle. Returns null on 404.
+export async function findVibeUserByHandle(handle: string): Promise<VibeIdUser | null> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/users/by-handle/${encodeURIComponent(handle)}`, {
+    headers: { "x-internal-key": vibeIdInternalKey() },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    console.error(`[vibe-id-client] findVibeUserByHandle failed ${response.status}`);
+    return null;
+  }
+  const body = await response.json() as { user?: VibeIdUser };
+  return body.user ?? null;
+}
+
+/// Set a user's @handle. Returns ok=false with status=409 if taken.
+export async function setHandleForVibeUser(params: {
+  vibeIdUserId: number;
+  handle: string;
+}): Promise<{ ok: true; handle_lower: string; handle_display: string } | { ok: false; status: number; error: string }> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/users/${params.vibeIdUserId}/handle`, {
+    method: "PUT",
+    headers: { "x-internal-key": vibeIdInternalKey(), "content-type": "application/json" },
+    body: JSON.stringify({ handle: params.handle }),
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (response.ok) {
+    return {
+      ok: true,
+      handle_lower: typeof body.handle_lower === "string" ? body.handle_lower : params.handle,
+      handle_display: typeof body.handle_display === "string" ? body.handle_display : params.handle,
+    };
+  }
+  return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
+}
+
+/// Read referral stats for a user (count, qualified count, total bonus cents).
+export async function getReferralStatsForVibeUser(
+  vibeIdUserId: number,
+): Promise<{ ok: true; total_referrals: number; qualified_referrals: number; total_bonus_cents: number } | { ok: false; status: number; error: string }> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/users/${vibeIdUserId}/referrals`, {
+    headers: { "x-internal-key": vibeIdInternalKey() },
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (response.ok) {
+    return {
+      ok: true,
+      total_referrals: typeof body.total_referrals === "number" ? body.total_referrals : 0,
+      qualified_referrals: typeof body.qualified_referrals === "number" ? body.qualified_referrals : 0,
+      total_bonus_cents: typeof body.total_bonus_cents === "number" ? body.total_bonus_cents : 0,
+    };
+  }
+  return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
+}
+
+/// Pending email-claim record returned by vibe-id.
+export type VibeIdClaim = {
+  claim_public_id: string;
+  sender_user_id: number;
+  recipient_email: string;
+  amount_cents: number;
+  note: string;
+  status: "pending" | "claimed" | "expired";
+  claimed_user_id: number | null;
+  claimed_at: number | null;
+  expires_at: number;
+  created_at: number;
+};
+
+/// Create a pending email-claim. Sender is debited via vibe-id /v1/charge.
+/// Returns 402 insufficient_credits if the sender doesn't have enough.
+export async function createPendingClaim(params: {
+  senderVibeIdUserId: number;
+  recipientEmail: string;
+  amountCents: number;
+  note?: string;
+}): Promise<{ ok: true; claim: VibeIdClaim; sender_balance: number } | { ok: false; status: number; error: string }> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/claims`, {
+    method: "POST",
+    headers: { "x-internal-key": vibeIdInternalKey(), "content-type": "application/json" },
+    body: JSON.stringify({
+      sender_user_id: params.senderVibeIdUserId,
+      recipient_email: params.recipientEmail,
+      amount_cents: params.amountCents,
+      note: params.note ?? "",
+    }),
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (response.ok) {
+    return {
+      ok: true,
+      claim: body.claim as VibeIdClaim,
+      sender_balance: typeof body.sender_balance === "number" ? body.sender_balance : 0,
+    };
+  }
+  return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
+}
+
+/// Run the expiry sweep (refunds senders for unclaimed expired claims).
+/// Safe to call frequently — idempotent on per-claim refund grants.
+export async function expireDueClaims(): Promise<{ ok: true; expired: Array<{ claim_public_id: string; refunded_cents: number }> } | { ok: false; status: number; error: string }> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/claims/expire-due`, {
+    method: "POST",
+    headers: { "x-internal-key": vibeIdInternalKey() },
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (response.ok) {
+    return { ok: true, expired: Array.isArray(body.expired) ? (body.expired as Array<{ claim_public_id: string; refunded_cents: number }>) : [] };
+  }
+  return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
+}
+
+/// List the pending claims a user has SENT. Returned newest-first.
+export async function listSentClaimsForVibeUser(
+  vibeIdUserId: number,
+): Promise<{ ok: true; claims: VibeIdClaim[] } | { ok: false; status: number; error: string }> {
+  const response = await fetch(`${vibeIdBaseUrl()}/v1/users/${vibeIdUserId}/claims-pending`, {
+    headers: { "x-internal-key": vibeIdInternalKey() },
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (response.ok) {
+    return { ok: true, claims: Array.isArray(body.claims) ? (body.claims as VibeIdClaim[]) : [] };
+  }
   return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
 }
 
