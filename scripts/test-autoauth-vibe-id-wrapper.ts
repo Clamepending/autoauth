@@ -9,15 +9,10 @@ import {
   listCreditLedgerEntries,
   sendHumanCreditTransfer,
   createPendingHumanCreditClaim,
-  expireExpiredHumanCreditClaims,
-  claimPendingHumanCreditClaimsForUser,
-  ensureHumanForVibeIdUser,
-  qualifyHumanReferralAfterDeposit,
   findHumanByVibeIdUserId,
   getVibeIdUserIdForHuman,
 } from "@/lib/human-accounts";
-import { getCreditsBalanceForVibeUser } from "@/lib/vibe-id-client";
-import { getTursoClient } from "@/lib/turso";
+import { getCreditsBalanceForVibeUser, grantCreditsToUser } from "@/lib/vibe-id-client";
 
 const HUMAN_USER_ID = 1;
 const VIBE_ID_USER_ID = 1;
@@ -123,88 +118,32 @@ async function main() {
   const recipientFinal = await getHumanCreditBalance(SECONDARY_HUMAN_USER_ID);
   check("transfers reversed, balances restored", senderFinal === senderBefore && recipientFinal === recipientBefore, `${senderFinal}/${senderBefore}, ${recipientFinal}/${recipientBefore}`);
 
-  console.log("\n=== D: claim flow round-trip ===");
+  console.log("\n=== D: claim creation round-trip (Phase 4: claim state lives in vibe-id) ===");
 
   const claimSenderBefore = await getHumanCreditBalance(HUMAN_USER_ID);
-  const testEmail = `phase3-test-${Date.now()}@example.com`;
+  const testEmail = `wrapper-test-${Date.now()}@example.com`;
   const claimResult = await createPendingHumanCreditClaim({
     senderHumanUserId: HUMAN_USER_ID,
     recipientEmail: testEmail,
     amountCents: 50,
-    note: "Phase 3 claim test",
+    note: "Phase 4 wrapper test claim",
   });
   check("createPendingHumanCreditClaim ok", Boolean(claimResult.claim.claim_public_id), `id=${claimResult.claim.claim_public_id}`);
-  check("sender debited", claimResult.senderBalanceCents === claimSenderBefore - 50, `${claimSenderBefore} → ${claimResult.senderBalanceCents}`);
+  check("sender debited via vibe-id /v1/claims", claimResult.senderBalanceCents === claimSenderBefore - 50, `${claimSenderBefore} → ${claimResult.senderBalanceCents}`);
 
-  // Force-expire by setting expires_at to past, then run expiry
-  const turso = getTursoClient();
-  await turso.execute({
-    sql: "UPDATE human_credit_claims SET expires_at = ? WHERE claim_public_id = ?",
-    args: ["2020-01-01T00:00:00.000Z", claimResult.claim.claim_public_id],
+  // Refund the sender via a cleanup grant (we can't force-expire from
+  // here because the table is in vibe-id's D1, not Turso). The claim
+  // stays in vibe-id's user_credit_claims as 'pending' until its real
+  // expires_at hits — that's fine for a test, since we restored the
+  // sender's balance.
+  await grantCreditsToUser({
+    vibeIdUserId: VIBE_ID_USER_ID,
+    amountCents: 50,
+    reason: "Phase 4 wrapper test cleanup",
+    idempotencyKey: `phase4-wrapper-claim-cleanup:${claimResult.claim.claim_public_id}`,
   });
-  const expired = await expireExpiredHumanCreditClaims();
-  check(
-    "claim expired and refunded",
-    expired.expired.some((c) => c.claim_public_id === claimResult.claim.claim_public_id),
-    `total refunded cents=${expired.totalRefundedCents}`,
-  );
-
   const claimSenderAfter = await getHumanCreditBalance(HUMAN_USER_ID);
-  check("expired refund restored sender balance", claimSenderAfter === claimSenderBefore, `${claimSenderBefore} → ${claimSenderAfter}`);
-
-  // Cleanup the claim row
-  await turso.execute({ sql: "DELETE FROM human_credit_claims WHERE claim_public_id = ?", args: [claimResult.claim.claim_public_id] });
-
-  console.log("\n=== E: claim accept flow round-trip ===");
-
-  const acceptSenderBefore = await getHumanCreditBalance(HUMAN_USER_ID);
-  const acceptRecipientBefore = await getHumanCreditBalance(SECONDARY_HUMAN_USER_ID);
-  const recipient = await findHumanByVibeIdUserId(2);
-  if (!recipient) throw new Error("vibe-id user 2 not found");
-
-  // Use a unique email for this round and then UPDATE the row to point at user 2's email
-  // (createPendingHumanCreditClaim refuses if the email already has an account)
-  const tempEmail = `phase3-acceptflow-${Date.now()}@example.com`;
-  const accept = await createPendingHumanCreditClaim({
-    senderHumanUserId: HUMAN_USER_ID,
-    recipientEmail: tempEmail,
-    amountCents: 30,
-    note: "Phase 3 accept flow",
-  });
-  // Rewire the row so the claim function picks it up for user 2
-  await turso.execute({
-    sql: "UPDATE human_credit_claims SET recipient_email = ? WHERE claim_public_id = ?",
-    args: [recipient.email.toLowerCase(), accept.claim.claim_public_id],
-  });
-  const claimed = await claimPendingHumanCreditClaimsForUser(SECONDARY_HUMAN_USER_ID);
-  check(
-    "claim was accepted",
-    claimed.claimed.some((c) => c.claim_public_id === accept.claim.claim_public_id),
-    `total claimed cents=${claimed.totalClaimedCents}`,
-  );
-
-  const acceptSenderAfter = await getHumanCreditBalance(HUMAN_USER_ID);
-  const acceptRecipientAfter = await getHumanCreditBalance(SECONDARY_HUMAN_USER_ID);
-  check("sender stayed -30 (already debited at create)", acceptSenderAfter === acceptSenderBefore - 30, `${acceptSenderBefore} → ${acceptSenderAfter}`);
-  check("recipient gained 30", acceptRecipientAfter === acceptRecipientBefore + 30, `${acceptRecipientBefore} → ${acceptRecipientAfter}`);
-
-  // Reverse: send 30 back to user 1 from user 2
-  await sendHumanCreditTransfer({
-    senderHumanUserId: SECONDARY_HUMAN_USER_ID,
-    recipientHumanUserId: HUMAN_USER_ID,
-    amountCents: 30,
-    note: "Phase 3 accept flow reverse",
-  });
-  const acceptSenderRestored = await getHumanCreditBalance(HUMAN_USER_ID);
-  const acceptRecipientRestored = await getHumanCreditBalance(SECONDARY_HUMAN_USER_ID);
-  check(
-    "accept flow balances restored",
-    acceptSenderRestored === acceptSenderBefore && acceptRecipientRestored === acceptRecipientBefore,
-    `${acceptSenderRestored}/${acceptSenderBefore}, ${acceptRecipientRestored}/${acceptRecipientBefore}`,
-  );
-
-  // Cleanup
-  await turso.execute({ sql: "DELETE FROM human_credit_claims WHERE claim_public_id = ?", args: [accept.claim.claim_public_id] });
+  check("sender balance restored via cleanup grant", claimSenderAfter === claimSenderBefore, `${claimSenderBefore} → ${claimSenderAfter}`);
 
   console.log("\n=========================================");
   console.log(`Result: ${pass} pass, ${fail} fail`);
