@@ -16,6 +16,24 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+// Auto-generated mirror of vibe-id's public-api-types.ts. Re-run
+// scripts/sync-vibe-id-types.sh whenever vibe-id changes a response shape.
+// The structural types from this file are used to validate the wire
+// payloads we construct below — drift fails typecheck.
+import type {
+  VibeIdUserPublic,
+  VibeIdMeResponse as VibeIdMeWire,
+  VibeIdBalanceResponse,
+  VibeIdGrantResponse,
+  VibeIdTransferResponse,
+  VibeIdLedgerEntry,
+  VibeIdCreateClaimResponse,
+  VibeIdExpireDueClaimsResponse,
+  VibeIdReferralStatsResponse,
+  VibeIdHandleSetResponse,
+  VibeIdClaim as VibeIdClaimWire,
+} from "@/lib/vibe-id-public-api-types";
+
 const VIBE_ID_PROJECT_ID = "ottoauth";
 const VIBE_ID_SESSION_COOKIE_NAME = "vibe_id_session";
 const VIBE_ID_DEVICE_ID_COOKIE_NAME = "vibe_id_device_id";
@@ -40,24 +58,12 @@ function isProductionEnvironment(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Types — what callers see
+// Types — re-exported from the synced vibe-id wire types so callers can
+// keep importing `VibeIdUser` / `VibeIdMeResponse` from here.
 // ---------------------------------------------------------------------------
 
-export type VibeIdUser = {
-  id: number;
-  email: string;
-  display_name: string | null;
-  picture_url: string | null;
-  handle_lower: string | null;
-  handle_display: string | null;
-};
-
-export type VibeIdMeResponse = {
-  user: VibeIdUser;
-  credits_balance: number;        // integer cents
-  daily_cap_cents: number | null;
-  spent_today_cents: number | null;
-};
+export type VibeIdUser = VibeIdUserPublic;
+export type VibeIdMeResponse = VibeIdMeWire;
 
 export type ChargeResult =
   | { ok: true; charged: number; balance: number; alreadyCharged: boolean; ledgerEntryId: number | null }
@@ -498,19 +504,9 @@ export async function getReferralStatsForVibeUser(
   return { ok: false, status: response.status, error: typeof body.error === "string" ? body.error : "unknown" };
 }
 
-/// Pending email-claim record returned by vibe-id.
-export type VibeIdClaim = {
-  claim_public_id: string;
-  sender_user_id: number;
-  recipient_email: string;
-  amount_cents: number;
-  note: string;
-  status: "pending" | "claimed" | "expired";
-  claimed_user_id: number | null;
-  claimed_at: number | null;
-  expires_at: number;
-  created_at: number;
-};
+/// Pending email-claim record returned by vibe-id. Re-exported from the
+/// synced wire types so consumers can keep importing this name.
+export type VibeIdClaim = VibeIdClaimWire;
 
 /// Create a pending email-claim. Sender is debited via vibe-id /v1/charge.
 /// Returns 402 insufficient_credits if the sender doesn't have enough.
